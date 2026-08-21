@@ -374,6 +374,28 @@ anything.
 Array shots connect on drifting enemies. Platforms do not lead — they are melee or
 short-range and it would not read.
 
+**Shot shape** — added Phase 30, because the four axes above are all about
+*when* an Array fires and none is about what the shot does when it lands. Five
+units distinguished only by numbers are one unit with a price list.
+
+| Shape | Does | Rewards |
+|-------|------|---------|
+| `single` | despawns on the first Contact | nothing in particular |
+| `pierce` | passes through up to N Contacts | a wave on one bearing |
+| `burst` | splashes within a radius at 0.6× | a clustered wave |
+
+Every specialist is deliberately **worse than `single` against one Contact**.
+Measured in damage per second of charge against the 2.67 anchor: a burst reads
+1.67 alone, ties at two clustered, and pays from three upward; a 3-target pierce
+reads 2.00 alone and 6.00 against three in a line.
+
+**Collision is swept, not sampled.** At 20 Hz a shot at 260 px/s moves 13 px per
+tick against a 14 px hit window, so a point test at the end of the tick misses
+targets the shot passed straight through — and the Contact's own inbound speed
+closes that margin further. The check is against the segment travelled, not the
+end point. Any future change to `projectile_speed` or the tick rate is safe
+because of this; before Phase 30 it was safe only by a 1 px margin.
+
 ## 5. Bullet-hell rules
 
 ### Patterns

@@ -1,4 +1,4 @@
-import type { Projectile } from '../entities/Projectile'
+import { MAX_PIERCE_MEMORY, type Projectile } from '../entities/Projectile'
 import { BUDGETS } from '../content/budgets'
 import { FLARE, CONJUNCTION, RINGS } from '../content/field'
 import { patternById } from '../systems/patterns'
@@ -134,6 +134,10 @@ export class Simulation {
       radius: 3.5,
       lifetime: 0,
       angularVelocity: 0,
+      pierceRemaining: 0,
+      burstRadius: 0,
+      hitIds: new Array<number>(MAX_PIERCE_MEMORY).fill(-1),
+      hitCount: 0,
       sourceId: -1,
       sourceDefId: '',
     }))
@@ -520,6 +524,14 @@ export class Simulation {
       p.lifetime = 4
       p.angularVelocity = 0
       p.sourceId = shot.array.id
+
+      // Translate the authored shot shape into the pooled projectile's flat
+      // fields. The union stays in content, where it reads well; the hot path
+      // sees two numbers.
+      const profile = shot.array.def.shot
+      p.pierceRemaining = profile.kind === 'pierce' ? profile.targets - 1 : 0
+      p.burstRadius = profile.kind === 'burst' ? profile.radius : 0
+      p.hitCount = 0
     }
   }
 

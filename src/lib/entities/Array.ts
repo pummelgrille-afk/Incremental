@@ -16,6 +16,25 @@ import type { ContentDef, EntityId, TargetingPolicy, UnitRole } from './types'
  * while everything else turns.
  */
 
+/**
+ * What an Array's shot does on impact.
+ *
+ * Phase 30 exists to give Arrays "clearly different ranged behaviors"
+ * (PLAN.md), and the def had no lever for that — only numbers and a targeting
+ * policy, which produces five stat lines rather than five behaviours. This is
+ * the one structural axis, kept deliberately small.
+ *
+ * A discriminated union rather than optional fields, so a `burst` cannot be
+ * authored without a radius and a `pierce` cannot be authored without a count.
+ */
+export type ShotProfile =
+  /** Despawns on the first Contact it touches. */
+  | { readonly kind: 'single' }
+  /** Passes through, up to `targets` Contacts in total. Rewards a line. */
+  | { readonly kind: 'pierce'; readonly targets: number }
+  /** Splashes on impact within `radius` px, at reduced damage. Rewards a clump. */
+  | { readonly kind: 'burst'; readonly radius: number }
+
 export interface ArrayDef extends ContentDef {
   readonly role: UnitRole
 
@@ -35,6 +54,9 @@ export interface ArrayDef extends ContentDef {
   readonly targeting: TargetingPolicy
   /** Pixels per second; also the lead calculation's divisor. */
   readonly projectileSpeed: number
+
+  /** What the shot does on impact. */
+  readonly shot: ShotProfile
 
   readonly unlockCost: number
 }

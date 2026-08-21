@@ -42,6 +42,10 @@ array,max_charge,3,2,6,count,5,Burst not sustained
 array,charge_interval,6,4,8,s,14,THE lever between Arrays and Platforms; 4 makes Arrays dominant and 7 makes them irrelevant
 array,attack,16,10,24,damage,14,Barely affects outcomes; clear time is floored by the spawn schedule. Tune charge_interval instead
 array,projectile_speed,260,180,360,px/s,5,Also sets the lead distance for predictive aim
+array,burst_falloff,0.6,0.4,0.8,factor,30,Splash damage to neighbours; at 0.6 a burst ties a single shot at two clustered Contacts
+array,pierce_targets,3,2,4,count,30,Contacts one Transit shot passes through
+array,burst_radius,36,24,48,px,30,Corona splash radius
+array,max_pierce_memory,8,4,12,count,30,Contacts a piercing shot remembers; must exceed pierce_targets
 patterns,min_telegraph,400,300,600,ms,5,Hard floor; never zero
 patterns,boss_telegraph,700,600,900,ms,5,
 budget,max_projectiles,600,300,1200,count,11,Runtime cap enforced by the pool; refusing a bullet degrades gracefully
@@ -79,9 +83,9 @@ roster,level_scaling,0.12,0.08,0.18,rate,24,Stat multiplier per level above 1
 support,track_cost_base,2,1,4,keys,25,Clearance for the first level of a track
 support,track_cost_growth,1.7,1.4,2.2,factor,25,Per level already held on that track
 support,capacity_max,3,2,5,level,25,Extra whole charges
-support,winding_max,2,1,3,level,25,Bounded by the phase 14 class-balance lever
-support,winding_seconds,0.5,0.25,0.75,s,25,Charge interval reduction per level
-support,winding_floor,4.5,4.0,5.5,s,25,chargeInterval never below this
+support,recharge_max,2,1,3,level,25,Bounded by the phase 14 class-balance lever
+support,recharge_seconds,0.5,0.25,0.75,s,25,Charge interval reduction per level
+support,recharge_floor,4.5,4.0,5.5,s,25,chargeInterval never below this
 support,resonance_max,3,2,5,level,25,Attack fraction per level
 support,resonance_attack,0.15,0.1,0.25,rate,25,
 offline,cap_base,4,2,8,hours,6,
