@@ -100,21 +100,45 @@ archetype, overridable per-unit in `content/allies.ts`:
 | `deepest` | Closest to the Mainspring | Guards |
 | `none` | Does not attack; support/aura only | Regulators |
 
-`threat = dps * (1 + 2 * (1 - normalizedDistanceToMainspring))` — a weak enemy
-about to reach the centre outranks a strong one at the rim. Re-target only when
+`threat = dps * threatWeight * (1 + 2 * (1 - normalizedDistanceToMainspring))` —
+a weak enemy about to reach the centre outranks a strong one at the rim.
+`threatWeight` is a per-Slack multiplier from `content/enemies.ts`, letting
+content mark a type as disproportionately urgent without touching the formula. Re-target only when
 the current target dies, leaves range, or every `retargetInterval` (default 0.75 s).
 Never re-target on the tick a unit is mid-swing.
 
 ### Range
 
-Range is an **annular arc**, not a circle: a unit on ring 2 reaches
-`±angularReach` degrees along its own ring, and `±radialReach` rings outward. This
-is what makes ring assignment a real decision — a short-reach unit on ring 3 covers
-a wider *arc length* than the same unit on ring 1, because the ring is bigger.
+Range is an **annular arc**, not a circle: a unit on ring *r* reaches
+`±angularReach` radians along its own ring, and `radialReach` rings **outward**.
+This is what makes ring assignment a real decision — a short-reach unit on ring 3
+covers a wider *arc length* than the same unit on ring 1, because the ring is
+bigger.
 
 ```
 effectiveArcLength = angularReach * radius_r
 ```
+
+**The band is bounded inward as well as outward** (clarified in Phase 13):
+
+```
+innerBound = isInnermostRing ? 0 : radius_r - RADIAL_MARGIN
+outerBound = radius_(r + radialReach) + RADIAL_MARGIN
+```
+
+with `RADIAL_MARGIN = 40 px`.
+
+Two rules, and both matter:
+
+1. **The innermost ring defends everything inside it.** Otherwise a Slack that
+   reached the Mainspring would be unreachable by anything at all.
+2. **Every other ring is bounded inward.** Without this, an outer unit could
+   strike a Slack that had already penetrated to the centre, which would make
+   ring assignment nearly meaningless and undercut pillar P2. Depth of
+   penetration has to cost the defender something.
+
+This was implemented without the inner bound in Phase 10 and corrected in
+Phase 13.
 
 ### Attack timing
 

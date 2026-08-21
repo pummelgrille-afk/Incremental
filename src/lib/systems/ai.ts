@@ -1,8 +1,8 @@
 import type { ChimeInstance } from '../entities/Chime'
 import type { MovementInstance } from '../entities/Movement'
 import type { SlackInstance } from '../entities/Slack'
-import type { TargetingPolicy, Vec2 } from '../entities/types'
-import { RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
+import type { RingIndex, TargetingPolicy, Vec2 } from '../entities/types'
+import { RIM_RADIUS, RINGS, ringByIndex, slotAngle } from '../content/field'
 import type { SimulationState } from '../core/simulation'
 
 /**
@@ -43,34 +43,63 @@ export function threatOf(slack: SlackInstance): number {
   return dps * slack.def.threatWeight * (1 + THREAT_DISTANCE_WEIGHT * (1 - normalized))
 }
 
+/** Radial slack either side of a unit's band, in pixels. */
+const RADIAL_MARGIN = 40
+
 /**
- * Is this Slack inside a Movement's annular arc?
+ * The annular band a Movement can strike, precomputed once per unit per tick.
  *
- * Range is an arc, not a circle: `angularReach` along the unit's own ring plus
- * `radialReach` rings outward. This is what makes ring assignment matter — the
- * same angular reach covers more arc length on a bigger ring.
+ * Hoisted out of the per-Slack check because it involves trigonometry and ring
+ * lookups that do not vary across candidates. Previously this ran once per
+ * (Movement x Slack) pair — 6000 times a tick at full budget.
  */
-function withinReach(
-  sim: SimulationState,
-  movement: MovementInstance,
-  slack: SlackInstance,
-): boolean {
+interface Reach {
+  unitAngle: number
+  origin: Vec2
+  innerBound: number
+  outerBound: number
+  angularReach: number
+}
+
+function reachOf(sim: SimulationState, movement: MovementInstance): Reach | null {
   const ring = ringByIndex(movement.slot.ring)
-  if (!ring) return false
+  if (!ring) return null
 
-  const slackRadius = Math.hypot(slack.position.x, slack.position.y)
+  const origin = movementPosition(sim, movement)
 
-  // Radial band: from the Mainspring out to radialReach rings beyond this one.
-  const outerRing = ringByIndex(Math.min(3, movement.slot.ring + movement.def.radialReach) as 1 | 2 | 3)
-  const outerBound = (outerRing?.radius ?? ring.radius) + 40
-  if (slackRadius > outerBound) return false
+  const outerIndex = Math.min(
+    RINGS[RINGS.length - 1].index,
+    movement.slot.ring + movement.def.radialReach,
+  ) as RingIndex
+  const outerRing = ringByIndex(outerIndex) ?? ring
 
-  const position = movementPosition(sim, movement)
-  const unitAngle = Math.atan2(position.y, position.x)
+  /*
+   * The innermost ring is the last line, so it defends everything inside it —
+   * otherwise a Slack that reaches the Mainspring would be unreachable by
+   * anything at all.
+   *
+   * Every other ring is bounded inward. combat-spec.md §2 says reach extends
+   * `radialReach` rings *outward*; without an inner bound an outer unit could
+   * strike a Slack that had already penetrated to the centre, which would make
+   * ring assignment nearly meaningless and undercut pillar P2.
+   */
+  const isInnermost = ring.index === RINGS[0].index
+
+  return {
+    unitAngle: Math.atan2(origin.y, origin.x),
+    origin,
+    innerBound: isInnermost ? 0 : ring.radius - RADIAL_MARGIN,
+    outerBound: outerRing.radius + RADIAL_MARGIN,
+    angularReach: movement.def.angularReach * (1 + movement.bonuses.range),
+  }
+}
+
+function inReach(reach: Reach, slack: SlackInstance): boolean {
+  const radius = Math.hypot(slack.position.x, slack.position.y)
+  if (radius < reach.innerBound || radius > reach.outerBound) return false
+
   const slackAngle = Math.atan2(slack.position.y, slack.position.x)
-
-  const reach = movement.def.angularReach * (1 + movement.bonuses.range)
-  return Math.abs(angleDelta(unitAngle, slackAngle)) <= reach
+  return Math.abs(angleDelta(reach.unitAngle, slackAngle)) <= reach.angularReach
 }
 
 /** Shortest signed angle from a to b, in (-π, π]. */
@@ -81,52 +110,30 @@ export function angleDelta(a: number, b: number): number {
   return delta
 }
 
-function selectTarget(
-  policy: TargetingPolicy,
-  candidates: SlackInstance[],
-): SlackInstance | null {
-  if (policy === 'none' || candidates.length === 0) return null
-
-  let best: SlackInstance | null = null
-  let bestScore = -Infinity
-
-  for (const slack of candidates) {
-    let score: number
-    switch (policy) {
-      case 'lowestHp':
-        score = -slack.hp
-        break
-      case 'highestThreat':
-        score = threatOf(slack)
-        break
-      case 'deepest':
-        score = -Math.hypot(slack.position.x, slack.position.y)
-        break
-      case 'nearest':
-      default:
-        score = 0
-        break
+/**
+ * Score a candidate under a targeting policy. Higher wins.
+ *
+ * Every policy including `nearest` scores through here, so selection is one
+ * code path rather than a special case bolted alongside it.
+ */
+function score(policy: TargetingPolicy, slack: SlackInstance, origin: Vec2): number {
+  switch (policy) {
+    case 'nearest': {
+      const dx = slack.position.x - origin.x
+      const dy = slack.position.y - origin.y
+      // Negated squared distance: no square root needed to rank.
+      return -(dx * dx + dy * dy)
     }
-    if (score > bestScore) {
-      bestScore = score
-      best = slack
-    }
+    case 'lowestHp':
+      return -slack.hp
+    case 'highestThreat':
+      return threatOf(slack)
+    case 'deepest':
+      return -Math.hypot(slack.position.x, slack.position.y)
+    case 'none':
+    default:
+      return -Infinity
   }
-
-  return best
-}
-
-function nearestTo(origin: Vec2, candidates: SlackInstance[]): SlackInstance | null {
-  let best: SlackInstance | null = null
-  let bestDistance = Infinity
-  for (const slack of candidates) {
-    const d = (slack.position.x - origin.x) ** 2 + (slack.position.y - origin.y) ** 2
-    if (d < bestDistance) {
-      bestDistance = d
-      best = slack
-    }
-  }
-  return best
 }
 
 export interface MovementAttack {
@@ -142,7 +149,6 @@ export interface MovementAttack {
  */
 export function updateMovements(sim: SimulationState, dt: number): MovementAttack[] {
   const attacks: MovementAttack[] = []
-  const living = sim.slack
 
   for (const movement of sim.movements) {
     if (movement.disabledFor > 0) {
@@ -157,18 +163,33 @@ export function updateMovements(sim: SimulationState, dt: number): MovementAttac
     if (movement.cooldownRemaining > 0) movement.cooldownRemaining -= dt
     movement.timeSinceRetarget += dt
 
-    const inReach = living.filter((s) => withinReach(sim, movement, s))
+    if (movement.def.targeting === 'none') continue
 
-    let target = inReach.find((s) => s.id === movement.targetId) ?? null
+    const reach = reachOf(sim, movement)
+    if (!reach) continue
 
-    // Re-target when the current one is gone or the interval has elapsed —
-    // never mid-swing, which cooldownRemaining > 0 already guarantees.
+    // One pass over the candidates: find the best under this unit's policy and
+    // notice whether the existing target is still valid, without allocating.
+    let best: SlackInstance | null = null
+    let bestScore = -Infinity
+    let current: SlackInstance | null = null
+
+    for (const slack of sim.slack) {
+      if (!inReach(reach, slack)) continue
+      if (slack.id === movement.targetId) current = slack
+
+      const value = score(movement.def.targeting, slack, reach.origin)
+      if (value > bestScore) {
+        bestScore = value
+        best = slack
+      }
+    }
+
+    // Re-target only when the current target is gone or out of range, or the
+    // interval has elapsed — combat-spec.md §2.
+    let target = current
     if (!target || movement.timeSinceRetarget >= RETARGET_INTERVAL) {
-      target =
-        movement.def.targeting === 'nearest'
-          ? nearestTo(movementPosition(sim, movement), inReach)
-          : selectTarget(movement.def.targeting, inReach)
-
+      target = best
       movement.targetId = target?.id ?? null
       movement.timeSinceRetarget = 0
     }
@@ -176,8 +197,7 @@ export function updateMovements(sim: SimulationState, dt: number): MovementAttac
     if (!target || movement.cooldownRemaining > 0) continue
 
     attacks.push({ movement, target })
-    movement.cooldownRemaining =
-      movement.def.baseInterval / (1 + movement.hasteBonus)
+    movement.cooldownRemaining = movement.def.baseInterval / (1 + movement.hasteBonus)
   }
 
   return attacks
@@ -217,16 +237,30 @@ export function updateChimes(sim: SimulationState, dt: number): ChimeShot[] {
     if (chime.charge < 1 || chime.cooldownRemaining > 0) continue
     if (sim.slack.length === 0) continue
 
-    // Chimes reach the whole field, so every Slack is a candidate.
-    let target = sim.slack.find((s) => s.id === chime.targetId) ?? null
+    const origin = chimePosition(chime)
+
+    // Chimes reach the whole field, so every Slack is a candidate. Single pass,
+    // same as Movements — no intermediate array.
+    let best: SlackInstance | null = null
+    let bestScore = -Infinity
+    let current: SlackInstance | null = null
+
+    for (const slack of sim.slack) {
+      if (slack.id === chime.targetId) current = slack
+      const value = score(chime.def.targeting, slack, origin)
+      if (value > bestScore) {
+        bestScore = value
+        best = slack
+      }
+    }
+
+    let target = current
     if (!target || chime.timeSinceRetarget >= RETARGET_INTERVAL) {
-      target = selectTarget(chime.def.targeting, sim.slack)
+      target = best
       chime.targetId = target?.id ?? null
       chime.timeSinceRetarget = 0
     }
     if (!target) continue
-
-    const origin = chimePosition(chime)
     const distance = Math.hypot(target.position.x - origin.x, target.position.y - origin.y)
     const flightTime = distance / chime.def.projectileSpeed
 

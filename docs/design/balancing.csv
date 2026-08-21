@@ -24,6 +24,7 @@ objective,threshold_50,0.5,0.4,0.6,rate,12,Fires an event when crossed downward
 objective,threshold_25,0.25,0.2,0.35,rate,12,
 objective,threshold_10,0.1,0.05,0.15,rate,12,
 combat,retarget_interval,0.75,0.5,1.5,s,5,Never retarget mid-swing
+combat,radial_margin,40,20,80,px,13,Slack either side of a unit's annular band
 combat,threat_distance_weight,2.0,1.0,4.0,multiplier,5,Weight on proximity to Mainspring in threat score
 combat,defence_constant,100,50,200,constant,5,In final = raw * 100/(100+defence)
 combat,movement_recovery_time,12,6,20,s,5,Disabled duration; never permadeath
