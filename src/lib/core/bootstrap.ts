@@ -134,6 +134,18 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   const loaded = saves.load()
   let saveData: SaveData = loaded.data
 
+  /*
+   * Declared before anything that might reach it.
+   *
+   * It used to sit further down, next to the simulation it saves alongside,
+   * and `checkAchievements('load')` — which runs during startup — could reach
+   * it first. That is a temporal dead zone, and a conditional one: the call
+   * only touches the autosaver when something is *newly* earned, so it fired
+   * for a returning player whose save already qualified and never for a fresh
+   * one. Both the tests and every browser check used fresh saves.
+   */
+  const autosaver = new Autosaver(saves, () => saveData, { intervalSeconds: 15 })
+
   grantStartingLoadout(saveData)
 
   /*
@@ -464,7 +476,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   game.showDiagnostics = saveData.settings.showFps
 
-  const autosaver = new Autosaver(saves, () => saveData, { intervalSeconds: 15 })
 
   function buildSimulation(): Simulation {
     // Seeded from the stage address, so a stage always plays the same way and
