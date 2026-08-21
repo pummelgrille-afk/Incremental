@@ -146,6 +146,7 @@ export function rewind(
     startedAt: now,
     // The rate belonged to the formation that just went away.
     filingsPerSecond: 0,
+    chimesEverMounted: false,
   }
 
   /*

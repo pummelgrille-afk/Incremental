@@ -14,7 +14,7 @@ import { STARTING_ZONE_ID } from '../content/zones'
  * def object — content changes between versions, saves must not.
  */
 
-export const SCHEMA_VERSION = 4
+export const SCHEMA_VERSION = 5
 
 /** Discarded on Rewinding. */
 export interface RunState {
@@ -53,6 +53,16 @@ export interface RunState {
    * formation's rate.
    */
   filingsPerSecond: number
+
+  /**
+   * Whether a Chime has been mounted at any point this run. Added in schema 5.
+   *
+   * Exists for the "Documented Procedure" achievement. Checked against the run
+   * rather than the zone because a per-zone check is gameable — unmount before
+   * the final clear and collect it anyway — and an achievement that rewards a
+   * technicality is worse than one that asks for a little more.
+   */
+  chimesEverMounted: boolean
 }
 
 /** A named formation, kept across Rewinds. See progression/loadout.ts. */
@@ -152,6 +162,7 @@ export function createDefaultSave(now = Date.now()): SaveData {
       reinforcements: 0,
       startedAt: now,
       filingsPerSecond: 0,
+      chimesEverMounted: false,
     },
     meta: {
       recollection: 0,
@@ -331,6 +342,7 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
       reinforcements: num(run.reinforcements, 0, 0),
       startedAt: num(run.startedAt, now, 0),
       filingsPerSecond: num(run.filingsPerSecond, 0, 0),
+      chimesEverMounted: run.chimesEverMounted === true,
     },
     meta: {
       recollection: num(meta.recollection, 0, 0),

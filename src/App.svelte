@@ -7,6 +7,7 @@
   import UpgradeTree from './lib/ui/UpgradeTree.svelte'
   import PrestigeModal from './lib/ui/PrestigeModal.svelte'
   import WelcomeBack from './lib/ui/WelcomeBack.svelte'
+  import AchievementToast from './lib/ui/AchievementToast.svelte'
 
   /**
    * Phase 10 vertical slice. The default view, so `npm run dev` shows the game
@@ -53,6 +54,7 @@
   <UpgradeTree open={game.showTree} />
   <PrestigeModal open={game.showPrestige} />
   <WelcomeBack />
+  <AchievementToast />
 {/if}
 
 <style>

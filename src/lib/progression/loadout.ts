@@ -135,6 +135,8 @@ export function mountChime(save: SaveData, defId: string, mount: number): Placem
 
   save.run.filings -= cost
   save.run.mounts[String(mount)] = defId
+  // Sticky for the whole run — see `chimesEverMounted` in saveSchema.ts.
+  save.run.chimesEverMounted = true
   return { placed: true, spent: cost, refusedBecause: null }
 }
 

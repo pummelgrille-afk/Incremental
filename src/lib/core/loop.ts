@@ -56,6 +56,13 @@ export interface TickEvents {
   filingsDropped: number
   mainspringHits: number
   conjunctionsFired: number
+  /**
+   * Participants in the largest conjunction this tick, or 0 for none.
+   *
+   * The count alone cannot distinguish a pair from a triple, and the
+   * achievement for a triple needs to. Merged with `max`, not `+`.
+   */
+  largestConjunction: number
   stageCleared: boolean
   stageLost: boolean
   /** True on the tick a wave finished / a new one began. */
@@ -71,6 +78,7 @@ function noTickEvents(): TickEvents {
     filingsDropped: 0,
     mainspringHits: 0,
     conjunctionsFired: 0,
+    largestConjunction: 0,
     stageCleared: false,
     stageLost: false,
     waveCleared: false,
@@ -168,6 +176,10 @@ export class Simulation {
       merged.filingsDropped += events.filingsDropped
       merged.mainspringHits += events.mainspringHits
       merged.conjunctionsFired += events.conjunctionsFired
+      merged.largestConjunction = Math.max(
+        merged.largestConjunction,
+        events.largestConjunction,
+      )
       merged.stageCleared ||= events.stageCleared
       merged.stageLost ||= events.stageLost
       merged.waveCleared ||= events.waveCleared
@@ -245,6 +257,12 @@ export class Simulation {
       sim.synergyAccumulator -= CONJUNCTION.evalInterval
       const synergy = updateSynergy(sim, this.cooldowns)
       events.conjunctionsFired += synergy.fired.length
+      for (const fired of synergy.fired) {
+        events.largestConjunction = Math.max(
+          events.largestConjunction,
+          fired.participants.length,
+        )
+      }
       events.slackKilled += synergy.slackKilled
       events.filingsDropped += synergy.filingsDropped
     }

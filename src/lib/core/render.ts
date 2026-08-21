@@ -440,6 +440,8 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
+  let destroyed = false
+
   return {
     canvas: app.canvas,
 
@@ -469,6 +471,16 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     resize: recentre,
 
     destroy() {
+      /*
+       * Guarded, because Pixi's `destroy` is not idempotent — a second call
+       * throws on a half-torn-down Application ("this._cancelResize is not a
+       * function"). Svelte can unmount after an explicit teardown, and a
+       * teardown path that throws on its second call takes the error handler
+       * with it.
+       */
+      if (destroyed) return
+      destroyed = true
+
       app.destroy(true, { children: true })
       movementSprites.clear()
       slackSprites.clear()

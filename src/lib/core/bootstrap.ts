@@ -5,6 +5,7 @@ import { game } from '../stores/game.svelte'
 import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
 import { isRewindUnlocked, rewind as rewindRun, rewindPreview } from '../progression/prestige'
 import { calculateOffline, isWorthReporting } from '../systems/offlineProgress'
+import { evaluate as evaluateAchievements } from '../progression/achievements'
 import {
   buyTrack,
   supportRoster,
@@ -341,6 +342,33 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     autosaver.request('purchase')
   }
 
+  /**
+   * Evaluate achievements for a moment, and queue anything newly earned.
+   *
+   * Queued rather than shown directly: several can land on the same tick — a
+   * first clear that was also untouched, say — and a toast that replaced its
+   * predecessor would silently swallow one.
+   */
+  const checkAchievements = (
+    event: Parameters<typeof evaluateAchievements>[1],
+    snapshot: Parameters<typeof evaluateAchievements>[2] = {},
+  ): void => {
+    const earned = evaluateAchievements(saveData, event, snapshot)
+    if (earned.length === 0) return
+
+    game.achievementQueue = [
+      ...game.achievementQueue,
+      ...earned.map((a) => ({ id: a.id, name: a.name, description: a.description })),
+    ]
+    autosaver.request('purchase')
+  }
+
+  /** The parts of a moment the triggers read. */
+  const achievementSnapshot = () => ({
+    distinctMovementsSlotted: new Set(Object.values(saveData.run.formation)).size,
+    unlockedMovements: Object.keys(saveData.meta.movements).length,
+  })
+
   game.prestigeActions = {
     rewind() {
       if (!rewindRun(saveData, Date.now(), game.rewindUnlocked).rewound) return
@@ -352,6 +380,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       advanceIn = 0
       simulation = buildSimulation()
 
+      checkAchievements('rewind')
       game.reset()
       game.showPrestige = false
       publishRoster()
@@ -408,6 +437,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   }
 
   publishRoster()
+
+  // State-shaped triggers — "has cleared a stage", "has Rewound" — need one
+  // evaluation on load, or a save from before this phase would never earn them.
+  checkAchievements('load')
 
   /**
    * The stage in play. Restored from the save so a reload resumes where the
@@ -525,6 +558,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     }
     if (events.conjunctionsFired > 0) {
       saveData.statistics.conjunctionsFired += events.conjunctionsFired
+      checkAchievements('conjunction', {
+        largestConjunction: events.largestConjunction,
+      })
+    }
+
+    if (events.stageLost) {
+      checkAchievements('stage-lost', achievementSnapshot())
     }
 
     if (events.stageCleared) {
@@ -541,6 +581,12 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       // Queue the next stage. Advancing on a timer rather than immediately so
       // the clear banner is readable — a stage that vanished the instant it
       // ended would read as the bug this replaced.
+      checkAchievements('stage-cleared', {
+        ...achievementSnapshot(),
+        clearedUntouched: simulation.state.mainspring.lowestFraction >= 1,
+        zoneCompleted: reward.zoneCompleted,
+      })
+
       pendingStage = nextStageAfter(address)
       advanceIn = pendingStage ? STAGE_GAP_SECONDS : 0
       game.nextStageIn = advanceIn

@@ -50,6 +50,24 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
    * honest default — the old build never recorded a rate, so inventing one
    * would be paying out for a number nobody measured.
    */
+  /**
+   * 4 → 5: Phase 28 added `run.chimesEverMounted`.
+   *
+   * Defaults to **false**, which is generous — a save carried across the
+   * upgrade counts as never having mounted a Chime, so an in-flight run can
+   * still earn "Documented Procedure". The alternative would deny an
+   * achievement for something the old build never recorded either way, and
+   * erring toward the player is the right side to err on for a cosmetic award.
+   */
+  4: (save) => {
+    const run = (save.run ?? {}) as Record<string, unknown>
+    return {
+      ...save,
+      schemaVersion: 5,
+      run: { ...run, chimesEverMounted: run.chimesEverMounted === true },
+    }
+  },
+
   3: (save) => {
     const run = (save.run ?? {}) as Record<string, unknown>
     return {

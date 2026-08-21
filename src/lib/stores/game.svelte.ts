@@ -258,6 +258,15 @@ class GameStore {
     activeEquivalent: number
   } | null>(null)
 
+  /**
+   * Achievements earned but not yet shown.
+   *
+   * A queue rather than a single slot: several can land on the same tick — a
+   * first clear that was also untouched — and a toast replacing its
+   * predecessor would swallow one.
+   */
+  achievementQueue = $state<{ id: string; name: string; description: string }[]>([])
+
   /** The Rewind modal. Toggled with P, once unlocked. */
   showPrestige = $state(false)
   rewindUnlocked = $state(false)

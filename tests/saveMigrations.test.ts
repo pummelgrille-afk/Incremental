@@ -257,3 +257,41 @@ describe('3 → 4: the offline earning rate', () => {
     expect((migrated.run as Record<string, unknown>).filingsPerSecond).toBe(4.5)
   })
 })
+
+describe('4 → 5: the Chime-usage flag', () => {
+  const schemaFour = (): RawSave => ({
+    schemaVersion: 4,
+    savedAt: 0,
+    run: { filings: 5, filingsPerSecond: 1.5, formation: {}, mounts: {} },
+    meta: { keys: 1, presets: [], chimeUpgrades: {}, achievements: ['wound-it-back'] },
+  })
+
+  it('defaults to false, which is the generous side', () => {
+    /*
+     * A save carried across the upgrade counts as never having mounted a
+     * Chime, so an in-flight run can still earn "Documented Procedure". The
+     * old build never recorded it either way, and for a cosmetic award the
+     * player is the right side to err toward.
+     */
+    const { save, applied } = migrate(schemaFour())
+    expect(applied).toContain(4)
+    expect((save.run as Record<string, unknown>).chimesEverMounted).toBe(false)
+  })
+
+  it('keeps a flag a newer build already set', () => {
+    const save = schemaFour()
+    ;(save.run as Record<string, unknown>).chimesEverMounted = true
+    expect((migrate(save).save.run as Record<string, unknown>).chimesEverMounted).toBe(true)
+  })
+
+  it('keeps everything schemas 2 to 4 introduced', () => {
+    const { save } = migrate(schemaFour())
+    const meta = save.meta as Record<string, unknown>
+    const run = save.run as Record<string, unknown>
+
+    expect(meta.presets).toEqual([])
+    expect(meta.chimeUpgrades).toEqual({})
+    expect(meta.achievements).toEqual(['wound-it-back'])
+    expect(run.filingsPerSecond).toBe(1.5)
+  })
+})
