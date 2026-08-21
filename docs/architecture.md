@@ -114,7 +114,7 @@ built in between.
 
 The save must cover resources, the ~72-node upgrade tree, the unlocked roster with
 levels, achievements, statistics and settings (`economy-spec.md`). Estimated
-serialized size is **5–20 kB** — small.
+serialized size was **5–20 kB**; Phase 9 measured it and the estimate held.
 
 ### Decision
 
@@ -142,6 +142,31 @@ serialized size is **5–20 kB** — small.
    a requirement, not a nice-to-have.
 4. **Timestamp every save** — offline progress (Phase 27) reads the delta.
 5. **Guard quota failures.** A failed write must never break the tick loop.
+
+### Measured in Phase 9
+
+Built a save representing a completed game — all 72 tree nodes, 16 Movements and
+6 Chimes at level 25, 40 achievements, 6 zones with 10 cleared stages each, a full
+formation and all rim mounts — and wrote it through the real localStorage backend
+in Chrome.
+
+| | Size |
+|---|---|
+| Default (new game) | 733 bytes |
+| Completed game, serialized | 6,914 chars (**13.8 kB** as UTF-16) |
+| With the backup key | **27.7 kB** |
+| Share of a 5 MB origin quota | **0.53%** |
+| Export string | 9,238 chars |
+
+Two orders of magnitude inside the quota, so the decision holds comfortably and
+IndexedDB stays unnecessary.
+
+**One thing to watch:** the export string is ~9 kB of base64 at end-game. That is
+a long paste to move through a chat window or a text field, and the failure mode
+is truncation — which the checksum catches, but only after the player has already
+lost the copy. If Phase 43 finds this awkward in practice, deflating the JSON
+before base64 would cut it substantially; the format is versioned, so that is an
+additive change.
 
 ### Migration path
 
@@ -224,6 +249,13 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `content/damageTypes.ts` | Type interaction matrix | 8 |
 | `content/enemies.ts` | Slack roster (placeholder) | 31 |
 | `content/zones.ts` | Progression map (placeholder) | 33 |
+| `core/storage.ts` | StorageBackend abstraction, localStorage/memory backends | 9 |
+| `core/saveSchema.ts` | Save shape, defaults, validation/repair, `resetRun` | 9 |
+| `core/saveMigrations.ts` | Version migration chain | 9 |
+| `core/save.ts` | SaveManager: load, corruption-safe write, export/import | 9 |
+| `core/autosave.ts` | Autosave scheduling, coalescing, failure backoff | 9 |
+| `utils/encoding.ts` | UTF-8-safe base64 | 9 |
+| `utils/hash.ts` | FNV-1a checksum for export strings | 9 |
 | `core/simulation.ts` | `SimulationState` — the complete mutable stage state | 8 |
 | `core/stageLoader.ts` | Resolve, validate and initialize a stage | 8 |
 | `core/render.ts` | Pixi scene (currently the Phase 7 harness) | 7 → 10 |
