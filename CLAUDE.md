@@ -7,6 +7,29 @@ Project guidance for Claude Code working in this repository.
 - Remote: `origin` → https://github.com/pummelgrille-afk/Incremental.git
 - Default branch: `main`
 
+## Project conventions
+
+Build plan: `PLAN.md` at the repo root defines 50 phases across 8 stages. It is
+the roadmap; `docs/design/*.md` is the source of truth for decisions made along
+the way.
+
+- Vite + TypeScript + Svelte 5 (runes). **No monolithic files** — one class,
+  one system, or one component per file. If a file is doing three jobs, split
+  it. See `PLAN.md` for the full repo layout.
+- Simulation state lives in plain TS under `src/lib/core` and
+  `src/lib/systems`, outside Svelte reactivity — the entity counts this genre
+  needs will not survive running the whole sim through runes. Svelte components
+  read a thin reactive projection via `src/lib/stores`; they never own
+  simulation logic.
+- Game content (allies, enemies, waves, zones, upgrades) is typed data in
+  `src/lib/content/*.ts`, declared against interfaces in `src/lib/entities`.
+  Content is never hardcoded inside logic files.
+- Design decisions live in `docs/design/*.md` and are the source of truth.
+  Update them when a design changes — do not let code and docs drift.
+- One phase = one focused commit, with the matching `docs/phases/phase-N.md`
+  checklist ticked off in that same commit.
+- Run `npm run check` and `npm test` before committing.
+
 ## Git workflow rules
 
 ### Commit messages
@@ -40,6 +63,18 @@ chore: add .gitignore for node build output
 ```
 
 An optional scope is fine when it clarifies things: `feat(ui): ...`.
+
+### Phase commits
+
+`PLAN.md` asks for `Phase N: <summary>`; the table above asks for a Conventional
+Commits type. Both apply — put the phase in the summary line after the type:
+
+```
+docs: phase 3 — define the core game loop
+feat: phase 16 — add data-driven bullet pattern system
+```
+
+Design phases (1–6) are usually `docs:`; system and content phases are `feat:`.
 
 ### Pushing
 
