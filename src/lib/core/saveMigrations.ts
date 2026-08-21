@@ -27,7 +27,22 @@ export type Migration = (save: RawSave) => RawSave
  * cannot be migrated should degrade to defaults during validation, not crash.
  */
 export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
-  // 1: (save) => ({ ...save, schemaVersion: 2, /* ... */ }),
+  /**
+   * 1 → 2: Phase 24 added `meta.presets`.
+   *
+   * The first real migration, and it is the boring kind on purpose — a new
+   * field with a safe empty default. `meta` is read defensively because this
+   * runs on raw parsed JSON, before validation: a hand-edited or truncated save
+   * must degrade to defaults rather than throw here.
+   */
+  1: (save) => {
+    const meta = (save.meta ?? {}) as Record<string, unknown>
+    return {
+      ...save,
+      schemaVersion: 2,
+      meta: { ...meta, presets: Array.isArray(meta.presets) ? meta.presets : [] },
+    }
+  },
 })
 
 export class MigrationError extends Error {

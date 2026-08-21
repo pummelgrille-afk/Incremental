@@ -1,8 +1,26 @@
 import { movementById, MOVEMENTS } from '../content/allies'
-import { CHIMES } from '../content/supportUnits'
+import { chimeById, CHIMES } from '../content/supportUnits'
 import { STARTING_ZONE_ID, ZONES } from '../content/zones'
 import { game } from '../stores/game.svelte'
 import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
+import {
+  levelsOf,
+  levelUp as levelUpUnit,
+  rosterOf,
+  unlock as unlockUnit,
+} from '../progression/roster'
+import {
+  deletePreset as deletePresetFrom,
+  grantStartingLoadout,
+  loadPreset as loadPresetFrom,
+  mountChime as mountSaved,
+  nextMountCost,
+  nextSlotCost,
+  placeMovement as placeSaved,
+  removeMovement as removeSaved,
+  savePreset as savePresetTo,
+  unmountChime as unmountSaved,
+} from '../progression/loadout'
 import {
   effectsOf,
   pathTo,
@@ -14,7 +32,13 @@ import {
   treeStatus,
 } from '../progression/upgradeTree'
 import { Autosaver } from './autosave'
-import { mountChime, placeMovement } from './formation'
+import {
+  applyFormation,
+  mountChime,
+  placeMovement,
+  recomputeBonuses,
+  removeMovement,
+} from './formation'
 import { Simulation } from './loop'
 import { createRenderer, type Renderer } from './render'
 import { createRng, seedFrom } from './rng'
@@ -22,6 +46,7 @@ import { SaveManager } from './save'
 import type { SaveData } from './saveSchema'
 import { loadStage, stageOrder } from './stageLoader'
 import type { StageAddress } from '../entities/Zone'
+import type { RingIndex } from '../entities/types'
 import type { SimulationState } from './simulation'
 
 /**
@@ -59,34 +84,32 @@ export interface GameSession {
 }
 
 /**
- * A starting formation for the Phase 10 slice.
+ * Field the player's saved formation.
  *
- * Two Movements on *different* rings, because conjunction cannot occur
- * otherwise and answering combat-spec.md §9 is the point of this phase.
- * Phase 24 replaces this with the player's saved loadout.
+ * Replaces the Phase 10 hardcoded slice. A save with an empty formation gets
+ * nothing — which is correct now that Filings buy slots: an empty field is the
+ * honest starting state, not a bug.
  */
-function seedFormation(simulation: Simulation): void {
-  const sim = simulation.state
+function fieldFormation(simulation: Simulation, save: SaveData): void {
+  applyFormation(
+    simulation.state,
+    save.run.formation,
+    movementById,
+    levelsOf(save, 'movement'),
+  )
 
-  const hammer = movementById('hammer')
-  const detent = movementById('detent')
-  const pallet = movementById('pallet')
-
-  if (detent) {
-    placeMovement(sim, detent, 1, 0)
-    placeMovement(sim, detent, 1, 3)
-  }
-  if (hammer) {
-    placeMovement(sim, hammer, 2, 0)
-    placeMovement(sim, hammer, 2, 5)
-  }
-  if (pallet) {
-    placeMovement(sim, pallet, 3, 0)
-    placeMovement(sim, pallet, 3, 7)
-  }
-  if (CHIMES[0]) {
-    mountChime(sim, CHIMES[0], 0)
-    mountChime(sim, CHIMES[0], 4)
+  const chimeLevels = levelsOf(save, 'chime')
+  for (const [mount, defId] of Object.entries(save.run.mounts)) {
+    const def = chimeById(defId)
+    if (!def) continue
+    // Silently skip a mount that no longer exists, for the same reason
+    // `applyFormation` skips a missing Movement: a save must survive content
+    // changing, and refusing to load would be worse than a missing unit.
+    try {
+      mountChime(simulation.state, def, Number(mount), chimeLevels[defId] ?? 1)
+    } catch {
+      continue
+    }
   }
 }
 
@@ -94,6 +117,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   const saves = new SaveManager()
   const loaded = saves.load()
   let saveData: SaveData = loaded.data
+
+  grantStartingLoadout(saveData)
 
   if (loaded.notices.length > 0) {
     console.info('[orrery] save notices:', loaded.notices)
@@ -180,6 +205,141 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   publishTree()
 
   /**
+   * Push the roster and the fielded formation to the view.
+   *
+   * On change rather than per frame — the roster moves a handful of times per
+   * run, and rebuilding it every frame would allocate arrays sixty times a
+   * second to show numbers that do not move.
+   */
+  const publishRoster = (): void => {
+    game.movementRoster = rosterOf(saveData, 'movement')
+    game.chimeRoster = rosterOf(saveData, 'chime')
+
+    const movementLevels = levelsOf(saveData, 'movement')
+    game.fielded = Object.entries(saveData.run.formation).map(([key, defId]) => {
+      const [ring, slot] = key.split(':').map(Number)
+      return {
+        ring,
+        slot,
+        defId,
+        name: movementById(defId)?.name ?? defId,
+        level: movementLevels[defId] ?? 1,
+      }
+    })
+
+    const chimeLevels = levelsOf(saveData, 'chime')
+    game.mounted = Object.entries(saveData.run.mounts).map(([mount, defId]) => ({
+      ring: 0,
+      slot: Number(mount),
+      defId,
+      name: chimeById(defId)?.name ?? defId,
+      level: chimeLevels[defId] ?? 1,
+    }))
+
+    game.nextSlotCost = nextSlotCost(saveData)
+    game.nextMountCost = nextMountCost(saveData)
+    game.presetNames = saveData.meta.presets.map((p) => p.name)
+    game.keys = saveData.meta.keys
+  }
+
+  /**
+   * Reconcile the live field with the saved formation.
+   *
+   * A **diff**, not a rebuild. Tearing the formation down and re-creating it
+   * would reset HP and cooldowns, which turns re-slotting into a free heal
+   * mid-wave. Only what actually changed is touched, so units that stayed put
+   * keep the damage they have taken.
+   */
+  const syncFieldToSave = (): void => {
+    const sim = simulation.state
+
+    for (const movement of [...sim.movements]) {
+      const key = `${movement.slot.ring}:${movement.slot.slot}`
+      if (saveData.run.formation[key] !== movement.def.id) {
+        removeMovement(sim, movement.slot.ring, movement.slot.slot)
+      }
+    }
+    for (const chime of [...sim.chimes]) {
+      if (saveData.run.mounts[String(chime.mount)] !== chime.def.id) {
+        sim.chimes.splice(sim.chimes.indexOf(chime), 1)
+      }
+    }
+
+    const movementLevels = levelsOf(saveData, 'movement')
+    for (const [key, defId] of Object.entries(saveData.run.formation)) {
+      const [ring, slot] = key.split(':').map(Number)
+      if (sim.movements.some((m) => m.slot.ring === ring && m.slot.slot === slot)) continue
+      const def = movementById(defId)
+      if (def) placeMovement(sim, def, ring as RingIndex, slot, movementLevels[defId] ?? 1)
+    }
+
+    const chimeLevels = levelsOf(saveData, 'chime')
+    for (const [mount, defId] of Object.entries(saveData.run.mounts)) {
+      if (sim.chimes.some((c) => c.mount === Number(mount))) continue
+      const def = chimeById(defId)
+      if (def) mountChime(sim, def, Number(mount), chimeLevels[defId] ?? 1)
+    }
+
+    recomputeBonuses(sim)
+  }
+
+  /** Apply an edit: persist, reconcile the field, republish. */
+  const afterEdit = (refusal: string | null = null): void => {
+    game.lastRefusal = refusal
+    syncFieldToSave()
+    publishRoster()
+    publishTree()
+    // Publish the balance immediately rather than waiting for the next frame:
+    // a price that updates a frame after the click reads as a click that did
+    // not register.
+    game.publishFilings(saveData.run.filings, simulation.state.elapsed)
+    autosaver.request('purchase')
+  }
+
+  game.formationActions = {
+    place(defId, ring, slot, from) {
+      const result = placeSaved(
+        saveData,
+        defId,
+        ring as RingIndex,
+        slot,
+        from ? { ring: from.ring as RingIndex, slot: from.slot } : undefined,
+      )
+      afterEdit(result.refusedBecause)
+    },
+    remove(ring, slot) {
+      removeSaved(saveData, ring as RingIndex, slot)
+      afterEdit()
+    },
+    mount(defId, mount) {
+      afterEdit(mountSaved(saveData, defId, mount).refusedBecause)
+    },
+    unmount(mount) {
+      unmountSaved(saveData, mount)
+      afterEdit()
+    },
+    unlock(kind, id) {
+      afterEdit(unlockUnit(saveData, kind, id) ? null : 'unaffordable')
+    },
+    levelUp(kind, id) {
+      afterEdit(levelUpUnit(saveData, kind, id) ? null : 'unaffordable')
+    },
+    savePreset(name) {
+      afterEdit(savePresetTo(saveData, name) ? null : 'preset-limit')
+    },
+    loadPreset(name) {
+      const result = loadPresetFrom(saveData, name)
+      afterEdit(result.skipped.length > 0 ? 'partial' : null)
+    },
+    deletePreset(name) {
+      deletePresetFrom(saveData, name)
+      afterEdit()
+    },
+  }
+
+  publishRoster()
+
+  /**
    * The stage in play. Restored from the save so a reload resumes where the
    * player was rather than sending them back to First Shift.
    */
@@ -211,7 +371,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       loadStage(currentStage, { effects: currentEffects() }),
       rng,
     )
-    seedFormation(sim)
+    fieldFormation(sim, saveData)
     return sim
   }
 
@@ -342,6 +502,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // published here rather than by `syncFrom`.
     game.recollection = saveData.meta.recollection
     game.keys = saveData.meta.keys
+    // The spendable balance lives in the save, not the field. Published here
+    // for the same reason as the permanent currencies.
+    game.publishFilings(saveData.run.filings, simulation.state.elapsed)
     game.simMs = simMs
     game.renderMs = renderMs
     game.frameMs = elapsedMs

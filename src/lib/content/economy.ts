@@ -73,3 +73,36 @@ export const KEYS = {
 export const TREE = {
   nodeCostGrowth: 1.9,
 } as const
+
+/**
+ * The roster: unlocking and levelling Movements and Chimes.
+ *
+ * Both cost **Keys** (economy-spec.md §1), which are first-clear only. That is
+ * the whole point of keeping them separate from Recollection: roster breadth
+ * and depth are gated on *seeing content*, not on grinding it, so Phase 29 can
+ * author the unlock curve rather than discover it.
+ */
+export const ROSTER = {
+  /** `base × growth^(levels already held)`, in Keys. */
+  levelCost: { base: 1, growth: 1.55 },
+
+  /**
+   * Ceiling per unit.
+   *
+   * A cap exists so Keys stay meaningful late: without one, every Key past the
+   * roster's breadth would funnel into a single favourite, which is the
+   * "funnel everything into one axis" that §1 separates the currencies to
+   * prevent.
+   */
+  maxLevel: 10,
+
+  /**
+   * Stat multiplier per level above 1, applied to HP and attack alike.
+   *
+   * Flat rather than compounding: ten levels is +108%, which is a real
+   * investment without outrunning the enemy HP curve (1.14 per stage). A
+   * compounding 12% would be +210% and would make levelling strictly better
+   * than breadth at every point.
+   */
+  levelScaling: 0.12,
+} as const

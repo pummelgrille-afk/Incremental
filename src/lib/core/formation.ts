@@ -1,6 +1,7 @@
 import type { ChimeDef, ChimeInstance } from '../entities/Chime'
 import type { FormationBonuses, MovementDef, MovementInstance } from '../entities/Movement'
 import { createBuffs } from '../systems/buffs'
+import { levelScale } from '../progression/roster'
 import type { RingIndex } from '../entities/types'
 import { RINGS, ringByIndex } from '../content/field'
 import { allocateId, type SimulationState } from './simulation'
@@ -46,8 +47,8 @@ export function createMovement(
   slot: number,
   level = 1,
 ): MovementInstance {
-  // Levelling is a flat multiplier for now; Phase 24 owns the real curve.
-  const scale = 1 + (level - 1) * 0.12
+  // The curve lives in content/economy.ts with the rest of the roster tuning.
+  const scale = levelScale(level)
   const maxHp = def.maxHp * scale
 
   return {
@@ -73,7 +74,7 @@ export function createChime(
   mount: number,
   level = 1,
 ): ChimeInstance {
-  const scale = 1 + (level - 1) * 0.12
+  const scale = levelScale(level)
   const maxHp = def.maxHp * scale
 
   return {

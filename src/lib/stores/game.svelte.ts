@@ -39,6 +39,41 @@ export interface TreeActions {
   preview(nodeId: string): { ids: string[]; total: number; affordable: boolean }
 }
 
+/** A unit in the roster panel. */
+export interface RosterView {
+  kind: 'movement' | 'chime'
+  id: string
+  name: string
+  unlocked: boolean
+  level: number
+  unlockCost: number
+  levelCost: number | null
+  atMaxLevel: boolean
+  canUnlock: boolean
+  canLevel: boolean
+}
+
+/** One occupied ring slot or rim mount. */
+export interface SlotView {
+  ring: number
+  slot: number
+  defId: string
+  name: string
+  level: number
+}
+
+export interface FormationActions {
+  place(defId: string, ring: number, slot: number, from?: { ring: number; slot: number }): void
+  remove(ring: number, slot: number): void
+  mount(defId: string, mount: number): void
+  unmount(mount: number): void
+  unlock(kind: 'movement' | 'chime', id: string): void
+  levelUp(kind: 'movement' | 'chime', id: string): void
+  savePreset(name: string): void
+  loadPreset(name: string): void
+  deletePreset(name: string): void
+}
+
 /** One row of the dev-only telemetry readout. */
 export interface TelemetryRow {
   id: string
@@ -176,6 +211,18 @@ class GameStore {
   /** Hidden entirely until the first boss clear — economy-spec.md §3. */
   treeRevealed = $state(false)
 
+  // The roster and the fielded formation. Pushed by bootstrap on change.
+  movementRoster = $state<RosterView[]>([])
+  chimeRoster = $state<RosterView[]>([])
+  fielded = $state<SlotView[]>([])
+  mounted = $state<SlotView[]>([])
+  nextSlotCost = $state(0)
+  nextMountCost = $state(0)
+  presetNames = $state<string[]>([])
+  formationActions = $state<FormationActions | null>(null)
+  /** Last refusal, so the editor can say why rather than doing nothing. */
+  lastRefusal = $state<string | null>(null)
+
   // The tree. Pushed by bootstrap on change, not read per frame.
   tree = $state<TreeNodeView[]>([])
   treeRefund = $state(0)
@@ -247,7 +294,6 @@ class GameStore {
     this.shield = sim.mainspring.shield
     this.lowestTensionFraction = sim.mainspring.lowestFraction
     this.repairsThisStage = sim.mainspring.repairsThisStage
-    this.syncFilings(sim.filingsEarned, sim.elapsed)
 
     this.zoneName = sim.zone.name
     this.stageName = sim.stage.name
@@ -326,14 +372,20 @@ class GameStore {
   private static readonly GAIN_WINDOW = 1.1
 
   /**
-   * Bank the frame's Filings delta and age the pooled total.
+   * Publish the spendable Filings balance and age the pooled gain.
+   *
+   * **The balance, not the stage's earnings.** Those were the same number until
+   * Phase 24 gave Filings something to buy; now the HUD must show what can
+   * actually be spent, and only `bootstrap` — which owns the save — knows it.
+   * Publishing both from two places made the counter flip between them.
    *
    * The delta is taken against the previous *projected* value rather than a
-   * remembered stage total, so a reload mid-stage shows no phantom gain.
+   * remembered total, so a reload mid-stage shows no phantom gain. A negative
+   * delta is a purchase, and must not read as a gain.
    */
-  private syncFilings(earned: number, elapsed: number): void {
-    const delta = earned - this.filings
-    this.filings = earned
+  publishFilings(balance: number, elapsed: number): void {
+    const delta = balance - this.filings
+    this.filings = balance
 
     if (delta > 0) {
       this.filingsGain += delta

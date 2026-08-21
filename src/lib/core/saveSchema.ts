@@ -14,7 +14,7 @@ import { STARTING_ZONE_ID } from '../content/zones'
  * def object — content changes between versions, saves must not.
  */
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 /** Discarded on Rewinding. */
 export interface RunState {
@@ -44,6 +44,13 @@ export interface RunState {
   startedAt: number
 }
 
+/** A named formation, kept across Rewinds. See progression/loadout.ts. */
+export interface Preset {
+  name: string
+  formation: Record<string, string>
+  mounts: Record<string, string>
+}
+
 /** Survives every Rewinding. */
 export interface MetaState {
   /** Prestige currency. */
@@ -57,6 +64,15 @@ export interface MetaState {
   /** Unlocked roster. Key is a def id, value is its level. */
   movements: Record<string, number>
   chimes: Record<string, number>
+
+  /**
+   * Saved formations, by name. Added in schema 2.
+   *
+   * In `meta` rather than `run` deliberately: an arrangement a player liked
+   * should survive the Rewind that takes the units away, or every reset would
+   * mean rebuilding from memory. They store ids and slots only, never costs.
+   */
+  presets: Preset[]
 
   /** Zone ids the player may enter. */
   unlockedZones: string[]
@@ -123,6 +139,7 @@ export function createDefaultSave(now = Date.now()): SaveData {
       purchasedNodes: [],
       movements: {},
       chimes: {},
+      presets: [],
       unlockedZones: [STARTING_ZONE_ID],
       clearedStages: [],
       achievements: [],
@@ -205,6 +222,27 @@ function strRecord(v: unknown): Record<string, string> {
   return out
 }
 
+/**
+ * Sanitise saved presets.
+ *
+ * Drops anything malformed rather than repairing it: a preset is a convenience,
+ * and a half-recovered one that silently fields the wrong units would be worse
+ * than a missing one.
+ */
+function presetArray(v: unknown): Preset[] {
+  if (!Array.isArray(v)) return []
+  const out: Preset[] = []
+  for (const entry of v) {
+    if (!isObject(entry) || typeof entry.name !== 'string') continue
+    out.push({
+      name: entry.name,
+      formation: strRecord(entry.formation),
+      mounts: strRecord(entry.mounts),
+    })
+  }
+  return out
+}
+
 function numRecord(v: unknown): Record<string, number> {
   if (!isObject(v)) return {}
   const out: Record<string, number> = {}
@@ -268,6 +306,7 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
       purchasedNodes: strArray(meta.purchasedNodes),
       movements: numRecord(meta.movements),
       chimes: numRecord(meta.chimes),
+      presets: presetArray(meta.presets),
       unlockedZones: strArray(meta.unlockedZones),
       clearedStages: strArray(meta.clearedStages) as StageAddress[],
       achievements: strArray(meta.achievements),

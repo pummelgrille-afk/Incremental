@@ -93,3 +93,44 @@ describe('the Beat charge bar', () => {
     expect(game.beatProgress).toBe(0)
   })
 })
+
+describe('the Filings counter', () => {
+  beforeEach(() => {
+    game.filings = 0
+    game.filingsGain = 0
+  })
+
+  it('shows the spendable balance, not a stage total', () => {
+    /*
+     * Those were the same number until Phase 24 gave Filings something to buy.
+     * Publishing both — the stage's earnings from `syncFrom` and the bank from
+     * the save — made the counter flip between them mid-session.
+     */
+    game.publishFilings(1702, 10)
+    expect(game.filings).toBe(1702)
+  })
+
+  it('pools a gain', () => {
+    game.publishFilings(10, 0)
+    game.publishFilings(25, 0.2)
+    expect(game.filingsGain).toBe(25)
+  })
+
+  it('does not read a purchase as a gain', () => {
+    // Spending must never animate as income.
+    game.publishFilings(100, 0)
+    game.filingsGain = 0
+    game.publishFilings(41, 0.1)
+
+    expect(game.filings).toBe(41)
+    expect(game.filingsGain).toBe(0)
+  })
+
+  it('expires the pooled gain', () => {
+    game.publishFilings(50, 0)
+    expect(game.filingsGain).toBeGreaterThan(0)
+
+    game.publishFilings(50, 5)
+    expect(game.filingsGain).toBe(0)
+  })
+})

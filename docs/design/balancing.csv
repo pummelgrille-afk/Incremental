@@ -69,6 +69,10 @@ tree,regulation_nodes,14,10,18,count,34,Utility branch; buys control not numbers
 keys,normal_stage_first_clear,1,1,2,keys,6,First clear only; not farmable
 keys,boss_stage_first_clear,5,3,8,keys,6,
 keys,zone_complete,10,5,15,keys,6,
+roster,level_cost_base,1,1,3,keys,24,Keys to reach level 2
+roster,level_cost_growth,1.55,1.3,2.0,factor,24,Per level already held
+roster,max_level,10,6,15,level,24,Ceiling per unit
+roster,level_scaling,0.12,0.08,0.18,rate,24,Stat multiplier per level above 1
 offline,cap_base,4,2,8,hours,6,
 offline,cap_max,24,12,48,hours,6,Fully upgraded via Salvage
 offline,efficiency_base,0.40,0.25,0.55,rate,6,
