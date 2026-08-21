@@ -23,13 +23,16 @@ describe('the Beat charge bar', () => {
     expect(game.beatProgress).toBe(1)
   })
 
-  it('tracks the cooldown immediately after a strike', () => {
+  it('ignores the post-strike cooldown entirely', () => {
+    // Playtest: reporting the 0.25 s cooldown made the bar race from empty to
+    // full and then snap back to the real charge fraction. The cooldown is a
+    // double-click guard, not a wait, so the bar must not move for it at all.
     game.beatCharge = 2.4
     game.beatCooldown = BEAT.cooldown
-    expect(game.beatProgress).toBeCloseTo(0, 6)
+    expect(game.beatProgress).toBe(1)
 
     game.beatCooldown = BEAT.cooldown / 2
-    expect(game.beatProgress).toBeCloseTo(0.5, 6)
+    expect(game.beatProgress).toBe(1)
   })
 
   it('tracks the regenerating fraction when out of charge', () => {
@@ -41,12 +44,25 @@ describe('the Beat charge bar', () => {
     expect(game.beatProgress).toBeCloseTo(0.9, 6)
   })
 
-  it('prefers the cooldown when both gates are active', () => {
-    // Straight after a strike that emptied the last charge, the cooldown is
-    // what the player is actually waiting on first.
+  it('shows the regenerating fraction even while the cooldown runs', () => {
+    // Straight after a strike that emptied the last charge. The wait that
+    // matters is the 3 s recharge, not the 0.25 s guard.
     game.beatCharge = 0.5
     game.beatCooldown = BEAT.cooldown
-    expect(game.beatProgress).toBeCloseTo(0, 6)
+    expect(game.beatProgress).toBeCloseTo(0.5, 6)
+  })
+
+  it('never jumps backwards while a charge regenerates', () => {
+    // The snap the playtest reported. Walk a charge from empty to whole across
+    // a live cooldown and assert the bar only ever climbs.
+    let previous = -1
+    for (let charge = 0; charge <= 1.0001; charge += 0.05) {
+      game.beatCharge = charge
+      game.beatCooldown = charge < 0.2 ? BEAT.cooldown : 0
+      expect(game.beatProgress, `charge ${charge.toFixed(2)}`).toBeGreaterThanOrEqual(previous)
+      previous = game.beatProgress
+    }
+    expect(previous).toBe(1)
   })
 
   it('does not creep toward a charge the player cannot spend', () => {

@@ -1,7 +1,6 @@
 import type { StagePhase } from '../core/simulation'
 import type { Simulation } from '../core/loop'
 import { TARGET_FRAME_MS } from '../content/budgets'
-import { BEAT } from '../content/field'
 import { timeToNextConjunction } from '../systems/synergy'
 import { pairingOf, type TypePairing } from '../content/damageTypes'
 import type { DamageType } from '../entities/types'
@@ -141,19 +140,24 @@ class GameStore {
   /**
    * Progress toward the next moment the Beat can be struck, 0–1.
    *
-   * Three things can gate a strike, and the bar reports whichever currently
-   * does: the stage being over, the post-strike cooldown, or the fractional
-   * charge still regenerating. When none of them gates it the bar is full,
-   * because there is nothing left to wait for — a bar that kept creeping toward
-   * a fourth charge while three were already spendable would be counting
-   * something the player cannot act on.
+   * Full whenever a whole charge is banked, otherwise the fraction of the next
+   * one that has regenerated.
+   *
+   * **The 0.25 s cooldown is deliberately not shown.** It is a guard so a
+   * double-click cannot waste a charge (`content/field.ts`), not something the
+   * player waits on, and reporting it made the bar useless: after a strike it
+   * raced from empty to full in a quarter of a second and then dropped to the
+   * real charge fraction. All motion, no information.
+   *
+   * Keying on whole charges rather than on `canStrike` also keeps the bar still
+   * during that cooldown when charges remain — otherwise it would dip and
+   * recover every single strike.
    */
   beatProgress = $derived.by(() => {
     // A resolved stage refuses strikes whatever the charge, so a full bar there
     // would advertise an input that does nothing.
     if (!this.running) return 0
-    if (this.canStrike) return 1
-    if (this.beatCooldown > 0) return 1 - this.beatCooldown / BEAT.cooldown
+    if (this.beatsReady >= 1) return 1
     return this.beatCharge - Math.floor(this.beatCharge)
   })
 
