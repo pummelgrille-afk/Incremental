@@ -151,3 +151,38 @@ export const SUPPORT = {
     attackPerLevel: 0.15,
   },
 } as const
+
+/**
+ * Offline progress. economy-spec.md §4.
+ *
+ * **Filings only.** No conjunctions fire, no stage progress accrues, and so no
+ * Keys can ever be earned while away. Those are not omissions — they are the
+ * three gaps that keep active play dominant, and P1 is honoured precisely by
+ * them: the machine runs without you, but not as well.
+ */
+export const OFFLINE = {
+  /** Seconds of absence that count at all. Beyond this, nothing accrues. */
+  capSeconds: 4 * 3600,
+  /** The ceiling the Salvage branch can raise the cap to. */
+  maxCapSeconds: 24 * 3600,
+
+  /**
+   * Fraction of the player's active earning rate that applies while away.
+   *
+   * **Must stay below 1 forever** (balancing.csv, `efficiency_max`). An offline
+   * rate at parity would make leaving the game the optimal play, which is the
+   * failure mode this whole section exists to avoid.
+   */
+  efficiency: 0.4,
+  maxEfficiency: 0.75,
+
+  /**
+   * `diminishing(t) = 1 / (1 + t / halflife)`.
+   *
+   * Halves the marginal rate every four hours, so a long absence is worth
+   * progressively less per hour rather than being cut off at a cliff. A hard
+   * cap alone would make the player feel robbed at the boundary; a curve makes
+   * the boundary uninteresting.
+   */
+  diminishingHalflifeSeconds: 4 * 3600,
+} as const

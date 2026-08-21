@@ -6,6 +6,7 @@
   import FormationEditor from './lib/ui/FormationEditor.svelte'
   import UpgradeTree from './lib/ui/UpgradeTree.svelte'
   import PrestigeModal from './lib/ui/PrestigeModal.svelte'
+  import WelcomeBack from './lib/ui/WelcomeBack.svelte'
 
   /**
    * Phase 10 vertical slice. The default view, so `npm run dev` shows the game
@@ -51,6 +52,7 @@
   <FormationEditor open={game.showFormation} />
   <UpgradeTree open={game.showTree} />
   <PrestigeModal open={game.showPrestige} />
+  <WelcomeBack />
 {/if}
 
 <style>

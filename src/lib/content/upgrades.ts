@@ -129,6 +129,32 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'recollection', magnitude: 0.2 }],
   },
 
+  {
+    id: 'salvage-the-night-shift',
+    name: 'The Night Shift',
+    description:
+      'The floor does not stop when you do. It does not do the job well ' +
+      'either, but it does it.',
+    branch: 'salvage',
+    tier: 4,
+    requires: ['salvage-the-long-view'],
+    baseCost: 18,
+    // Four hours on top of the base four, doubling the window.
+    effects: [{ kind: 'offlineCap', magnitude: 4 * 3600 }],
+  },
+  {
+    id: 'salvage-standing-orders',
+    name: 'Standing Orders',
+    description:
+      'Written so a competent Wright can follow them unsupervised. I have ' +
+      'yet to meet one, but the orders are sound.',
+    branch: 'salvage',
+    tier: 5,
+    requires: ['salvage-the-night-shift'],
+    baseCost: 26,
+    effects: [{ kind: 'offlineEfficiency', magnitude: 0.15 }],
+  },
+
   // ---- Regulation: reach and readability. The Manual's marginalia. ----
   {
     id: 'regulation-second-beat',

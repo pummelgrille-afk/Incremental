@@ -203,11 +203,57 @@ describe('2 → 3: chime upgrade tracks', () => {
     // every intermediate build on the way.
     const { save, applied } = migrate({ schemaVersion: 1, meta: { keys: 7 } })
     const meta = save.meta as Record<string, unknown>
+    const run = save.run as Record<string, unknown>
 
-    expect(applied).toEqual([1, 2])
+    // Every step from 1 to current, in order — asserted against the constant
+    // so adding a migration does not mean editing this test.
+    expect(applied).toEqual(
+      Array.from({ length: SCHEMA_VERSION - 1 }, (_, i) => i + 1),
+    )
     expect(save.schemaVersion).toBe(SCHEMA_VERSION)
     expect(meta.keys).toBe(7)
     expect(meta.presets).toEqual([])
     expect(meta.chimeUpgrades).toEqual({})
+    expect(run.filingsPerSecond).toBe(0)
+  })
+})
+
+describe('3 → 4: the offline earning rate', () => {
+  const schemaThree = (): RawSave => ({
+    schemaVersion: 3,
+    savedAt: 0,
+    run: { filings: 90, formation: { '1:0': 'hammer' }, mounts: {}, startedAt: 5 },
+    meta: { keys: 2, presets: [], chimeUpgrades: {} },
+  })
+
+  it('defaults the rate to zero', () => {
+    /*
+     * The honest default: an older build never recorded a rate, so inventing
+     * one would pay out for a number nobody measured. The absence that carried
+     * the save across the upgrade earns nothing.
+     */
+    const { save, applied } = migrate(schemaThree())
+    expect(applied).toContain(3)
+    expect((save.run as Record<string, unknown>).filingsPerSecond).toBe(0)
+  })
+
+  it('leaves the rest of the run alone', () => {
+    const run = migrate(schemaThree()).save.run as Record<string, unknown>
+    expect(run.filings).toBe(90)
+    expect(run.formation).toEqual({ '1:0': 'hammer' })
+    expect(run.startedAt).toBe(5)
+  })
+
+  it('survives a save with no run at all', () => {
+    const { save } = migrate({ schemaVersion: 3 })
+    expect((save.run as Record<string, unknown>).filingsPerSecond).toBe(0)
+  })
+
+  it('does not clobber a rate a newer build already wrote', () => {
+    const save = schemaThree()
+    ;(save.run as Record<string, unknown>).filingsPerSecond = 4.5
+
+    const migrated = migrate(save).save
+    expect((migrated.run as Record<string, unknown>).filingsPerSecond).toBe(4.5)
   })
 })

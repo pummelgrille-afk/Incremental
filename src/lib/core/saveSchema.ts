@@ -14,7 +14,7 @@ import { STARTING_ZONE_ID } from '../content/zones'
  * def object — content changes between versions, saves must not.
  */
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 /** Discarded on Rewinding. */
 export interface RunState {
@@ -42,6 +42,17 @@ export interface RunState {
 
   /** Epoch ms. Used for run-length statistics. */
   startedAt: number
+
+  /**
+   * Filings per second the player was earning when they last played, which is
+   * what offline progress is scaled from. Added in schema 4.
+   *
+   * In `run` rather than `meta` because it describes the strength of *this*
+   * run: a Rewind takes the formation away, so the rate it earned must go with
+   * it. Otherwise the first absence after a Rewind would pay at the old
+   * formation's rate.
+   */
+  filingsPerSecond: number
 }
 
 /** A named formation, kept across Rewinds. See progression/loadout.ts. */
@@ -140,6 +151,7 @@ export function createDefaultSave(now = Date.now()): SaveData {
       repairsThisStage: 0,
       reinforcements: 0,
       startedAt: now,
+      filingsPerSecond: 0,
     },
     meta: {
       recollection: 0,
@@ -318,6 +330,7 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
       repairsThisStage: num(run.repairsThisStage, 0, 0),
       reinforcements: num(run.reinforcements, 0, 0),
       startedAt: num(run.startedAt, now, 0),
+      filingsPerSecond: num(run.filingsPerSecond, 0, 0),
     },
     meta: {
       recollection: num(meta.recollection, 0, 0),

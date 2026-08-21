@@ -4,6 +4,7 @@ import { STARTING_ZONE_ID, ZONES } from '../content/zones'
 import { game } from '../stores/game.svelte'
 import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
 import { isRewindUnlocked, rewind as rewindRun, rewindPreview } from '../progression/prestige'
+import { calculateOffline, isWorthReporting } from '../systems/offlineProgress'
 import {
   buyTrack,
   supportRoster,
@@ -133,6 +134,31 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   let saveData: SaveData = loaded.data
 
   grantStartingLoadout(saveData)
+
+  /*
+   * Offline progress, settled before the run starts.
+   *
+   * Applied here rather than in the frame loop because it is a single
+   * transaction against a save that has just been read — the elapsed time is
+   * `now - savedAt`, and both are known exactly once.
+   */
+  const offline = calculateOffline({
+    elapsedSeconds: (Date.now() - saveData.savedAt) / 1000,
+    filingsPerSecond: saveData.run.filingsPerSecond,
+    effects: effectsOf(saveData),
+  })
+  if (isWorthReporting(offline)) {
+    earnFilings(saveData, offline.filings)
+    game.offlineSummary = {
+      elapsedSeconds: offline.effectiveSeconds + offline.wastedSeconds,
+      effectiveSeconds: offline.effectiveSeconds,
+      wastedSeconds: offline.wastedSeconds,
+      filings: Math.floor(offline.filings),
+      capSeconds: offline.capSeconds,
+      efficiency: offline.efficiency,
+      activeEquivalent: Math.floor(offline.activeEquivalent),
+    }
+  }
 
   if (loaded.notices.length > 0) {
     console.info('[orrery] save notices:', loaded.notices)
@@ -391,6 +417,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   if (!PLAY_ORDER.includes(currentStage)) currentStage = DEFAULT_STAGE
   saveData.run.currentStage = currentStage
 
+  /** How long the earning-rate average takes to follow a change. */
+  const RATE_WINDOW_SECONDS = 90
+
   /** Seconds the clear banner holds before the next stage loads. */
   const STAGE_GAP_SECONDS = 3
 
@@ -532,6 +561,21 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
         game.reset()
         autosaver.request('stage-clear')
       }
+    }
+
+    /*
+     * The rate offline progress will be scaled from.
+     *
+     * A slow exponential average rather than a lifetime mean: the player's
+     * earning power changes as they buy slots, and a lifetime figure would
+     * still be reporting their first minute an hour later. The window is long
+     * enough that a wave gap does not read as a collapse in output.
+     */
+    if (elapsed > 0 && game.running) {
+      const perSecond = events.filingsDropped / elapsed
+      const smoothing = Math.min(1, elapsed / RATE_WINDOW_SECONDS)
+      saveData.run.filingsPerSecond +=
+        (perSecond - saveData.run.filingsPerSecond) * smoothing
     }
 
     saveData.statistics.playtimeSeconds += elapsed

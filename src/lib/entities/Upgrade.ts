@@ -55,6 +55,10 @@ export type UpgradeEffectKind =
   | 'recollection'
   /** Reduction in emergency repair cost, as a fraction. */
   | 'repairCost'
+  /** Seconds added to the offline cap. */
+  | 'offlineCap'
+  /** Fraction added to offline efficiency. */
+  | 'offlineEfficiency'
   // Regulation — reach and readability.
   /** Extra whole Beat charges. */
   | 'beatCharges'
@@ -101,6 +105,8 @@ export interface UpgradeEffects {
   filings: number
   recollection: number
   repairCost: number
+  offlineCap: number
+  offlineEfficiency: number
   beatCharges: number
   beatRadius: number
   conjunctionTolerance: number
@@ -117,6 +123,8 @@ export function noUpgradeEffects(): UpgradeEffects {
     filings: 0,
     recollection: 0,
     repairCost: 0,
+    offlineCap: 0,
+    offlineEfficiency: 0,
     beatCharges: 0,
     beatRadius: 0,
     conjunctionTolerance: 0,

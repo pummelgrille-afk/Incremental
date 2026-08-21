@@ -144,6 +144,8 @@ export function rewind(
     repairsThisStage: 0,
     reinforcements: 0,
     startedAt: now,
+    // The rate belonged to the formation that just went away.
+    filingsPerSecond: 0,
   }
 
   /*

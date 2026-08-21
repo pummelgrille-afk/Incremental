@@ -42,6 +42,26 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
    * safe empty default, `meta` read defensively because this runs before
    * validation.
    */
+  /**
+   * 3 → 4: Phase 27 added `run.filingsPerSecond`.
+   *
+   * Defaults to 0, which means a save migrated from an older build earns
+   * nothing for the absence that carried it across the upgrade. That is the
+   * honest default — the old build never recorded a rate, so inventing one
+   * would be paying out for a number nobody measured.
+   */
+  3: (save) => {
+    const run = (save.run ?? {}) as Record<string, unknown>
+    return {
+      ...save,
+      schemaVersion: 4,
+      run: {
+        ...run,
+        filingsPerSecond: typeof run.filingsPerSecond === 'number' ? run.filingsPerSecond : 0,
+      },
+    }
+  },
+
   2: (save) => {
     const meta = (save.meta ?? {}) as Record<string, unknown>
     return {

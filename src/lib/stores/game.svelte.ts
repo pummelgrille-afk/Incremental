@@ -242,6 +242,22 @@ class GameStore {
   /** The synergy preview panel. Toggled with F; deliberately not persisted. */
   showFormation = $state(false)
 
+  /**
+   * What accrued while the player was away, or null when nothing did.
+   *
+   * Cleared by the summary once it has been read — it reports one absence, not
+   * a running total.
+   */
+  offlineSummary = $state<{
+    elapsedSeconds: number
+    effectiveSeconds: number
+    wastedSeconds: number
+    filings: number
+    capSeconds: number
+    efficiency: number
+    activeEquivalent: number
+  } | null>(null)
+
   /** The Rewind modal. Toggled with P, once unlocked. */
   showPrestige = $state(false)
   rewindUnlocked = $state(false)
