@@ -1,4 +1,5 @@
 import { Application, Container, Graphics } from 'pixi.js'
+import { RINGS, RIM_RADIUS } from '../content/field'
 
 /**
  * Phase 7 rendering confirmation harness.
@@ -12,15 +13,6 @@ import { Application, Container, Graphics } from 'pixi.js'
  * Phase 10 replaces this with the real vertical slice. Nothing here is
  * load-bearing; it exists so the Phase 7 decision rests on a measurement.
  */
-
-/** Mirrors docs/design/combat-spec.md §1. Duplicated here only for the harness. */
-const RINGS = [
-  { radius: 90, slots: 6, period: 8 },
-  { radius: 160, slots: 10, period: 14 },
-  { radius: 240, slots: 14, period: 22 },
-] as const
-
-const RIM_RADIUS = 320
 
 export interface RenderHarness {
   /** Rolling mean frame time in milliseconds. */

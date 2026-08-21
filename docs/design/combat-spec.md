@@ -231,7 +231,7 @@ Four ally types against four Slack armour classes.
 | **Shear** | ×1.5 | ×0.75 | ×1.0 | ×1.0 |
 | **Percussive** | ×0.75 | ×1.5 | ×1.0 | ×1.0 |
 | **Thermal** | ×1.0 | ×1.0 | ×1.5 | ×0.75 |
-| **Resonant** | ×1.0 | ×0.75 | ×1.0 | ×1.5 |
+| **Resonant** | ×1.0 | ×1.0 | ×0.75 | ×1.5 |
 
 Two independent pairs (Shear↔Percussive, Thermal↔Resonant) rather than a single
 four-way cycle. A four-way cycle would force one correct answer per wave; two pairs
@@ -241,8 +241,15 @@ formation puzzle needs.
 Multipliers stay in the 0.75–1.5 band. Wider bands make off-type units feel useless
 and collapse roster diversity — the exact thing Phase 35 has to prevent.
 
+Every armour class has **exactly one** favourable and one unfavourable counter,
+and every damage type has exactly one of each. Enforced by
+`tests/damageTypes.test.ts` -- an earlier draft of this table left `Seized` with
+no weakness and gave `Rigid` two, which the test caught.
+
 **Chimes are always Resonant.** This is why they are strong against `Erratic`
-(fast, hard-to-hit Slack) and why their predictive targeting matters.
+(fast, hard-to-hit Slack) and weak against `Seized` (slow, armoured Slack) --
+a clean role split, since grinding down armoured targets is the front line's
+job, not the rim's.
 
 ## 8. Simulation order
 

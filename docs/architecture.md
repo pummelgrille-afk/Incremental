@@ -205,6 +205,38 @@ The renderer and the simulation therefore run at different rates by design — a
 fixed-timestep simulation with rendering interpolating between states. Phase 10
 establishes the pacing.
 
+## Module map
+
+Established in Phase 8. Directories not listed are still empty skeletons.
+
+| Module | Owns | Phase |
+|--------|------|-------|
+| `entities/types.ts` | Shared primitives: ids, slots, damage/armour unions, targeting policies | 8 |
+| `entities/Movement.ts` | Front-line ally def + instance, formation bonuses, conjunction effects | 8 |
+| `entities/Chime.ts` | Ranged support def + instance, Charge | 8 |
+| `entities/Slack.ts` | Enemy def + instance, motion archetypes, traits | 8 |
+| `entities/Projectile.ts` | Pooled projectile (no def — patterns produce these) | 8 |
+| `entities/Mainspring.ts` | The objective; Tension aliased onto hp | 8 |
+| `entities/Wave.ts` | Spawn groups, wave and boss-wave defs | 8 |
+| `entities/Zone.ts` | Zone/stage defs, stage addressing | 8 |
+| `entities/index.ts` | The single type-only barrel | 8 |
+| `content/field.ts` | Ring geometry, nudge and conjunction constants | 8 |
+| `content/damageTypes.ts` | Type interaction matrix | 8 |
+| `content/enemies.ts` | Slack roster (placeholder) | 31 |
+| `content/zones.ts` | Progression map (placeholder) | 33 |
+| `core/simulation.ts` | `SimulationState` — the complete mutable stage state | 8 |
+| `core/stageLoader.ts` | Resolve, validate and initialize a stage | 8 |
+| `core/render.ts` | Pixi scene (currently the Phase 7 harness) | 7 → 10 |
+
+### Boundary enforcement
+
+The three rules above are checked by `tests/boundaries.test.ts` rather than left
+to review, because they are easy to break by reflex and expensive to unpick.
+The test scans every module's import specifiers and fails if the simulation
+layer reaches for Svelte or Pixi, if Pixi appears outside `render.ts`, if
+`content/` reaches upward into `systems/` or `core/`, or if a second barrel
+appears.
+
 ## Current state of `src/lib/core/render.ts`
 
 Phase 7 leaves a **confirmation harness**, not the real renderer: it boots Pixi,

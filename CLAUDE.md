@@ -30,6 +30,68 @@ the way.
   checklist ticked off in that same commit.
 - Run `npm run check` and `npm test` before committing.
 
+## Naming & coding conventions
+
+Established in Phase 8. Applies to everything under `src/lib/`.
+
+### Domain vocabulary
+
+Code uses the game's own nouns, not generic ones. The mapping from PLAN.md's
+generic terms:
+
+| PLAN.md | This codebase | Is |
+|---------|---------------|-----|
+| Ally | `Movement` | Front-line automaton in a rotating ring slot |
+| SupportUnit | `Chime` | Ranged support on a static rim mount |
+| Enemy | `Slack` | Creature of the Unwinding |
+| Objective | `Mainspring` | The defended centre; its health is Tension |
+| Projectile | `Projectile` | Unchanged |
+
+**The noun "Movement" always means the entity, never positional change.** For
+motion use `motion`, `velocity`, `advance` or `position`. This collision is the
+one real cost of the domain vocabulary; keep it contained.
+
+### Definitions vs. instances
+
+Every entity type splits in two, and the distinction is load-bearing:
+
+- **`XDef`** — immutable content data, authored in `src/lib/content/*.ts`,
+  referenced by stable string `id`. Save files store ids, never objects.
+- **`XInstance`** — mutable runtime state, created by the loader or a spawner,
+  holding a `readonly def` back-reference plus live fields.
+
+Content authors touch only `Def`s. Systems mutate only `Instance`s.
+
+### Files and exports
+
+- One entity, one system, or one component per file. Filename matches the
+  primary export: `Movement.ts` exports `MovementDef`/`MovementInstance`;
+  `stageLoader.ts` exports `loadStage`.
+- Entity files are `PascalCase`; system, content and utility files are
+  `camelCase`.
+- **One barrel only** — `src/lib/entities/index.ts`, which is type-only. Entity
+  types are imported nearly everywhere, so it earns its place. Elsewhere barrels
+  invite import cycles and defeat tree-shaking, so import modules directly.
+- Prefer `import type` for types so nothing type-only reaches the bundle.
+
+### Units
+
+- **Time is seconds** everywhere in the simulation. The two exceptions are named
+  for it (`evalInterval` in ms, `telegraphMs`) — otherwise assume seconds.
+- **Angles are radians.** Degrees appear only in design docs and UI copy.
+- **Distances are pixels** at the design resolution, converted at render time.
+- Damage is a float in the simulation and rounded only for display. Rounding in
+  the simulation compounds badly across thousands of small hits.
+
+### Where things must not go
+
+- Nothing under `core/`, `systems/`, `entities/` or `content/` imports Svelte or
+  Pixi. Those modules must run in a plain Vitest process with no DOM.
+- `stores/` is the only bridge into Svelte.
+- `render.ts` reads simulation state and never writes it.
+- Tuning numbers live in `content/`, mirroring `docs/design/balancing.csv`.
+  Systems read them; they never hardcode a constant the CSV owns.
+
 ## Git workflow rules
 
 ### Commit messages
