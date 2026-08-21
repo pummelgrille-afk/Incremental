@@ -96,6 +96,15 @@ class GameStore {
   filingsGain = $state(0)
   private gainExpiresAt = 0
 
+  /**
+   * Seconds until the next stage loads, or 0 when nothing is queued.
+   *
+   * Interim, until Phase 33's stage-select. It exists so the clear banner can
+   * say what happens next instead of leaving the field stopped with no
+   * explanation, which is exactly how it read before.
+   */
+  nextStageIn = $state(0)
+
   /** Set once when a stage clear pays Keys. The HUD clears it after showing. */
   lastKeyAward = $state<{ keys: number; zoneCompleted: boolean } | null>(null)
 
@@ -361,6 +370,11 @@ class GameStore {
     this.slackKilled = 0
     this.conjunctions = 0
     this.phase = 'loading'
+    // Both belong to the stage that just ended. Carrying them forward would
+    // show the previous stage's Key award on the next stage's clear banner.
+    this.lastKeyAward = null
+    this.nextStageIn = 0
+    this.filingsGain = 0
   }
 }
 

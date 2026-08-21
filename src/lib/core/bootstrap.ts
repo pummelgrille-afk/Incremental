@@ -1,6 +1,6 @@
 import { movementById, MOVEMENTS } from '../content/allies'
 import { CHIMES } from '../content/supportUnits'
-import { STARTING_ZONE_ID } from '../content/zones'
+import { STARTING_ZONE_ID, ZONES } from '../content/zones'
 import { game } from '../stores/game.svelte'
 import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
 import {
@@ -20,7 +20,7 @@ import { createRenderer, type Renderer } from './render'
 import { createRng, seedFrom } from './rng'
 import { SaveManager } from './save'
 import type { SaveData } from './saveSchema'
-import { loadStage } from './stageLoader'
+import { loadStage, stageOrder } from './stageLoader'
 import type { StageAddress } from '../entities/Zone'
 import type { SimulationState } from './simulation'
 
@@ -33,6 +33,24 @@ import type { SimulationState } from './simulation'
  */
 
 const DEFAULT_STAGE: StageAddress = `${STARTING_ZONE_ID}:first-shift`
+
+/**
+ * The play order, until Phase 33 builds a real stage-select.
+ *
+ * Clearing a stage currently advances to the next one in this list. That is
+ * deliberately the simplest thing that removes a dead end: before it, a cleared
+ * stage stopped the simulation with nowhere to go, which made every later
+ * phase's playtesting a restart-per-stage exercise.
+ *
+ * Phase 33 replaces this with `ui/StageSelect.svelte` and real unlock gating.
+ */
+const PLAY_ORDER = stageOrder(ZONES)
+
+function nextStageAfter(address: StageAddress): StageAddress | null {
+  const index = PLAY_ORDER.indexOf(address)
+  if (index < 0 || index + 1 >= PLAY_ORDER.length) return null
+  return PLAY_ORDER[index + 1]
+}
 
 export interface GameSession {
   destroy(): void
@@ -127,7 +145,11 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       }
     })
     game.treeRefund = refundValue(saveData)
-    game.treeRevealed = isTreeRevealed(saveData)
+    // `import.meta.env.DEV` so the view can be reviewed before Phase 26 makes
+    // Recollection obtainable and Phase 32 supplies the boss that reveals it.
+    // Stripped from a production build, where the authored gate is the only
+    // way in — economy-spec.md §3.
+    game.treeRevealed = isTreeRevealed(saveData) || import.meta.env.DEV
     game.recollection = saveData.meta.recollection
   }
 
@@ -157,6 +179,20 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   publishTree()
 
+  /**
+   * The stage in play. Restored from the save so a reload resumes where the
+   * player was rather than sending them back to First Shift.
+   */
+  let currentStage: StageAddress = saveData.run.currentStage ?? DEFAULT_STAGE
+  if (!PLAY_ORDER.includes(currentStage)) currentStage = DEFAULT_STAGE
+  saveData.run.currentStage = currentStage
+
+  /** Seconds the clear banner holds before the next stage loads. */
+  const STAGE_GAP_SECONDS = 3
+
+  let pendingStage: StageAddress | null = null
+  let advanceIn = 0
+
   let simulation = buildSimulation()
   const renderer: Renderer = await createRenderer(host)
 
@@ -167,12 +203,12 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   function buildSimulation(): Simulation {
     // Seeded from the stage address, so a stage always plays the same way and
     // a balance observation is reproducible.
-    const rng = createRng(seedFrom(DEFAULT_STAGE))
+    const rng = createRng(seedFrom(currentStage))
     // The tree's aggregate is read once, here. Purchases mid-stage cannot
     // change a run in progress, which is what makes a run reproducible from
     // its seed at all.
     const sim = new Simulation(
-      loadStage(DEFAULT_STAGE, { effects: currentEffects() }),
+      loadStage(currentStage, { effects: currentEffects() }),
       rng,
     )
     seedFormation(sim)
@@ -228,12 +264,14 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   const stageAddressOf = (state: SimulationState): StageAddress =>
     `${state.zone.id}:${state.stage.id}` as StageAddress
 
-  const step = (now: number) => {
-    frame = requestAnimationFrame(step)
-
-    const elapsedMs = now - previous
-    previous = now
-    const elapsed = elapsedMs / 1000
+  /**
+   * One frame's work, given how much time it covers.
+   *
+   * Split out of the `requestAnimationFrame` callback so it can be pumped
+   * directly — RAF is throttled to nothing in a backgrounded or headless tab,
+   * which makes the whole loop unobservable there. The dev handle exposes this.
+   */
+  const frameStep = (elapsed: number, elapsedMs = elapsed * 1000) => {
 
     const simStart = performance.now()
     const events = simulation.advance(elapsed)
@@ -265,7 +303,30 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       if (reward.keys > 0) {
         game.lastKeyAward = { keys: reward.keys, zoneCompleted: reward.zoneCompleted }
       }
+
+      // Queue the next stage. Advancing on a timer rather than immediately so
+      // the clear banner is readable — a stage that vanished the instant it
+      // ended would read as the bug this replaced.
+      pendingStage = nextStageAfter(address)
+      advanceIn = pendingStage ? STAGE_GAP_SECONDS : 0
+      game.nextStageIn = advanceIn
+      publishTree()
       autosaver.request('stage-clear')
+    }
+
+    // Count down to the next stage. The simulation is stopped, so this runs on
+    // the frame clock rather than on simulated time.
+    if (advanceIn > 0) {
+      advanceIn -= elapsed
+      game.nextStageIn = Math.max(0, advanceIn)
+      if (advanceIn <= 0 && pendingStage) {
+        currentStage = pendingStage
+        saveData.run.currentStage = currentStage
+        pendingStage = null
+        simulation = buildSimulation()
+        game.reset()
+        autosaver.request('stage-clear')
+      }
     }
 
     saveData.statistics.playtimeSeconds += elapsed
@@ -292,6 +353,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       fpsAccumulator = 0
       fpsFrames = 0
     }
+  }
+
+  const step = (now: number) => {
+    frame = requestAnimationFrame(step)
+    const elapsedMs = now - previous
+    previous = now
+    frameStep(elapsedMs / 1000, elapsedMs)
   }
 
   frame = requestAnimationFrame(step)
@@ -326,6 +394,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       renderer,
       session,
       content: { MOVEMENTS, CHIMES },
+      /** Pump the loop by hand. See `frameStep`. */
+      frameStep,
     }
   }
 

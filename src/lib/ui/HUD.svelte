@@ -65,7 +65,7 @@
     </div>
 
     <p class="hint">
-      Click the floor to strike · <kbd>F</kbd> formation{#if game.treeRevealed} ·
+      Click the floor to strike · <kbd>F</kbd> formation{#if game.treeRevealed}{' '}·
         <kbd>T</kbd> tree{/if} · <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
     </p>
   </footer>
@@ -119,11 +119,29 @@
     <div class="banner">
       <strong>Stage clear.</strong>
       <span>The rings hold. {format(game.filings)} filings recovered.</span>
+      {#if game.lastKeyAward}
+        <span class="reward">
+          +{game.lastKeyAward.keys}{' '}
+          {game.lastKeyAward.keys === 1 ? 'Key' : 'Keys'}{game.lastKeyAward.zoneCompleted
+            ? ' — zone complete'
+            : ''}
+        </span>
+      {/if}
+      <!-- Says what happens next. Without this the stopped field read as a
+           freeze, which is exactly what a playtest reported. -->
+      {#if game.nextStageIn > 0}
+        <span class="next">Next stage in {Math.ceil(game.nextStageIn)}…</span>
+      {:else}
+        <span class="next">
+          End of the authored stages. <kbd>R</kbd> to run it again.
+        </span>
+      {/if}
     </div>
   {:else if game.phase === 'overwhelmed'}
     <div class="banner lost">
       <strong>The Orrery has stopped.</strong>
       <span>Tension exhausted. Nothing is lost but the shift.</span>
+      <span class="next"><kbd>R</kbd> to wind it again.</span>
     </div>
   {/if}
 </div>
@@ -285,6 +303,15 @@
 
   .charge.ready .fill {
     background: var(--brass);
+  }
+
+  .banner .reward {
+    color: var(--brass);
+  }
+
+  .banner .next {
+    color: var(--muted);
+    font-size: 0.75rem;
   }
 
   .hint {
