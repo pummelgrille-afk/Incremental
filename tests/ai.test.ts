@@ -485,3 +485,105 @@ describe('Chimes cannot defend on their own', () => {
     expect(chime.disabledFor).toBe(0)
   })
 })
+
+/**
+ * Reach at the centre.
+ *
+ * `angularReach` is authored as the angle at a unit's own ring, and
+ * combat-spec.md section 2 frames reach as an arc *length*. Read inward, the
+ * same length subtends a wider angle as a target closes on the centre.
+ *
+ * Before Phase 19 the angular test was fixed at every radius, which made the
+ * innermost ring's inner-bound exemption a half-measure: ring 1 could reach the
+ * Mainspring radially, but a Detent's 22 degree window still covered only 6% of
+ * the circle, and a bearing at radius zero is arbitrary. A shielded Cant parked
+ * on the objective was hittable about one second in eight.
+ */
+describe('reach widens as a target closes on the centre', () => {
+  /** Narrow arc, own ring only — a Detent, which is what ring 1 actually holds. */
+  function ringOneUnit() {
+    const def: MovementDef = {
+      ...movementById('detent')!,
+      targeting: 'deepest',
+      angularReach: 10 * (Math.PI / 180),
+      radialReach: 0,
+    }
+    return placeMovement(sim.state, def, 1, 0)
+  }
+
+  /** True when this unit picks the Slack as its target. */
+  function canHit(radius: number, angle: number): boolean {
+    sim.state.slack.length = 0
+    sim.state.movements.length = 0
+    const unit = ringOneUnit()
+    const target = slackAt('burr', radius, angle)
+    target.hp = 1e9
+    target.maxHp = 1e9
+
+    updateMovements(sim.state, TICK_SECONDS)
+    return unit.targetId === target.id
+  }
+
+  const RING1 = RINGS[0].radius
+
+  it('reaches a Slack sitting on the Mainspring from any bearing', () => {
+    // The property the inner-bound exemption promised and did not deliver.
+    for (const angle of [0, 0.9, Math.PI / 2, 2.4, Math.PI, -1.2]) {
+      expect(canHit(2, angle), `bearing ${angle.toFixed(1)}`).toBe(true)
+    }
+  })
+
+  it('still refuses a bearing well outside the arc at its own ring', () => {
+    // The fix must not become "ring 1 hits everything everywhere".
+    expect(canHit(RING1, Math.PI / 2)).toBe(false)
+    expect(canHit(RING1, Math.PI)).toBe(false)
+  })
+
+  it('keeps the authored arc at the ring radius it was authored for', () => {
+    // 10 degrees authored: 8 degrees off-axis connects, 12 does not.
+    const deg = Math.PI / 180
+    expect(canHit(RING1, 8 * deg)).toBe(true)
+    expect(canHit(RING1, 12 * deg)).toBe(false)
+  })
+
+  it('widens in proportion as the radius halves', () => {
+    // Half the radius, twice the subtended angle: 19 degrees connects at
+    // half-radius but not at the ring itself.
+    const deg = Math.PI / 180
+    expect(canHit(RING1, 19 * deg)).toBe(false)
+    expect(canHit(RING1 / 2, 19 * deg)).toBe(true)
+    expect(canHit(RING1 / 2, 21 * deg)).toBe(false)
+  })
+
+  it('never narrows outward', () => {
+    // A Movement whose reach extends past its own ring keeps the full authored
+    // arc out there. Letting it shrink at range would rebalance every unit
+    // rather than fix the centre.
+    sim.state.slack.length = 0
+    sim.state.movements.length = 0
+    const def: MovementDef = {
+      ...movementById('hammer')!,
+      angularReach: 10 * (Math.PI / 180),
+      radialReach: 1,
+    }
+    const unit = placeMovement(sim.state, def, 2, 0)
+    const target = slackAt('burr', RINGS[2].radius, 9 * (Math.PI / 180))
+    target.hp = 1e9
+
+    updateMovements(sim.state, TICK_SECONDS)
+    expect(unit.targetId).toBe(target.id)
+  })
+
+  it('leaves the inner bound on outer rings intact', () => {
+    // Only the innermost ring defends the centre. A ring-3 unit must still not
+    // reach a Slack that has already penetrated, whatever the subtended angle.
+    sim.state.slack.length = 0
+    sim.state.movements.length = 0
+    const unit = placeMovement(sim.state, movementById('pallet')!, 3, 0)
+    const target = slackAt('burr', 5, 0)
+    target.hp = 1e9
+
+    updateMovements(sim.state, TICK_SECONDS)
+    expect(unit.targetId).toBeNull()
+  })
+})

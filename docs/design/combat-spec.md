@@ -164,6 +164,32 @@ the unit attacks and resets. Attacks resolve **instantly for melee**, and spawn 
 `Projectile` for ranged. No wind-up animation gates damage — animation is cosmetic
 and reads from the same cooldown value.
 
+### Reach subtends a wider angle near the centre (Phase 19)
+
+`angularReach` is authored as the angle at the unit's **own** ring. Because
+reach is an arc *length*, the same length subtends a wider angle as a target
+closes on the centre:
+
+```
+subtended = min(π, angularReach × ringRadius / radius)
+```
+
+Clamped so it only ever **widens inward, never narrows outward** — the authored
+values were tuned as the reach at and beyond a unit's own ring, and letting them
+shrink at range would rebalance every unit rather than fix one degenerate case.
+
+Without this, the innermost ring's inner-bound exemption was a half-measure. It
+drops the inner bound to zero so ring 1 can defend the Mainspring — but the
+angular test stayed fixed, and **a bearing at radius zero is arbitrary**. A
+Detent's 22° window covers 6% of the circle, so an enemy parked on the objective
+was hittable roughly one second in eight.
+
+Measured consequence before the fix: on stage 3, a shielded Cant reached the
+centre in over half of all runs, survived up to 28 s and sat on the Mainspring
+for up to 18 s. Wave 1's duration alone explained the stage's outcome variance
+at r = −0.88. The design compounded it — ring 1 is where the formation bonuses
+push you to put a tank, and the tank is the weakest attacker in the roster.
+
 ### Formation bonuses
 
 Applied on slot assignment and cached until the formation changes. Never

@@ -71,6 +71,8 @@ interface Reach {
   innerBound: number
   outerBound: number
   angularReach: number
+  /** The unit's own ring radius — the radius `angularReach` was authored at. */
+  ringRadius: number
 }
 
 function reachOf(sim: SimulationState, movement: MovementInstance): Reach | null {
@@ -103,7 +105,39 @@ function reachOf(sim: SimulationState, movement: MovementInstance): Reach | null
     innerBound: isInnermost ? 0 : ring.radius - RADIAL_MARGIN,
     outerBound: outerRing.radius + RADIAL_MARGIN,
     angularReach: movement.def.angularReach * (1 + movement.bonuses.range),
+    ringRadius: ring.radius,
   }
+}
+
+/**
+ * The angle a unit's reach actually subtends at a given radius.
+ *
+ * `angularReach` is authored as the angle at the unit's **own** ring, and
+ * combat-spec.md §2 already frames reach as an arc *length* — "the same angular
+ * reach covers more arc length on an outer ring". The same statement read
+ * inward says the same length subtends a *wider angle* as the target closes on
+ * the centre, which is what this computes.
+ *
+ * **This is what made the innermost ring's exemption a half-measure.** That
+ * exemption drops the inner bound to zero so ring 1 can defend the Mainspring,
+ * with a comment saying a Slack at the centre "would be unreachable by anything
+ * at all" otherwise. But the angular test stayed fixed, and a bearing at radius
+ * zero is arbitrary — so a Detent's 22° window covered 6% of the circle and an
+ * enemy parked on the objective was hittable roughly one second in eight.
+ *
+ * Measured on stage 3, where a shielded Cant reaches the centre in half of all
+ * runs: it survived up to 28 s, sat on the Mainspring for up to 18 s, and drove
+ * wave 1's duration, which alone explained the stage's outcome variance at
+ * r = -0.88. See docs/phases/phase-19.md.
+ *
+ * Deliberately clamped so reach only ever **widens inward, never narrows
+ * outward**. The authored values were tuned as the reach at and beyond a unit's
+ * own ring; letting them shrink at range would be an unrequested rebalance of
+ * every unit, rather than a fix to the degenerate case at the centre.
+ */
+function subtendedReach(reach: Reach, radius: number): number {
+  if (radius <= 0) return Math.PI
+  return Math.min(Math.PI, reach.angularReach * Math.max(1, reach.ringRadius / radius))
 }
 
 function inReach(reach: Reach, slack: SlackInstance): boolean {
@@ -111,7 +145,7 @@ function inReach(reach: Reach, slack: SlackInstance): boolean {
   if (radius < reach.innerBound || radius > reach.outerBound) return false
 
   const slackAngle = Math.atan2(slack.position.y, slack.position.x)
-  return Math.abs(angleDelta(reach.unitAngle, slackAngle)) <= reach.angularReach
+  return Math.abs(angleDelta(reach.unitAngle, slackAngle)) <= subtendedReach(reach, radius)
 }
 
 /** Shortest signed angle from a to b, in (-π, π]. */
