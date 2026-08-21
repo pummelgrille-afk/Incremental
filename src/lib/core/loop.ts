@@ -1,5 +1,4 @@
 import type { Projectile } from '../entities/Projectile'
-import { isBossWave } from '../entities/Wave'
 import { BUDGETS } from '../content/budgets'
 import { BEAT, CONJUNCTION, RINGS } from '../content/field'
 import { patternById } from '../systems/patterns'
@@ -10,8 +9,9 @@ import {
   reapSlack,
   resolveMovementAttacks,
   updateBuffs,
-  updateMainspring,
 } from '../systems/combat'
+import { checkThresholds, updateObjective, updateStageProgress } from '../systems/objectiveRules'
+import { grantShield, repair, repairCost } from '../entities/Mainspring'
 import {
   chimePosition,
   updateChimes,
@@ -22,7 +22,6 @@ import { updateSlackMotion, updateSpawning, waveSpawnDuration } from '../systems
 import { createCooldowns, updateSynergy } from '../systems/synergy'
 import { Pool } from '../utils/pool'
 import type { Rng } from './rng'
-import { isOverwhelmed } from '../entities/Mainspring'
 import type { SimulationState } from './simulation'
 
 /**
@@ -51,15 +50,26 @@ export interface TickEvents {
   conjunctionsFired: number
   stageCleared: boolean
   stageLost: boolean
+  /** True on the tick a wave finished / a new one began. */
+  waveCleared: boolean
+  waveStarted: boolean
+  /** Tension thresholds crossed downward, e.g. [0.5]. */
+  thresholdsCrossed: number[]
 }
 
-const NO_EVENTS: TickEvents = {
-  slackKilled: 0,
-  filingsDropped: 0,
-  mainspringHits: 0,
-  conjunctionsFired: 0,
-  stageCleared: false,
-  stageLost: false,
+function noTickEvents(): TickEvents {
+  return {
+    slackKilled: 0,
+    filingsDropped: 0,
+    mainspringHits: 0,
+    conjunctionsFired: 0,
+    stageCleared: false,
+    stageLost: false,
+    waveCleared: false,
+    waveStarted: false,
+    // Fresh array per tick: a shared one would accumulate across ticks.
+    thresholdsCrossed: [],
+  }
 }
 
 export class Simulation {
@@ -115,7 +125,7 @@ export class Simulation {
   advance(elapsedSeconds: number): TickEvents {
     this.accumulator += Math.min(elapsedSeconds, MAX_CATCHUP_SECONDS)
 
-    const merged: TickEvents = { ...NO_EVENTS }
+    const merged: TickEvents = noTickEvents()
 
     while (this.accumulator >= TICK_SECONDS) {
       const events = this.tick(TICK_SECONDS)
@@ -127,6 +137,11 @@ export class Simulation {
       merged.conjunctionsFired += events.conjunctionsFired
       merged.stageCleared ||= events.stageCleared
       merged.stageLost ||= events.stageLost
+      merged.waveCleared ||= events.waveCleared
+      merged.waveStarted ||= events.waveStarted
+      if (events.thresholdsCrossed.length > 0) {
+        merged.thresholdsCrossed.push(...events.thresholdsCrossed)
+      }
     }
 
     return merged
@@ -139,7 +154,7 @@ export class Simulation {
 
   tick(dt: number): TickEvents {
     const sim = this.state
-    const events: TickEvents = { ...NO_EVENTS }
+    const events: TickEvents = noTickEvents()
 
     if (sim.phase === 'cleared' || sim.phase === 'overwhelmed') return events
 
@@ -150,10 +165,10 @@ export class Simulation {
     // 1. Ring phases.
     this.advanceRings(dt)
 
-    // 2. Cooldowns, charge, buffs.
+    // 2. Cooldowns, charge, buffs, objective recovery.
     this.advanceBeat(dt)
     updateBuffs(sim, dt)
-    updateMainspring(sim, dt)
+    updateObjective(sim, dt)
 
     if (this.pendingFilings > 0) {
       events.filingsDropped += this.pendingFilings
@@ -196,8 +211,16 @@ export class Simulation {
       events.filingsDropped += synergy.filingsDropped
     }
 
-    // 10. Win/loss and wave progression.
-    this.updateStageProgress(sim, dt, events)
+    // 10. Threshold crossings, then win/loss and wave progression.
+    //     Thresholds are checked here, after damage, not at step 2.
+    const thresholds = checkThresholds(sim)
+    if (thresholds.length > 0) events.thresholdsCrossed.push(...thresholds)
+
+    const objective = updateStageProgress(sim, dt)
+    events.stageCleared = objective.stageCleared
+    events.stageLost = objective.stageLost
+    events.waveCleared = objective.waveCleared
+    events.waveStarted = objective.waveStarted
 
     this.totalSlackKilled += events.slackKilled
     this.totalConjunctions += events.conjunctionsFired
@@ -273,6 +296,21 @@ export class Simulation {
     // nothing — an input with no feedback reads as a broken input.
     this.lastStrike = { x, y, age: 0 }
     return true
+  }
+
+  /**
+   * Emergency repair the objective. Hook for Phase 21, which owns the Filings
+   * transaction — this returns the cost so the caller can charge for it, and
+   * refuses at full Tension so nobody is charged for nothing.
+   */
+  repairMainspring(): { repaired: boolean; cost: number } {
+    const cost = repairCost(this.state.mainspring)
+    return { repaired: repair(this.state.mainspring), cost }
+  }
+
+  /** Grant the objective a temporary shield. Hook for conjunctions and upgrades. */
+  shieldMainspring(amount: number, duration: number): void {
+    grantShield(this.state.mainspring, amount, duration)
   }
 
   /** Advance Beat charge and cooldown on simulation time. */
@@ -361,42 +399,6 @@ export class Simulation {
     }
   }
 
-  /** Wave progression, stage clear, and the loss condition. */
-  private updateStageProgress(sim: SimulationState, dt: number, events: TickEvents): void {
-    if (isOverwhelmed(sim.mainspring)) {
-      sim.phase = 'overwhelmed'
-      events.stageLost = true
-      return
-    }
-
-    if (sim.phase === 'wave-gap') {
-      sim.gapRemaining -= dt
-      if (sim.gapRemaining <= 0) {
-        sim.waveIndex++
-        sim.waveElapsed = 0
-        sim.phase = 'wave-active'
-      }
-      return
-    }
-
-    if (sim.phase !== 'wave-active') return
-
-    const wave = sim.stage.waves[sim.waveIndex]
-    if (!wave) return
-
-    // A wave is cleared once everything has spawned and nothing is left.
-    const finishedSpawning = sim.waveElapsed >= waveSpawnDuration(sim, sim.waveIndex)
-    if (!finishedSpawning || sim.slack.length > 0) return
-
-    if (sim.waveIndex >= sim.stage.waves.length - 1) {
-      sim.phase = 'cleared'
-      events.stageCleared = true
-      return
-    }
-
-    sim.phase = 'wave-gap'
-    sim.gapRemaining = isBossWave(wave) ? wave.gapAfter : wave.gapAfter
-  }
 }
 
 export { RINGS }

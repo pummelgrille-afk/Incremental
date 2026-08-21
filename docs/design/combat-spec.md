@@ -225,6 +225,41 @@ kill without warning is a bug, not a difficulty setting (P4).
 - No invulnerability frames. Tension is a pool, not a life counter, so
   chip damage is the intended texture.
 
+### Objective rules (Phase 12)
+
+Implemented in `systems/objectiveRules.ts`, deliberately separate from the entity
+so win and loss conditions are readable without reading a tick function.
+
+**Regeneration is paused during a live wave.** It ticks only in `wave-gap`.
+`game-loop.md` says damage carries into the next wave as reduced Tension, and
+continuous regeneration would erode that — sustained pressure could be out-healed
+rather than survived. Confining recovery to the gap keeps the carry-over
+meaningful and makes the gap a real beat rather than dead time.
+
+**Shields replace, they do not stack.** A stronger grant overwrites a weaker one;
+a weaker grant only extends the existing duration. Stacking would let a player
+bank conjunctions into an invulnerability window, which fights the no-wall
+principle in `economy-spec.md` §5.
+
+**Loss is checked before clear.** A Mainspring reaching zero on the same tick the
+last Slack dies is a **loss**. Clearing a stage you did not survive would be
+incoherent.
+
+**Tension thresholds** at 50% / 25% / 10% fire an event when crossed *downward*
+only. Regenerating back up through one is not an event, or a Mainspring hovering
+at a threshold would spam them. These drive HUD warnings, achievements, and
+later boss phase triggers.
+
+**Threshold checks run late in the tick** — step 10, not step 2. Damage lands at
+steps 6–8, so a check folded into the recovery step would compare a value to
+itself and never fire. This was a real bug, caught by test.
+
+**Emergency repair** restores 25% of maximum Tension at a cost escalating by
+1.5× per use within a stage, and refuses at full Tension so nobody is charged for
+nothing. The escalation is what keeps it a panic button rather than a strategy
+(`economy-spec.md` invariant 6). The economy transaction itself lands in
+Phase 21; Phase 12 exposes only the hook.
+
 ### Blocking
 
 Movements have a **block arc** — a projectile crossing a Movement's slot within

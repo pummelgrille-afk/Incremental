@@ -18,6 +18,11 @@ beat,beat_damage,26,15,45,damage,5,Percussive; tuned so ignoring the Beat is sti
 objective,mainspring_hitbox,28,20,40,px,5,Smaller than rendered sprite for fairness
 objective,tension_base,1000,500,2000,hp,6,Starting Tension pool
 objective,tension_per_bracing_tier,250,100,500,hp,6,Bracing branch scaling
+objective,repair_fraction,0.25,0.15,0.4,rate,12,Fraction of max Tension an emergency repair restores
+objective,regen_in_combat,0,0,1,bool,12,Regeneration is paused during a live wave; gap only
+objective,threshold_50,0.5,0.4,0.6,rate,12,Fires an event when crossed downward
+objective,threshold_25,0.25,0.2,0.35,rate,12,
+objective,threshold_10,0.1,0.05,0.15,rate,12,
 combat,retarget_interval,0.75,0.5,1.5,s,5,Never retarget mid-swing
 combat,threat_distance_weight,2.0,1.0,4.0,multiplier,5,Weight on proximity to Mainspring in threat score
 combat,defence_constant,100,50,200,constant,5,In final = raw * 100/(100+defence)

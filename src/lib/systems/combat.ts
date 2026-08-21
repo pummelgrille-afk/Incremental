@@ -84,6 +84,10 @@ export function damageMainspring(sim: SimulationState, amount: number): void {
 
   sim.mainspring.hp = Math.max(0, sim.mainspring.hp - remaining)
   sim.mainspring.hitFlash = 0.2
+
+  // The only path by which Tension falls, so the low-water mark belongs here.
+  const fraction = sim.mainspring.maxHp > 0 ? sim.mainspring.hp / sim.mainspring.maxHp : 0
+  if (fraction < sim.mainspring.lowestFraction) sim.mainspring.lowestFraction = fraction
 }
 
 export interface CombatResult {
@@ -133,19 +137,6 @@ export function reapSlack(sim: SimulationState, dead: Set<number>): CombatResult
 
   sim.filingsEarned += filings
   return { slackKilled: dead.size, filingsDropped: filings }
-}
-
-/** Regeneration and decaying visual state. */
-export function updateMainspring(sim: SimulationState, dt: number): void {
-  if (sim.mainspring.regenPerSecond > 0 && sim.mainspring.hp > 0) {
-    sim.mainspring.hp = Math.min(
-      sim.mainspring.maxHp,
-      sim.mainspring.hp + sim.mainspring.regenPerSecond * dt,
-    )
-  }
-  if (sim.mainspring.hitFlash > 0) {
-    sim.mainspring.hitFlash = Math.max(0, sim.mainspring.hitFlash - dt)
-  }
 }
 
 /** Decay transient buffs granted by conjunctions. */

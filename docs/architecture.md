@@ -337,7 +337,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `entities/Chime.ts` | Ranged support def + instance, Charge | 8 |
 | `entities/Slack.ts` | Enemy def + instance, motion archetypes, traits | 8 |
 | `entities/Projectile.ts` | Pooled projectile (no def — patterns produce these) | 8 |
-| `entities/Mainspring.ts` | The objective; Tension aliased onto hp | 8 |
+| `entities/Mainspring.ts` | The objective; Tension, shields, repair | 8 → 12 |
 | `entities/Wave.ts` | Spawn groups, wave and boss-wave defs | 8 |
 | `entities/Zone.ts` | Zone/stage defs, stage addressing | 8 |
 | `entities/index.ts` | The single type-only barrel | 8 |
@@ -365,6 +365,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `systems/patterns.ts` | Bullet patterns as pure functions | 10 → 16 |
 | `systems/collision.ts` | Projectile integration, block arc, hitboxes | 10 → 17 |
 | `systems/combat.ts` | Damage formulas, death handling, drops | 10 |
+| `systems/objectiveRules.ts` | Win/loss, wave advance, regen, shields, thresholds | 12 |
 | `systems/synergy.ts` | Conjunction detection, effects, preview | 10 |
 | `utils/pool.ts` | Fixed-capacity object pool | 10 |
 | `stores/game.svelte.ts` | The reactive projection — the only Svelte bridge | 10 |

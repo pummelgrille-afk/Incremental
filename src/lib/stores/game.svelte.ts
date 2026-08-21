@@ -17,6 +17,10 @@ class GameStore {
   // Objective
   tension = $state(0)
   maxTension = $state(0)
+  shield = $state(0)
+  /** Lowest Tension fraction reached this stage. Drives "cleared untouched". */
+  lowestTensionFraction = $state(1)
+  repairsThisStage = $state(0)
 
   // Economy
   filings = $state(0)
@@ -59,6 +63,9 @@ class GameStore {
 
   tensionFraction = $derived(this.maxTension > 0 ? this.tension / this.maxTension : 0)
 
+  /** Cleared without taking a single hit — the "Within Tolerance" condition. */
+  clearedUntouched = $derived(this.phase === 'cleared' && this.lowestTensionFraction >= 1)
+
   /** True while the player can act — used to gate input and dim the field. */
   running = $derived(this.phase === 'wave-active' || this.phase === 'wave-gap')
 
@@ -81,6 +88,9 @@ class GameStore {
 
     this.tension = sim.mainspring.hp
     this.maxTension = sim.mainspring.maxHp
+    this.shield = sim.mainspring.shield
+    this.lowestTensionFraction = sim.mainspring.lowestFraction
+    this.repairsThisStage = sim.mainspring.repairsThisStage
     this.filings = sim.filingsEarned
 
     this.zoneName = sim.zone.name
