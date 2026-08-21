@@ -3,7 +3,7 @@ import type { FormationBonuses, MovementDef, MovementInstance } from '../entitie
 import { createBuffs } from '../systems/buffs'
 import { levelScale } from '../progression/roster'
 import type { RingIndex } from '../entities/types'
-import { RINGS, ringByIndex } from '../content/field'
+import { OUTERMOST_RING, RINGS, ringByIndex } from '../content/field'
 import { allocateId, type SimulationState } from './simulation'
 
 /**
@@ -179,8 +179,8 @@ export function recomputeBonuses(sim: SimulationState): void {
 
     // Ring 1: close support from the Mainspring.
     if (ring === 1) bonuses.defence += 0.15
-    // Ring 3: nothing blocking the sightline.
-    if (ring === 3) bonuses.range += 0.1
+    // Outermost ring: nothing blocking the sightline.
+    if (ring === OUTERMOST_RING) bonuses.range += 0.1
 
     // Both neighbours on the same ring filled. Wraps around the ring.
     const left = slotKey(ring, (slot - 1 + config.slots) % config.slots)
@@ -188,7 +188,7 @@ export function recomputeBonuses(sim: SimulationState): void {
     if (occupied.has(left) && occupied.has(right)) bonuses.attack += 0.1
 
     // Screened: something occupies the slot radially outward.
-    if (ring < 3) {
+    if (ring < OUTERMOST_RING) {
       const outer = ringByIndex((ring + 1) as RingIndex)
       if (outer) {
         // Slot counts differ per ring, so map by angle fraction.

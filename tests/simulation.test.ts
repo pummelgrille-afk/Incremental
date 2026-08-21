@@ -10,7 +10,14 @@ import { updateProjectiles } from '../src/lib/systems/collision'
 import { createSlack } from '../src/lib/systems/spawn'
 import { slackById } from '../src/lib/content/enemies'
 import { findConjunctions, timeToNextConjunction } from '../src/lib/systems/synergy'
-import { BEAT, RINGS } from '../src/lib/content/field'
+import {
+  BEAT,
+  INNERMOST_RING,
+  OUTERMOST_RING,
+  RIM_RADIUS,
+  RINGS,
+  TOTAL_SLOTS,
+} from '../src/lib/content/field'
 import type { StageAddress } from '../src/lib/entities/Zone'
 import type { SimulationState } from '../src/lib/core/simulation'
 
@@ -269,9 +276,11 @@ describe('damage', () => {
 describe('formation bonuses', () => {
   const hammer = movementById('hammer')!
 
-  it('gives ring 1 a defence bonus and ring 3 a range bonus', () => {
-    const inner = placeMovement(state, hammer, 1, 0)
-    const outer = placeMovement(state, hammer, 3, 0)
+  it('gives the innermost ring a defence bonus and the outermost a range bonus', () => {
+    // Keyed on the derived bounds, not on the literal 1 and 3: adding an orbit
+    // must not silently move the range bonus onto an interior ring.
+    const inner = placeMovement(state, hammer, INNERMOST_RING, 0)
+    const outer = placeMovement(state, hammer, OUTERMOST_RING, 0)
     expect(inner.bonuses.defence).toBeGreaterThan(0)
     expect(outer.bonuses.range).toBeCloseTo(0.1, 6)
   })
@@ -460,6 +469,30 @@ describe('projectile budget', () => {
   })
 })
 
+describe('the orbits', () => {
+  it('exposes every orbit through the derived bounds', () => {
+    // The five places that used to hardcode `3` now read these. If a new orbit
+    // is appended and these do not move, the outermost-ring range bonus and the
+    // radial reach cap both silently stay on the old outer ring.
+    expect(INNERMOST_RING).toBe(RINGS[0].index)
+    expect(OUTERMOST_RING).toBe(RINGS[RINGS.length - 1].index)
+    expect(RINGS.some((r) => r.index === OUTERMOST_RING)).toBe(true)
+  })
+
+  it('orders orbits outward, with room inside the rim', () => {
+    for (let i = 1; i < RINGS.length; i++) {
+      expect(RINGS[i].radius, `orbit ${RINGS[i].index}`).toBeGreaterThan(RINGS[i - 1].radius)
+    }
+    // Contacts spawn at the rim and move inward; an orbit outside it would
+    // never be crossed.
+    expect(RINGS[RINGS.length - 1].radius).toBeLessThan(RIM_RADIUS)
+  })
+
+  it('gives the field as many slots as the orbits declare', () => {
+    expect(TOTAL_SLOTS).toBe(RINGS.reduce((n, r) => n + r.slots, 0))
+  })
+})
+
 describe('ring period constraint', () => {
   const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
 
@@ -484,6 +517,15 @@ describe('ring period constraint', () => {
         ).toBe(1)
         // The reduced ratio must also not be tiny, or alignments repeat often.
         expect(Math.max(reducedA, reducedB), `${a}:${b} repeats too fast`).toBeGreaterThan(2)
+        /*
+         * And neither may divide the other. Found while choosing the fourth
+         * orbit's period: 8 and 32 pass every check above — they reduce to 1:4,
+         * which is coprime and larger than 2 — yet they are in exact 4:1
+         * lockstep and never drift apart at all. That is precisely the failure
+         * this block exists to catch, so the check was letting the worst case
+         * through under the guise of the best one.
+         */
+        expect(Math.min(reducedA, reducedB), `${a}:${b} are in lockstep`).toBeGreaterThan(1)
       }
     }
   })

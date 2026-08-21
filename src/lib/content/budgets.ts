@@ -27,7 +27,7 @@ export const BUDGETS = {
   particles: 400,
 
   /** Movements plus Chimes. Bounded by TOTAL_SLOTS + RIM_MOUNTS anyway. */
-  units: 38,
+  units: 56,
 } as const
 
 /**

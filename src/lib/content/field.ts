@@ -20,13 +20,30 @@ export const RINGS: readonly RingConfig[] = [
   { index: 1, radius: 90, slots: 6, period: 8 },
   { index: 2, radius: 160, slots: 10, period: 14 },
   { index: 3, radius: 240, slots: 14, period: 22 },
+  { index: 4, radius: 310, slots: 18, period: 34 },
 ] as const
 
 /**
- * Ring periods are deliberately non-integer ratios (8 : 14 : 22 = 4 : 7 : 11,
- * pairwise coprime) so alignments do not repeat on a short cycle. This is what
- * makes conjunction a planning problem rather than a metronome — see
- * narrative.md, "The Wander Rings". Guarded by tests/simulation.test.ts.
+ * The first and last orbits, derived rather than written down.
+ *
+ * Both used to be the literal `3`, in five places across four files, which made
+ * "add an orbit" a change you had to remember to make everywhere. Now it is one
+ * array entry — see theme-revision.md, "Structure".
+ */
+export const INNERMOST_RING = RINGS[0].index
+export const OUTERMOST_RING = RINGS[RINGS.length - 1].index
+
+/**
+ * Ring periods are deliberately non-integer ratios (8 : 14 : 22 : 34 =
+ * 4 : 7 : 11 : 17, pairwise coprime) so alignments do not repeat on a short
+ * cycle. This is what makes conjunction a planning problem rather than a
+ * metronome. Guarded by tests/simulation.test.ts.
+ *
+ * The real periods of Mercury, Venus, Earth and Mars are 1 : 2.56 : 4.15 :
+ * 7.81, which would put Mars at ~62 s per revolution — longer than most waves
+ * last, so the outer orbit would read as static. Compressed to 34 s, which
+ * keeps the ordering and the coprimality and loses the astronomical accuracy.
+ * theme-revision.md anticipated this trade.
  *
  * Rotation is **constant and never player-controllable** (combat-spec.md §1).
  * No upgrade may grant steering; that was tried and removed after the Phase 10
@@ -34,7 +51,7 @@ export const RINGS: readonly RingConfig[] = [
  */
 
 /** Chime mounts. The rim does not rotate. */
-export const RIM_RADIUS = 320
+export const RIM_RADIUS = 380
 export const RIM_MOUNTS = 8
 
 /** Slack spawn at the rim and move inward. */

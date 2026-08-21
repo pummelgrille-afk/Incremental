@@ -1,6 +1,6 @@
 import { conjunctionScaleOf, type MovementInstance } from '../entities/Movement'
 import type { ConjunctionScale } from '../entities/types'
-import { CONJUNCTION, ringByIndex, slotAngle } from '../content/field'
+import { CONJUNCTION, RINGS, ringByIndex, slotAngle } from '../content/field'
 import { pairingOf, type TypePairing } from '../content/damageTypes'
 import { grantBonus } from './buffs'
 import { TELEMETRY_SOURCES } from './telemetry'
@@ -227,7 +227,7 @@ export function timeToNextConjunction(
 
   for (let t = stepSeconds; t <= horizonSeconds; t += stepSeconds) {
     for (let i = 0; i < sim.rings.length; i++) {
-      const ring = ringByIndex((i + 1) as 1 | 2 | 3)
+      const ring = RINGS[i]
       if (!ring) continue
       sim.rings[i].phase = basePhases[i] + (Math.PI * 2 / ring.period) * t
     }

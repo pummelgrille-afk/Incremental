@@ -1,15 +1,18 @@
 category,parameter,value,min,max,unit,owning_phase,notes
-field,ring1_radius,90,60,120,px,5,Inner ring radius
-field,ring2_radius,160,130,200,px,5,Main line radius
-field,ring3_radius,240,200,280,px,5,Outer ring radius
-field,rim_radius,320,280,380,px,5,Chime mounts and enemy spawn boundary
+field,ring1_radius,90,60,120,px,5,Mercury's orbit; innermost
+field,ring2_radius,160,130,200,px,5,Venus's orbit; the main line
+field,ring3_radius,240,200,280,px,5,Earth's orbit
+field,ring4_radius,310,280,340,px,29,Mars's orbit; outermost
+field,rim_radius,380,340,440,px,29,Array mounts and enemy spawn boundary
 field,ring1_slots,6,4,8,count,5,Fewer slots inner so placement matters
 field,ring2_slots,10,8,12,count,5,
 field,ring3_slots,14,10,18,count,5,
+field,ring4_slots,18,14,22,count,29,Widest orbit takes the most platforms
 field,rim_mounts,8,4,12,count,5,Chime mount points
 field,ring1_period,8,5,12,s,5,Seconds per revolution
 field,ring2_period,14,10,20,s,5,Non-integer ratio to ring1 on purpose
 field,ring3_period,22,16,30,s,5,Non-integer ratio to ring1 and ring2
+field,ring4_period,34,26,40,s,29,Mars compressed from a true ~62s; 4:7:11:17 stays pairwise coprime
 beat,beat_max_charges,3,2,6,count,5,Wright's manual strike; Regulation branch raises this
 beat,beat_recharge_interval,3,1.5,6,s,5,Seconds to regain one Beat
 beat,beat_cooldown,0.25,0.1,0.5,s,5,Minimum gap between strikes so a double-click does not waste one

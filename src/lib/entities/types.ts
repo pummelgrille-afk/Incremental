@@ -8,8 +8,8 @@
 /** Dense integer handle. Entities are pooled, so ids are reused. */
 export type EntityId = number
 
-/** Ring 0 is the Mainspring; 1–3 are the rotating rings. Rim mounts are static. */
-export type RingIndex = 0 | 1 | 2 | 3
+/** Ring 0 is the Mainspring; 1–4 are the rotating rings. Rim mounts are static. */
+export type RingIndex = 0 | 1 | 2 | 3 | 4
 
 /**
  * A unit's position on the field. Units store a *slot*, never an angle — the

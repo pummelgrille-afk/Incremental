@@ -2,7 +2,7 @@ import type { ChimeInstance } from '../entities/Chime'
 import type { MovementInstance } from '../entities/Movement'
 import type { SlackInstance } from '../entities/Slack'
 import type { RingIndex, TargetingPolicy, Vec2 } from '../entities/types'
-import { RIM_RADIUS, RINGS, ringByIndex, slotAngle } from '../content/field'
+import { INNERMOST_RING, OUTERMOST_RING, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
 import type { SimulationState } from '../core/simulation'
 import { attackIntervalOf } from './buffs'
 
@@ -82,7 +82,7 @@ function reachOf(sim: SimulationState, movement: MovementInstance): Reach | null
   const origin = movementPosition(sim, movement)
 
   const outerIndex = Math.min(
-    RINGS[RINGS.length - 1].index,
+    OUTERMOST_RING,
     movement.slot.ring + movement.def.radialReach,
   ) as RingIndex
   const outerRing = ringByIndex(outerIndex) ?? ring
@@ -97,7 +97,7 @@ function reachOf(sim: SimulationState, movement: MovementInstance): Reach | null
    * strike a Slack that had already penetrated to the centre, which would make
    * ring assignment nearly meaningless and undercut pillar P2.
    */
-  const isInnermost = ring.index === RINGS[0].index
+  const isInnermost = ring.index === INNERMOST_RING
 
   return {
     unitAngle: Math.atan2(origin.y, origin.x),

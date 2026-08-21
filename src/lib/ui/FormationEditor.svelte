@@ -1,6 +1,6 @@
 <script lang="ts">
   import { game, type RosterView } from '../stores/game.svelte'
-  import { RIM_MOUNTS, RINGS } from '../content/field'
+  import { RIM_MOUNTS, RIM_RADIUS, RINGS } from '../content/field'
 
   /**
    * The formation editor.
@@ -22,9 +22,17 @@
 
   let { open = false }: { open?: boolean } = $props()
 
-  const RADIUS = { 1: 78, 2: 132, 3: 186 } as const
-  const MOUNT_RADIUS = 232
   const CENTRE = 250
+  const MOUNT_RADIUS = 232
+
+  /*
+   * Editor radii are the field's own radii, scaled to fit the box — not a
+   * second table. The hand-written `{ 1: 78, 2: 132, 3: 186 }` this replaces
+   * had no entry for a fourth orbit, so adding one put every slot on it at
+   * NaN. A layout table that has to be kept in step with content/field.ts is a
+   * table that will eventually fall out of step with it.
+   */
+  const editorRadius = (radius: number) => (radius / RIM_RADIUS) * MOUNT_RADIUS
 
   interface SlotPosition {
     ring: number
@@ -40,8 +48,8 @@
       return {
         ring: ring.index,
         slot,
-        x: CENTRE + Math.cos(angle) * RADIUS[ring.index as 1 | 2 | 3],
-        y: CENTRE + Math.sin(angle) * RADIUS[ring.index as 1 | 2 | 3],
+        x: CENTRE + Math.cos(angle) * editorRadius(ring.radius),
+        y: CENTRE + Math.sin(angle) * editorRadius(ring.radius),
       }
     }),
   )
@@ -157,8 +165,8 @@
         {#each RINGS as ring (ring.index)}
           <div
             class="ring-guide"
-            style:width="{RADIUS[ring.index as 1 | 2 | 3] * 2}px"
-            style:height="{RADIUS[ring.index as 1 | 2 | 3] * 2}px"
+            style:width="{editorRadius(ring.radius) * 2}px"
+            style:height="{editorRadius(ring.radius) * 2}px"
           ></div>
         {/each}
         <div class="mainspring">Mainspring</div>
