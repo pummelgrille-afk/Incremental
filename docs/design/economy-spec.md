@@ -97,12 +97,17 @@ requires all its declared prerequisites.
 
 | Branch | Governs | Tiers | Nodes | Flavour voice |
 |--------|---------|-------|-------|---------------|
-| **Winding** (offence) | Attack, haste, crit, conjunction potency | 6 | ~22 | The Manual, terse |
-| **Bracing** (defence) | Output pool, Platform defence, block arc, recovery time | 6 | ~20 | The Undermaster |
-| **Recovery** (economy) | Filing drops, offline rate and cap, repair costs | 5 | ~16 | Sabel Ock, sardonic |
-| **Regulation** (utility) | Flare charges and regeneration, blast radius, conjunction tolerance, preview quality | 5 | ~14 | The Manual's marginalia |
+| **Aperture** (offence) | Attack, haste, conjunction potency | 6 | 22 | The Manual, terse |
+| **Shielding** (defence) | Output pool, Platform defence, block arc | 6 | 20 | The Undermaster |
+| **Recovery** (economy) | Salvage drops, offline rate and cap, repair costs, Recollection | 5 | 16 | Sabel Ock, sardonic |
+| **Regulation** (utility) | Flare charges and regeneration, blast radius, conjunction tolerance, preview horizon | 5 | 14 | The Manual's marginalia |
 
-~72 nodes total. Node cost within a branch:
+> Branch names updated in Phase 29 — Winding became **Aperture** and Bracing
+> became **Shielding**, both being horological. Phase 34 filled the tree to the
+> counts above; "crit" was dropped, as no crit system exists and inventing one
+> to fill a table entry would be the wrong way round.
+
+72 nodes total. Node cost within a branch:
 
 ```
 cost = baseCost_tier * 1.9^(nodesPurchasedInBranch)
@@ -117,6 +122,27 @@ when filling out content.
 Note that Regulation must never grant control over ring rotation. Rings are
 permanently automatic (combat-spec.md §1); an upgrade that re-introduced
 steering would re-introduce the dexterity problem the Phase 10 playtest found.
+
+### What the curve actually produces — measured in Phase 34
+
+A player buying greedily-cheapest across thirty Rewinds, well past the 25–40
+hour target, owns **23 of the 72 nodes**.
+
+That is the growth doing what it was authored to do rather than a gap in the
+content. `1.9 ^ nodesInBranch` makes the seventh node in a branch cost 47 times
+its base, so depth is bought at a steep price and breadth is the cheap option.
+
+Combined with free respec, this makes the Almanac **a loadout of about a third
+of itself**, reshaped between runs — not a completion list. That is a deliberate
+consequence and it reads like a bug, so a test asserts it: if a future retune
+ever made the whole tree completable, the choice the design rests on would
+quietly disappear.
+
+**Flagged for Phase 35, not resolved here.** Thirty Rewinds of that curve yields
+roughly +24% attack. Against roster levelling, which reaches +108% per unit, the
+tree is a supplement rather than the main power axis — which sits awkwardly with
+§1's claim that Recollection buys *stat depth*. Whether to steepen the payouts
+or restate the claim is a balance decision, and Phase 34 is content population.
 
 **Respec:** allowed, free, only between runs. Charging for respec would punish
 experimenting with formations, which is the game's main pleasure. The cost of a

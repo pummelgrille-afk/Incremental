@@ -10,7 +10,7 @@ import {
 } from '../src/lib/systems/offlineProgress'
 import { noUpgradeEffects, type UpgradeEffects } from '../src/lib/entities/Upgrade'
 import { createDefaultSave } from '../src/lib/core/saveSchema'
-import { purchase } from '../src/lib/progression/upgradeTree'
+import { pathTo, purchase } from '../src/lib/progression/upgradeTree'
 import { effectsOf } from '../src/lib/progression/upgradeTree'
 
 const HOUR = 3600
@@ -166,14 +166,16 @@ describe('the Recovery nodes are wired', () => {
     const save = createDefaultSave(0)
     save.meta.recollection = 10_000
 
-    for (const id of [
-      'recovery-debris-discipline',
-      'recovery-honest-accounting',
-      'recovery-the-long-view',
-      'recovery-the-night-shift',
-      'recovery-standing-orders',
-    ]) {
-      expect(purchase(save, id), id).toBe(true)
+    /*
+     * Bought through `pathTo` rather than as a hardcoded chain. Phase 34
+     * rewired Recovery's prerequisites while filling the branch out, and a list
+     * of ids written against the old graph fails for a reason that has nothing
+     * to do with what this test is checking.
+     */
+    for (const target of ['recovery-standing-orders', 'recovery-the-whole-week']) {
+      for (const step of pathTo(save, target).steps) {
+        expect(purchase(save, step.node.id), step.node.id).toBe(true)
+      }
     }
 
     const bought = effectsOf(save)

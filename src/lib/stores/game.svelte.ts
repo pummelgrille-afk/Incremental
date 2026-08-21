@@ -451,7 +451,9 @@ class GameStore {
       this.pairing = pairingOf(sim.platforms.map((m) => m.def.damageType))
     }
 
-    const seconds = timeToNextConjunction(sim)
+    // Regulation buys knowing sooner. The default horizon is two minutes;
+    // previewHorizon extends how far ahead the search will look.
+    const seconds = timeToNextConjunction(sim, 120 + sim.effects.previewHorizon)
     this.nextConjunctionAt = seconds === null ? null : sim.elapsed + seconds
   }
 

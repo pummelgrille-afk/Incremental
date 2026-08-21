@@ -5,7 +5,7 @@ import { isRewindUnlocked, rewind, rewindPreview } from '../src/lib/progression/
 import { recollectionFor } from '../src/lib/progression/currencies'
 import { grantStartingLoadout, OPENING_SLOTS, slotsUsed } from '../src/lib/progression/loadout'
 import { unlock } from '../src/lib/progression/roster'
-import { purchase } from '../src/lib/progression/upgradeTree'
+import { pathTo, purchase } from '../src/lib/progression/upgradeTree'
 import { buyTrack } from '../src/lib/progression/support'
 import type { SaveData } from '../src/lib/core/saveSchema'
 import type { StageAddress } from '../src/lib/entities/Zone'
@@ -208,9 +208,11 @@ describe('the preview matches what happens', () => {
 
     const boosted = playedRun()
     boosted.meta.recollection = 10_000
-    purchase(boosted, 'recovery-debris-discipline')
-    purchase(boosted, 'recovery-honest-accounting')
-    purchase(boosted, 'recovery-the-long-view')
+    // Through the path, so a rewiring of Recovery's prerequisites cannot fail
+    // this test for a reason unrelated to what it checks.
+    for (const step of pathTo(boosted, 'recovery-the-long-view').steps) {
+      purchase(boosted, step.node.id)
+    }
 
     expect(rewindPreview(boosted).award).toBeGreaterThan(bare)
   })

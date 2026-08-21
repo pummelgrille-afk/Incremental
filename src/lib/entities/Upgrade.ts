@@ -62,10 +62,27 @@ export type UpgradeEffectKind =
   // Regulation — reach and readability.
   /** Extra whole Flare charges. */
   | 'flareCharges'
+  /**
+   * Fraction taken off the Flare's recharge interval.
+   *
+   * economy-spec.md §2 names "Flare charges *and regeneration*" as Regulation's
+   * remit and there was no kind for the second half, so the branch had three
+   * levers for fourteen nodes. Clamped where it is applied, not here: content
+   * should not have to know the floor.
+   */
+  | 'flareRecharge'
   /** Pixels added to the Flare's blast radius. */
   | 'flareRadius'
   /** Radians added to the conjunction tolerance window. */
   | 'conjunctionTolerance'
+  /**
+   * Seconds added to how far ahead the conjunction preview looks.
+   *
+   * The "preview quality" economy-spec.md §2 asks Regulation to govern. It buys
+   * *knowing sooner*, which is the branch's identity — reach and readability,
+   * never numbers.
+   */
+  | 'previewHorizon'
 
 export interface UpgradeEffect {
   readonly kind: UpgradeEffectKind
@@ -108,8 +125,10 @@ export interface UpgradeEffects {
   offlineCap: number
   offlineEfficiency: number
   flareCharges: number
+  flareRecharge: number
   flareRadius: number
   conjunctionTolerance: number
+  previewHorizon: number
 }
 
 export function noUpgradeEffects(): UpgradeEffects {
@@ -126,7 +145,10 @@ export function noUpgradeEffects(): UpgradeEffects {
     offlineCap: 0,
     offlineEfficiency: 0,
     flareCharges: 0,
+    flareRecharge: 0,
     flareRadius: 0,
     conjunctionTolerance: 0,
+    previewHorizon: 0,
   }
 }
+

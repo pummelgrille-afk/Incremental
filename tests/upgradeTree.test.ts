@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createDefaultSave } from '../src/lib/core/saveSchema'
+import { recollectionFor } from '../src/lib/progression/currencies'
 import { UPGRADE_NODES, upgradeById } from '../src/lib/content/upgrades'
 import { TREE } from '../src/lib/content/economy'
 import {
@@ -35,9 +36,13 @@ beforeEach(() => {
 })
 
 const node = (id: string) => upgradeById(id)!
+// A real three-deep chain in one branch, all of the same effect kind so the
+// accumulation assertions below mean something. Phase 34 rewired the tree and
+// the old fixture chain stopped being a chain — `shortened-dwell` follows the
+// haste root now, not the attack one.
 const ROOT = 'aperture-force-of-the-pulse'
-const SECOND = 'aperture-shortened-dwell'
-const THIRD = 'aperture-sympathetic-pulse'
+const SECOND = 'aperture-deeper-charge'
+const THIRD = 'aperture-full-bore'
 
 describe('the authored graph', () => {
   it('passes validation', () => {
@@ -286,10 +291,25 @@ describe('the tree view', () => {
   })
 
   it('marks exactly the roots as available on a fresh save', () => {
-    const available = treeStatus(save).filter((s) => s.blockedBy === null)
-    expect(available).toHaveLength(UPGRADE_BRANCHES.length)
-    for (const status of available) {
-      expect(status.node.requires).toEqual([])
+    /*
+     * Asserted as a property rather than a count. Before Phase 34 every branch
+     * had exactly one root, so `UPGRADE_BRANCHES.length` happened to be the
+     * right number; the full tree gives most branches three or four entry
+     * points, which is the point — a player chooses where to start a branch.
+     */
+    const statuses = treeStatus(save)
+    const available = statuses.filter((s) => s.blockedBy === null)
+    const roots = statuses.filter((s) => s.node.requires.length === 0)
+
+    expect(available.map((s) => s.node.id).sort()).toEqual(
+      roots.map((s) => s.node.id).sort(),
+    )
+    // Every branch has to be enterable, or it is unreachable content.
+    for (const branch of UPGRADE_BRANCHES) {
+      expect(
+        available.some((s) => s.node.branch === branch),
+        `${branch} has no root`,
+      ).toBe(true)
     }
   })
 })
@@ -425,5 +445,191 @@ describe('the reveal gate', () => {
     save.meta.clearedStages.push('gone:missing' as StageAddress)
     expect(() => isTreeRevealed(save)).not.toThrow()
     expect(isTreeRevealed(save)).toBe(false)
+  })
+})
+
+describe('the full Almanac', () => {
+  it('matches the shape economy-spec.md authors', () => {
+    // ~72 nodes across four branches, with the tier depths §2 specifies.
+    const counts = new Map<string, number>()
+    const tiers = new Map<string, number>()
+    for (const n of UPGRADE_NODES) {
+      counts.set(n.branch, (counts.get(n.branch) ?? 0) + 1)
+      tiers.set(n.branch, Math.max(tiers.get(n.branch) ?? 0, n.tier))
+    }
+
+    expect(UPGRADE_NODES.length).toBe(72)
+    expect(counts.get('aperture')).toBe(22)
+    expect(counts.get('shielding')).toBe(20)
+    expect(counts.get('recovery')).toBe(16)
+    expect(counts.get('regulation')).toBe(14)
+
+    expect(tiers.get('aperture')).toBe(6)
+    expect(tiers.get('shielding')).toBe(6)
+    expect(tiers.get('recovery')).toBe(5)
+    expect(tiers.get('regulation')).toBe(5)
+  })
+
+  it('has no duplicate names and says something in every one', () => {
+    const names = UPGRADE_NODES.map((n) => n.name)
+    expect(new Set(names).size, 'two nodes share a name').toBe(names.length)
+    for (const n of UPGRADE_NODES) {
+      expect(n.description.length, n.id).toBeGreaterThan(20)
+      expect(n.effects.length, `${n.id} does nothing`).toBeGreaterThan(0)
+    }
+  })
+
+  it('fills every tier of every branch', () => {
+    // A gap would leave a tier's base cost unreachable and the curve would
+    // step rather than climb.
+    for (const branch of UPGRADE_BRANCHES) {
+      const depth = Math.max(...UPGRADE_NODES.filter((n) => n.branch === branch).map((n) => n.tier))
+      for (let tier = 1; tier <= depth; tier++) {
+        expect(
+          UPGRADE_NODES.some((n) => n.branch === branch && n.tier === tier),
+          `${branch} has no tier ${tier}`,
+        ).toBe(true)
+      }
+    }
+  })
+
+  it('prices deeper tiers higher', () => {
+    // baseCost is before the branch growth multiplier, so it must rise with
+    // tier or a deep node would be cheaper than a shallow one bought later.
+    for (const branch of UPGRADE_BRANCHES) {
+      const byTier = new Map<number, number>()
+      for (const n of UPGRADE_NODES.filter((x) => x.branch === branch)) {
+        byTier.set(n.tier, Math.max(byTier.get(n.tier) ?? 0, n.baseCost))
+      }
+      const tiers = [...byTier.keys()].sort((a, b) => a - b)
+      for (let i = 1; i < tiers.length; i++) {
+        expect(
+          byTier.get(tiers[i])!,
+          `${branch} tier ${tiers[i]} is not dearer than ${tiers[i - 1]}`,
+        ).toBeGreaterThan(byTier.get(tiers[i - 1])!)
+      }
+    }
+  })
+
+  it('gives every branch more than one way in', () => {
+    // Multiple roots per branch is the point: a player chooses where to enter
+    // a branch rather than being marched through a single line.
+    for (const branch of UPGRADE_BRANCHES) {
+      const roots = UPGRADE_NODES.filter((n) => n.branch === branch && n.requires.length === 0)
+      expect(roots.length, `${branch} has ${roots.length} roots`).toBeGreaterThan(1)
+    }
+  })
+
+  it('never points a prerequisite at another branch', () => {
+    // Cross-branch prerequisites would make the per-branch cost curve — the
+    // thing that rewards spreading investment — meaningless.
+    const byId = new Map(UPGRADE_NODES.map((n) => [n.id, n]))
+    for (const n of UPGRADE_NODES) {
+      for (const req of n.requires) {
+        expect(byId.get(req)?.branch, `${n.id} -> ${req}`).toBe(n.branch)
+      }
+    }
+  })
+})
+
+describe('branch identities', () => {
+  const kindsIn = (branch: string) =>
+    new Set(UPGRADE_NODES.filter((n) => n.branch === branch).flatMap((n) => n.effects.map((e) => e.kind)))
+
+  it('keeps Regulation to reach and readability, never numbers', () => {
+    /*
+     * economy-spec.md §2 singles this out and asks Phase 34 to protect it.
+     * Regulation buys Flare charges and regeneration, blast radius,
+     * conjunction tolerance and preview horizon — it changes how the game
+     * plays rather than how hard it hits. The moment it grants attack or
+     * Salvage it becomes a fourth stat branch and the tree loses its one
+     * genuinely different choice.
+     */
+    const forbidden = ['attack', 'haste', 'defence', 'output', 'salvage', 'recollection']
+    for (const kind of kindsIn('regulation')) {
+      expect(forbidden, `regulation grants ${kind}`).not.toContain(kind)
+    }
+  })
+
+  it('keeps each branch to the levers economy-spec.md assigns it', () => {
+    expect([...kindsIn('aperture')].sort()).toEqual(['attack', 'conjunctionPotency', 'haste'])
+    expect([...kindsIn('shielding')].sort()).toEqual(['blockArc', 'defence', 'output'])
+    expect([...kindsIn('recovery')].sort()).toEqual([
+      'offlineCap',
+      'offlineEfficiency',
+      'recollection',
+      'repairCost',
+      'salvage',
+    ])
+  })
+
+  it('grants no more than three extra Flare charges in total', () => {
+    // The Flare is the only live input and P1 rests on it being optional. Six
+    // charges is a different game from three; a dozen is a different genre.
+    const total = UPGRADE_NODES.filter((n) => n.branch === 'regulation')
+      .flatMap((n) => n.effects)
+      .filter((e) => e.kind === 'flareCharges')
+      .reduce((sum, e) => sum + e.magnitude, 0)
+    expect(total).toBeLessThanOrEqual(3)
+  })
+
+  it('cannot drive the Flare recharge to nothing', () => {
+    // Applied with a clamp in the loop, but the authored total should not rely
+    // on that clamp to stay sane.
+    const total = UPGRADE_NODES.flatMap((n) => n.effects)
+      .filter((e) => e.kind === 'flareRecharge')
+      .reduce((sum, e) => sum + e.magnitude, 0)
+    expect(total).toBeLessThan(1)
+  })
+})
+
+describe('the tree against the prestige curve', () => {
+  it('affords something on the very first Rewind', () => {
+    /*
+     * The onboarding property, and the one that has to hold exactly. The
+     * Almanac reveals on the first boss clear (economy-spec.md §3), which the
+     * ladder puts at stage 8; a first Rewind there awards 3 Recollection. If
+     * the cheapest node cost more than that, a player would meet the tree, be
+     * told it is now available, and find nothing in it they can buy.
+     */
+    const first = createDefaultSave(0)
+    first.meta.recollection = recollectionFor(8, { recollection: 0 })
+    expect(first.meta.recollection).toBeGreaterThan(0)
+
+    const affordable = treeStatus(first).filter(
+      (s) => s.blockedBy === null && nodeCost(first, s.node) <= first.meta.recollection,
+    )
+    expect(affordable.length, 'nothing is buyable on a first Rewind').toBeGreaterThan(0)
+  })
+
+  it('is a loadout rather than a completion list', () => {
+    /*
+     * Measured: a player buying greedily-cheapest across thirty Rewinds — well
+     * past the 25-40 hour target — owns 23 of the 72 nodes. That is not a gap
+     * in the content; the 1.9 branch growth economy-spec.md §2 authors makes
+     * deep investment cost exponentially more, and respec is free between runs.
+     *
+     * So the Almanac is about a third of itself at a time, reshaped freely.
+     * Asserted here because it is a *deliberate* consequence that reads like a
+     * bug: if a future retune made the whole tree completable, the choice this
+     * design rests on would quietly disappear.
+     */
+    const save = createDefaultSave(0)
+    save.meta.recollection = 1200
+
+    for (;;) {
+      const options = treeStatus(save)
+        .filter((s) => s.blockedBy === null)
+        .map((s) => ({ id: s.node.id, cost: nodeCost(save, s.node) }))
+        .sort((a, b) => a.cost - b.cost)
+      if (!options[0] || options[0].cost > save.meta.recollection) break
+      if (!purchase(save, options[0].id)) break
+    }
+
+    const owned = save.meta.purchasedNodes.length
+    expect(owned, `owned ${owned} of ${UPGRADE_NODES.length}`).toBeGreaterThan(10)
+    expect(owned, `owned ${owned} of ${UPGRADE_NODES.length}`).toBeLessThan(
+      UPGRADE_NODES.length / 2,
+    )
   })
 })

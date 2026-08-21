@@ -472,7 +472,19 @@ export class Simulation {
     const flare = this.state.flare
     if (flare.cooldown > 0) flare.cooldown = Math.max(0, flare.cooldown - dt)
     if (flare.charge < flare.maxCharge) {
-      flare.charge = Math.min(flare.maxCharge, flare.charge + dt / FLARE.rechargeInterval)
+      /*
+        * Regulation shortens the interval rather than adding charge directly,
+        * so the effect reads the same whether a player has one charge or four.
+        *
+        * Floored at a second. The branch is allowed to make the Flare
+        * responsive; it is not allowed to make it free, or P1 stops holding —
+        * an always-available Flare is a Flare the game is tuned around.
+        */
+      const interval = Math.max(
+        1,
+        FLARE.rechargeInterval * (1 - Math.min(0.75, this.state.effects.flareRecharge)),
+      )
+      flare.charge = Math.min(flare.maxCharge, flare.charge + dt / interval)
     }
     if (this.lastStrike) {
       this.lastStrike.age += dt
