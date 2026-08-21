@@ -3,6 +3,7 @@ import { CHIMES } from '../content/supportUnits'
 import { STARTING_ZONE_ID } from '../content/zones'
 import { game } from '../stores/game.svelte'
 import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
+import { effectsOf } from '../progression/upgradeTree'
 import { Autosaver } from './autosave'
 import { mountChime, placeMovement } from './formation'
 import { Simulation } from './loop'
@@ -71,6 +72,24 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     console.info('[orrery] save notices:', loaded.notices)
   }
 
+  /**
+   * The tree's aggregate, recomputed only when a purchase changes it.
+   *
+   * `effectsOf` walks every purchased node, and the frame loop reads it for the
+   * Salvage multiplier — a per-frame walk of ~72 ids to produce a number that
+   * changes a handful of times per run.
+   */
+  let effects = effectsOf(saveData)
+  let effectsVersion = saveData.meta.purchasedNodes.length
+
+  const currentEffects = () => {
+    if (saveData.meta.purchasedNodes.length !== effectsVersion) {
+      effectsVersion = saveData.meta.purchasedNodes.length
+      effects = effectsOf(saveData)
+    }
+    return effects
+  }
+
   let simulation = buildSimulation()
   const renderer: Renderer = await createRenderer(host)
 
@@ -82,7 +101,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // Seeded from the stage address, so a stage always plays the same way and
     // a balance observation is reproducible.
     const rng = createRng(seedFrom(DEFAULT_STAGE))
-    const sim = new Simulation(loadStage(DEFAULT_STAGE), rng)
+    // The tree's aggregate is read once, here. Purchases mid-stage cannot
+    // change a run in progress, which is what makes a run reproducible from
+    // its seed at all.
+    const sim = new Simulation(
+      loadStage(DEFAULT_STAGE, { effects: currentEffects() }),
+      rng,
+    )
     seedFormation(sim)
     return sim
   }
@@ -149,7 +174,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // This is the **one** place a tick's events become a currency change.
     // `progression/currencies.ts` holds the rules and the simulation holds the
     // field; neither knows about the other, and this loop is the seam.
-    earnFilings(saveData, events.filingsDropped)
+    // The Salvage multiplier is applied here rather than in the simulation:
+    // `systems/` computes what the field dropped, `progression/` decides what
+    // the player banks.
+    earnFilings(saveData, events.filingsDropped * (1 + currentEffects().filings))
     if (events.slackKilled > 0) {
       saveData.statistics.totalSlackDestroyed += events.slackKilled
     }

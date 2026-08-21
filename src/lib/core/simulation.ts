@@ -8,6 +8,7 @@ import type { AnyWaveDef } from '../entities/Wave'
 import { BEAT, RINGS } from '../content/field'
 import type { CombatFeed } from '../systems/feed'
 import type { Telemetry } from '../systems/telemetry'
+import type { UpgradeEffects } from '../entities/Upgrade'
 
 /**
  * The complete mutable state of one loaded stage.
@@ -91,6 +92,15 @@ export interface SimulationState {
    * See systems/telemetry.ts.
    */
   telemetry: Telemetry | null
+
+  /**
+   * The Escapement Tree's aggregate, read once at stage load.
+   *
+   * Systems read these rather than the save: `progression/` owns what a player
+   * has bought, `systems/` owns what the field does with it, and neither needs
+   * to know the other's shape.
+   */
+  effects: UpgradeEffects
   /** Counts down during 'wave-gap'. */
   gapRemaining: number
 
@@ -124,7 +134,10 @@ export function createRingStates(): RingState[] {
   }))
 }
 
-export function createBeatState(maxCharge = BEAT.maxCharges): BeatState {
+// Annotated `number` rather than inferred: `BEAT` is `as const`, so the
+// default narrows the parameter to the literal 3 and the Regulation branch
+// cannot raise it.
+export function createBeatState(maxCharge: number = BEAT.maxCharges): BeatState {
   return { charge: maxCharge, maxCharge, cooldown: 0, struck: 0 }
 }
 

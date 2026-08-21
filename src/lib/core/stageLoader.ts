@@ -7,6 +7,8 @@ import { zoneById } from '../content/zones'
 import { createBeatState, createRingStates, type SimulationState } from './simulation'
 import { CombatFeed } from '../systems/feed'
 import { createTelemetry } from '../systems/telemetry'
+import { noUpgradeEffects, type UpgradeEffects } from '../entities/Upgrade'
+import { BEAT } from '../content/field'
 
 /**
  * Reads a zone/stage definition from content and initializes the simulation.
@@ -25,8 +27,13 @@ export class StageLoadError extends Error {
 }
 
 export interface StageLoadOptions {
-  /** Extra Tension from the Bracing branch, added to the stage's base. */
-  bonusTension?: number
+  /**
+   * The Escapement Tree's aggregate for this run.
+   *
+   * Superseded `bonusTension`, which was a single hand-placed hook for the
+   * Bracing branch; the tree now supplies every bonus through one object.
+   */
+  effects?: UpgradeEffects
 }
 
 export function resolveStage(address: StageAddress): { zone: ZoneDef; stage: StageDef } {
@@ -113,7 +120,8 @@ export function loadStage(
     )
   }
 
-  const maxTension = stage.baseTension + (options.bonusTension ?? 0)
+  const effects = options.effects ?? noUpgradeEffects()
+  const maxTension = stage.baseTension + effects.tension
 
   return {
     zone,
@@ -128,11 +136,14 @@ export function loadStage(
     formationVersion: 0,
     activeWave: null,
     telemetry: createTelemetry(),
+    effects,
     gapRemaining: 0,
 
     mainspring: createMainspring(maxTension),
     rings: createRingStates(),
-    beat: createBeatState(),
+    // Regulation grants whole extra charges, so it changes the maximum the
+    // Beat regenerates toward, not just the starting value.
+    beat: createBeatState(BEAT.maxCharges + Math.floor(effects.beatCharges)),
     feed: new CombatFeed(),
 
     movements: [],

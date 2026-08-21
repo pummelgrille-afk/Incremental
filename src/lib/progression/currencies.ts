@@ -23,7 +23,13 @@ import type { SaveData } from '../core/saveSchema'
  * running field, and keeps `systems/` free of save-shaped state.
  */
 
-/** Tree bonuses, once Phase 22 can supply them. Zero until then. */
+/**
+ * The slice of the Escapement Tree the economy cares about.
+ *
+ * Deliberately narrower than `UpgradeEffects`, which satisfies it structurally:
+ * naming only the two fields that reach these formulas documents that nothing
+ * else in the tree can quietly start affecting a drop rate.
+ */
 export interface TreeBonuses {
   filings: number
   recollection: number
@@ -57,8 +63,16 @@ export function mountCost(mountsUsed: number): number {
   return sinkCost(FILINGS.mount, mountsUsed)
 }
 
-export function repairCost(repairsThisStage: number): number {
-  return sinkCost(FILINGS.repair, repairsThisStage)
+/**
+ * Cost of the next emergency repair.
+ *
+ * The Salvage discount is a fraction off, floored at one Filing — a free panic
+ * button would stop being a panic button, which economy-spec invariant 6 is
+ * explicitly about.
+ */
+export function repairCost(repairsThisStage: number, discount = 0): number {
+  const full = sinkCost(FILINGS.repair, repairsThisStage)
+  return Math.max(1, Math.ceil(full * (1 - Math.min(0.9, Math.max(0, discount)))))
 }
 
 export function reinforceCost(reinforcements: number): number {

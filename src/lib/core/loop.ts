@@ -363,7 +363,8 @@ export class Simulation {
     if (sim.telemetry) sim.telemetry.beatsStruck++
 
     const dead = new Set<number>()
-    const radiusSq = BEAT.radius * BEAT.radius
+    const radius = BEAT.radius + sim.effects.beatRadius
+    const radiusSq = radius * radius
 
     for (const slack of sim.slack) {
       const dx = slack.position.x - x
@@ -402,12 +403,12 @@ export class Simulation {
   }
 
   /**
-   * Emergency repair the objective. Hook for Phase 21, which owns the Filings
+   * Emergency repair the objective. Phase 21 owns the Filings
    * transaction — this returns the cost so the caller can charge for it, and
    * refuses at full Tension so nobody is charged for nothing.
    */
   repairMainspring(): { repaired: boolean; cost: number } {
-    const cost = repairCost(this.state.mainspring.repairsThisStage)
+    const cost = repairCost(this.state.mainspring.repairsThisStage, this.state.effects.repairCost)
     return { repaired: repair(this.state.mainspring), cost }
   }
 

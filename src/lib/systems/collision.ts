@@ -137,8 +137,11 @@ function resolveSlackProjectile(
     const ringState = sim.rings[ring.index - 1]
     const unitAngle = slotAngle(ring, movement.slot.slot, ringState?.phase ?? 0)
 
-    if (Math.abs(angleDelta(unitAngle, projectileAngle)) <= movement.def.blockArc) {
-      damageMovement(movement, p.damage, sim.telemetry)
+    // The Bracing branch widens every block arc additively — a flat angle,
+    // so it is worth proportionally more to a narrow Pallet than a wide Detent.
+    const arc = movement.def.blockArc + sim.effects.blockArc
+    if (Math.abs(angleDelta(unitAngle, projectileAngle)) <= arc) {
+      damageMovement(movement, p.damage, sim.telemetry, sim.effects)
       sim.feed.emit('block', p.position.x, p.position.y, p.damage)
       result.movementHits++
       return true

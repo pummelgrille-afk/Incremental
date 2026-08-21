@@ -12,6 +12,7 @@ import { createRng } from '../src/lib/core/rng'
 import { slackById } from '../src/lib/content/enemies'
 import { isBossWave } from '../src/lib/entities/Wave'
 import { RINGS } from '../src/lib/content/field'
+import { noUpgradeEffects } from '../src/lib/entities/Upgrade'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
 const FIRST: StageAddress = 'escapement-floor:first-shift'
@@ -55,8 +56,24 @@ describe('loadStage', () => {
 
   it('adds Bracing-branch bonus Tension to the stage base', () => {
     const base = loadStage(FIRST)
-    const boosted = loadStage(FIRST, { bonusTension: 500 })
+    const boosted = loadStage(FIRST, {
+      effects: { ...noUpgradeEffects(), tension: 500 },
+    })
     expect(boosted.mainspring.maxTension).toBe(base.mainspring.maxTension + 500)
+  })
+
+  it('grants the Regulation branch its extra Beat charges', () => {
+    const base = loadStage(FIRST)
+    const boosted = loadStage(FIRST, {
+      effects: { ...noUpgradeEffects(), beatCharges: 2 },
+    })
+    // The maximum, not just the starting value — the Beat regenerates toward it.
+    expect(boosted.beat.maxCharge).toBe(base.beat.maxCharge + 2)
+    expect(boosted.beat.charge).toBe(boosted.beat.maxCharge)
+  })
+
+  it('starts a stage with a neutral aggregate when none is supplied', () => {
+    expect(loadStage(FIRST).effects).toEqual(noUpgradeEffects())
   })
 
   it('keeps tension aliased to hp', () => {

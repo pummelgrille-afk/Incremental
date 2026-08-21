@@ -7,6 +7,9 @@ import { typeMultiplier } from '../content/damageTypes'
 import { FILINGS } from '../content/economy'
 import type { SimulationState } from '../core/simulation'
 import { absorb, attackScaleOf, clearBuffs } from './buffs'
+import { noUpgradeEffects } from '../entities/Upgrade'
+
+const NO_EFFECTS = noUpgradeEffects()
 import type { MovementAttack } from './ai'
 import type { Telemetry } from './telemetry'
 
@@ -71,8 +74,10 @@ export function damageMovement(
   movement: MovementInstance,
   amount: number,
   telemetry?: Telemetry | null,
+  effects = NO_EFFECTS,
 ): void {
-  const effectiveDefence = movement.def.defence * (1 + movement.bonuses.defence)
+  const effectiveDefence =
+    movement.def.defence * (1 + movement.bonuses.defence) * (1 + effects.defence)
 
   let remaining = mitigate(amount, effectiveDefence)
 
@@ -132,7 +137,7 @@ export function resolveMovementAttacks(
 
     const damage = computeDamage(
       movement.def.attack,
-      attackScaleOf(movement),
+      attackScaleOf(movement, sim.effects),
       movement.def.damageType,
       target.def.armour,
       target.def.defence,

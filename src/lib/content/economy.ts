@@ -62,3 +62,14 @@ export const KEYS = {
   /** A re-clear awards nothing. Named so the zero is a decision, not a gap. */
   reclear: 0,
 } as const
+
+/**
+ * The Escapement Tree. economy-spec.md §2.
+ *
+ * Growth keys on the **branch**, not the whole tree, which is what makes
+ * spreading investment cheaper than driving one branch deep — a specialist
+ * build pays for the privilege rather than being handed it.
+ */
+export const TREE = {
+  nodeCostGrowth: 1.9,
+} as const

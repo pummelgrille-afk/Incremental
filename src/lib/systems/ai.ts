@@ -243,7 +243,7 @@ export function updateMovements(sim: SimulationState, dt: number): MovementAttac
     if (!target || movement.cooldownRemaining > 0) continue
 
     attacks.push({ movement, target })
-    movement.cooldownRemaining = attackIntervalOf(movement)
+    movement.cooldownRemaining = attackIntervalOf(movement, sim.effects)
   }
 
   return attacks

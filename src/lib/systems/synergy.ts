@@ -69,6 +69,10 @@ export function findConjunctions(sim: SimulationState): ConjunctionEvent[] {
     if (angle !== null) angles.set(movement.id, angle)
   }
 
+  // Regulation widens the window a conjunction counts within — the branch buys
+  // reach and readability, and this is the clearest case of it.
+  const tolerance = CONJUNCTION.tolerance + sim.effects.conjunctionTolerance
+
   const events: ConjunctionEvent[] = []
   const claimed = new Set<number>()
 
@@ -89,7 +93,7 @@ export function findConjunctions(sim: SimulationState): ConjunctionEvent[] {
       const otherAngle = angles.get(other.id)
       if (otherAngle === undefined) continue
 
-      if (Math.abs(angleDelta(seedAngle, otherAngle)) <= CONJUNCTION.tolerance) {
+      if (Math.abs(angleDelta(seedAngle, otherAngle)) <= tolerance) {
         group.push(other)
         rings.add(other.slot.ring)
       }
@@ -147,7 +151,9 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
     // conjunction hits harder, it does not also last longer, or the two would
     // compound into permanent uptime against a 6 s cooldown.
     const multiplier =
-      CONJUNCTION.multipliers[event.scale] * CONJUNCTION.pairing[event.pairing]
+      CONJUNCTION.multipliers[event.scale] *
+      CONJUNCTION.pairing[event.pairing] *
+      (1 + sim.effects.conjunctionPotency)
     const arc =
       event.pairing === 'interference' ? CONJUNCTION.interferenceArc : CONJUNCTION.pulseArc
 

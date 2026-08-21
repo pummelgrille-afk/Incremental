@@ -1,6 +1,10 @@
 import type { MovementInstance, UnitBuffs } from '../entities/Movement'
 import type { TimedBonus } from '../entities/types'
 import type { SimulationState } from '../core/simulation'
+import { noUpgradeEffects } from '../entities/Upgrade'
+
+/** Neutral aggregate, so a caller without a run still gets sensible numbers. */
+const NO_EFFECTS = noUpgradeEffects()
 
 /**
  * Timed buffs, and the one rule that governs all of them.
@@ -106,16 +110,24 @@ export function updateBuffs(sim: SimulationState, dt: number): void {
   }
 }
 
-/** Total attack multiplier: permanent level scaling, formation, then buffs. */
-export function attackScaleOf(movement: MovementInstance): number {
+/**
+ * Total attack multiplier: level scaling, formation, tree, then buffs.
+ *
+ * Four independent sources multiplied rather than summed, because each answers
+ * a different question — how levelled, how well placed, how invested, how
+ * buffed right now. Summing them would let a formation bonus substitute for a
+ * level, which is not the trade any of them is offering.
+ */
+export function attackScaleOf(movement: MovementInstance, effects = NO_EFFECTS): number {
   return (
     movement.levelScale *
     (1 + movement.bonuses.attack) *
+    (1 + effects.attack) *
     (1 + movement.buffs.attack.magnitude)
   )
 }
 
-/** Seconds between attacks after haste. */
-export function attackIntervalOf(movement: MovementInstance): number {
-  return movement.def.baseInterval / (1 + movement.buffs.haste.magnitude)
+/** Seconds between attacks after haste, from the tree and from buffs alike. */
+export function attackIntervalOf(movement: MovementInstance, effects = NO_EFFECTS): number {
+  return movement.def.baseInterval / (1 + effects.haste + movement.buffs.haste.magnitude)
 }
