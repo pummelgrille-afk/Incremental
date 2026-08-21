@@ -39,6 +39,16 @@ export interface Projectile {
 
   /** Which Chime or Slack fired it, for kill attribution and telemetry. */
   sourceId: EntityId
+
+  /**
+   * The *def* id behind `sourceId`.
+   *
+   * Carried on the projectile rather than looked up on impact: telemetry
+   * attributes by type, and the firing unit may be dead by the time its shot
+   * lands. Resolving it then would mean an O(n) scan for something that no
+   * longer exists.
+   */
+  sourceDefId: string
 }
 
 /** Reset a pooled projectile to a known-inert state before reuse. */

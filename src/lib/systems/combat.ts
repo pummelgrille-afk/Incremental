@@ -7,6 +7,7 @@ import { typeMultiplier } from '../content/damageTypes'
 import type { SimulationState } from '../core/simulation'
 import { absorb, attackScaleOf, clearBuffs } from './buffs'
 import type { MovementAttack } from './ai'
+import type { Telemetry } from './telemetry'
 
 /**
  * Damage resolution and death handling.
@@ -65,7 +66,11 @@ export function damageSlack(slack: SlackInstance, amount: number): boolean {
 }
 
 /** Apply damage to a Movement. Disables rather than destroys. */
-export function damageMovement(movement: MovementInstance, amount: number): void {
+export function damageMovement(
+  movement: MovementInstance,
+  amount: number,
+  telemetry?: Telemetry | null,
+): void {
   const effectiveDefence = movement.def.defence * (1 + movement.bonuses.defence)
 
   let remaining = mitigate(amount, effectiveDefence)
@@ -73,6 +78,7 @@ export function damageMovement(movement: MovementInstance, amount: number): void
   remaining -= absorb(movement.buffs.shield, remaining)
 
   movement.hp -= remaining
+  telemetry?.took(movement.def.id, amount)
 
   if (movement.hp <= 0) {
     movement.hp = 0
@@ -82,6 +88,7 @@ export function damageMovement(movement: MovementInstance, amount: number): void
     // shield or haste window survive that would make being disabled partly
     // free.
     clearBuffs(movement.buffs)
+    telemetry?.disabled(movement.def.id)
   }
 }
 
@@ -95,8 +102,10 @@ export function damageMainspring(sim: SimulationState, amount: number): void {
     remaining -= absorbed
   }
 
+  const applied = Math.min(remaining, sim.mainspring.hp)
   sim.mainspring.hp = Math.max(0, sim.mainspring.hp - remaining)
   sim.mainspring.hitFlash = 0.2
+  sim.telemetry?.took('mainspring', applied)
 
   // The only path by which Tension falls, so the low-water mark belongs here.
   const fraction = sim.mainspring.maxHp > 0 ? sim.mainspring.hp / sim.mainspring.maxHp : 0
@@ -130,6 +139,7 @@ export function resolveMovementAttacks(
 
     const before = target.hp
     const died = damageSlack(target, damage)
+    sim.telemetry?.damage(movement.def.id, Math.min(before, damage), died)
     sim.feed.emit(
       died ? 'kill' : 'damage',
       target.position.x,

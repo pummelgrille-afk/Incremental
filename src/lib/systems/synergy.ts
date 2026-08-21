@@ -3,6 +3,7 @@ import type { ConjunctionScale } from '../entities/types'
 import { CONJUNCTION, ringByIndex, slotAngle } from '../content/field'
 import { pairingOf, type TypePairing } from '../content/damageTypes'
 import { grantBonus } from './buffs'
+import { TELEMETRY_SOURCES } from './telemetry'
 import type { SimulationState } from '../core/simulation'
 import { angleDelta } from './ai'
 import { computeDamage, damageSlack, reapSlack } from './combat'
@@ -139,6 +140,7 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
 
     cooldowns.set(key, CONJUNCTION.cooldown)
     result.fired.push(event)
+    if (sim.telemetry) sim.telemetry.conjunctionsFired++
 
     // Scale and pairing are independent: how many units aligned, and how well
     // their types agree. Duration is *not* scaled by either — a Grand
@@ -172,7 +174,10 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
                 slack.def.armour,
                 slack.def.defence,
               )
-              if (damageSlack(slack, damage)) dead.add(slack.id)
+              const before = slack.hp
+              const died = damageSlack(slack, damage)
+              sim.telemetry?.damage(TELEMETRY_SOURCES.conjunction, before - slack.hp, died)
+              if (died) dead.add(slack.id)
             }
           }
           break

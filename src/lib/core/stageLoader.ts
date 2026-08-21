@@ -6,6 +6,7 @@ import { isBossStage } from '../systems/scaling'
 import { zoneById } from '../content/zones'
 import { createBeatState, createRingStates, type SimulationState } from './simulation'
 import { CombatFeed } from '../systems/feed'
+import { createTelemetry } from '../systems/telemetry'
 
 /**
  * Reads a zone/stage definition from content and initializes the simulation.
@@ -126,6 +127,7 @@ export function loadStage(
     waveArcOffset: 0,
     formationVersion: 0,
     activeWave: null,
+    telemetry: createTelemetry(),
     gapRemaining: 0,
 
     mainspring: createMainspring(maxTension),

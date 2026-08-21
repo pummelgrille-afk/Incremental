@@ -7,6 +7,7 @@ import type { StageDef, ZoneDef } from '../entities/Zone'
 import type { AnyWaveDef } from '../entities/Wave'
 import { BEAT, RINGS } from '../content/field'
 import type { CombatFeed } from '../systems/feed'
+import type { Telemetry } from '../systems/telemetry'
 
 /**
  * The complete mutable state of one loaded stage.
@@ -82,6 +83,14 @@ export interface SimulationState {
    * Null before the first wave starts, when the authored wave still applies.
    */
   activeWave: AnyWaveDef | null
+
+  /**
+   * Dev-only combat telemetry, or null in a production build.
+   *
+   * A sink, never a source — nothing in the simulation reads a value back out.
+   * See systems/telemetry.ts.
+   */
+  telemetry: Telemetry | null
   /** Counts down during 'wave-gap'. */
   gapRemaining: number
 

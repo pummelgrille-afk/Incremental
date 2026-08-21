@@ -81,16 +81,30 @@ negotiable in tuning:
    not a tax on everyone else. This is P1 held honestly — the machine really does
    run without you.
 
-   > **Partially unverified as of Phase 17.** Measured against the *starting*
-   > formation, stage 1 clears without a single strike (0.73 Tension with a full
-   > formation, 0.55 with four units), but stages 2 and 3 do not.
+   > **Verified in Phase 20.** Every stage in zone 1 clears with zero strikes,
+   > across 24 seeds, with no losses:
    >
-   > The confound is that the formation is currently frozen at six units for
-   > every stage, because there is no economy yet. A player reaching stage 3 in
-   > the finished game will have bought more. **Phase 20 must re-verify this
-   > property with a formation appropriate to each stage**, once Phases 21–24
-   > make growth possible. If it still fails there, density comes down — the
-   > property wins, not the tuning.
+   > | Stage | Formation | With Beat | Without |
+   > |---|---|---|---|
+   > | First Shift | 5 units | 0.892 | **0.672** |
+   > | Routine Maintenance | 7 units | 0.903 | **0.421** |
+   > | Noted in the Log | 11 units | 0.929 | **0.894** |
+   >
+   > Phase 17's failure was a confound, as suspected: it measured every stage
+   > against one frozen six-unit build, which conflated "this stage is too hard"
+   > with "this is the wrong build for this stage".
+   >
+   > It was not *only* a confound. Routine Maintenance still failed the property
+   > at a stage-appropriate 7 units, and it was the densest stage in the zone at
+   > 89 Slack — denser than stage 3. Its density came down to 69, as promised:
+   > the property wins, not the tuning.
+   >
+   > **The remaining caveat is the formation ladder itself.** How many units a
+   > player actually has at each stage is unknown until the economy exists, and
+   > the measurement is highly sensitive to it: stage 3's content scores 0.929
+   > against 11 units and **loses 13 of 16 runs against 7**. The ladder above is
+   > an estimate from economy-spec.md §6's unlock schedule. Phase 24 replaces
+   > the estimate with the real thing and this table must be re-measured then.
 4. **Area damage keeps it satisfying off-type.** Percussive is unfavourable
    against `Massed`, the most common armour class. Without a blast radius the
    one manual action in the game would feel weakest against the enemies the

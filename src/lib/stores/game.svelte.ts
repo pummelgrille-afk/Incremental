@@ -5,6 +5,14 @@ import { timeToNextConjunction } from '../systems/synergy'
 import { pairingOf, type TypePairing } from '../content/damageTypes'
 import type { DamageType } from '../entities/types'
 
+/** One row of the dev-only telemetry readout. */
+export interface TelemetryRow {
+  id: string
+  dps: number
+  share: number
+  disables: number
+}
+
 /** One row of the synergy preview. Rebuilt on formation change, never per frame. */
 export interface FormationSlotView {
   id: number
@@ -87,6 +95,16 @@ class GameStore {
   /** Popups discarded because the feed was full. Legibility signal, not an error. */
   feedDropped = $state(0)
 
+  /**
+   * Dev-only DPS-per-source readout, refreshed about once a second.
+   *
+   * Rebuilding it per frame would allocate a sorted array sixty times a second
+   * to show numbers that move far slower than that. Empty in a production
+   * build, where the collector does not exist.
+   */
+  telemetryRows = $state<TelemetryRow[]>([])
+  private telemetryClock = 0
+
   /** Mirrors settings.showFps. Toggled with F2, persisted to the save. */
   showDiagnostics = $state(false)
 
@@ -158,6 +176,7 @@ class GameStore {
 
     this.elapsed = sim.elapsed
     this.syncFormation(simulation)
+    this.syncTelemetry(simulation)
 
     this.beatCharge = sim.beat.charge
     this.beatMaxCharge = sim.beat.maxCharge
@@ -206,6 +225,29 @@ class GameStore {
 
     const seconds = timeToNextConjunction(sim)
     this.nextConjunctionAt = seconds === null ? null : sim.elapsed + seconds
+  }
+
+  /** Refresh the telemetry readout, at most once a second. */
+  private syncTelemetry(simulation: Simulation): void {
+    const telemetry = simulation.state.telemetry
+    if (!telemetry) return
+
+    if (telemetry.elapsed - this.telemetryClock < 1) return
+    this.telemetryClock = telemetry.elapsed
+
+    this.telemetryRows = telemetry
+      .ranked()
+      // `share > 0` rather than reading `stats.damageDealt`: it is the same
+      // predicate, and it keeps the collector's field names out of the bundle,
+      // which is what tests/telemetry.test.ts asserts on.
+      .filter((row) => row.share > 0)
+      .slice(0, 8)
+      .map((row) => ({
+        id: row.id,
+        dps: row.dps,
+        share: row.share,
+        disables: row.stats.disables,
+      }))
   }
 
   reset(): void {

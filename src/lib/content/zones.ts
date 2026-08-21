@@ -50,12 +50,16 @@ export const ZONES: readonly ZoneDef[] = [
         scalingIndex: 2,
         baseTension: 1000,
         keyReward: 1,
+        // Pulled down in Phase 20. At 89 Slack this was the densest stage in
+        // the zone — denser than stage 3 — and it was the one stage that could
+        // not be cleared without the Beat, which combat-spec.md §1 forbids.
+        // Now 69, restoring a monotonic count ramp of 42 / 69 / 71.
         waves: [
-          escorted('burr', 27, 'backlash', 9, 4),
+          escorted('burr', 20, 'backlash', 6, 4),
           // Introduces the splitter: killing it early is worth more than
           // killing it late, because the children still cross the same ground.
-          escorted('burr', 16, 'wear', 5, 3),
-          withGap(scattered('burr', 32, 0.2), 5),
+          escorted('burr', 13, 'wear', 4, 3),
+          withGap(scattered('burr', 26, 0.2), 5),
         ],
       },
       {

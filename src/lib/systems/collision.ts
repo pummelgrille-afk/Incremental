@@ -138,7 +138,7 @@ function resolveSlackProjectile(
     const unitAngle = slotAngle(ring, movement.slot.slot, ringState?.phase ?? 0)
 
     if (Math.abs(angleDelta(unitAngle, projectileAngle)) <= movement.def.blockArc) {
-      damageMovement(movement, p.damage)
+      damageMovement(movement, p.damage, sim.telemetry)
       sim.feed.emit('block', p.position.x, p.position.y, p.damage)
       result.movementHits++
       return true
@@ -178,6 +178,7 @@ function resolveChimeProjectile(
         slack.def.defence,
       )
       const died = damageSlack(slack, damage)
+      sim.telemetry?.damage(p.sourceDefId, before - slack.hp, died)
       sim.feed.emit(
         died ? 'kill' : 'damage',
         slack.position.x,

@@ -26,6 +26,7 @@ import {
 import { updateSlackMotion, updateSpawning, waveSpawnDuration } from '../systems/spawn'
 import { createCooldowns, updateSynergy } from '../systems/synergy'
 import { directWave } from '../systems/scaling'
+import { TELEMETRY_SOURCES } from '../systems/telemetry'
 import { Pool } from '../utils/pool'
 import type { Rng } from './rng'
 import type { SimulationState } from './simulation'
@@ -101,6 +102,13 @@ export class Simulation {
   /** Ticks spent over the Slack budget. Non-zero means content overruns it. */
   ticksOverSlackBudget = 0
 
+  /** Per-wave telemetry accumulators. Dev-only; unread in a production build. */
+  private waveSeconds = 0
+  private waveSpawned = 0
+  private waveKilled = 0
+  private waveStartTension = 0
+  private lastSlackCount = 0
+
   constructor(
     public state: SimulationState,
     private readonly rng: Rng,
@@ -118,8 +126,10 @@ export class Simulation {
       lifetime: 0,
       angularVelocity: 0,
       sourceId: -1,
+      sourceDefId: '',
     }))
     state.projectiles = this.projectiles.items
+    this.waveStartTension = state.mainspring.hp
     // Wave 0 never fires waveStarted, so seed its bearing here. Its *content*
     // is directed lazily on the first tick instead: the formation is slotted
     // after construction, so measuring power now would read an empty field.
@@ -256,6 +266,8 @@ export class Simulation {
     this.totalSlackKilled += events.slackKilled
     this.totalConjunctions += events.conjunctionsFired
 
+    this.recordTelemetry(dt, events)
+
     // Budget instrumentation. Never clamps — an overrun is a content bug to
     // surface, not something to silently truncate (content/budgets.ts).
     if (sim.slack.length > this.peakSlack) this.peakSlack = sim.slack.length
@@ -288,6 +300,55 @@ export class Simulation {
    * false when out of charge or still cooling, so the UI can react without
    * duplicating the rules.
    */
+  /**
+   * Feed the dev-only telemetry sink.
+   *
+   * Gathered here rather than inside each system so the per-tick cost is one
+   * pass over units that already exist, and so the tick order stays readable —
+   * everything above this line is the simulation, this line is instrumentation.
+   */
+  private recordTelemetry(dt: number, events: TickEvents): void {
+    const telemetry = this.state.telemetry
+    if (!telemetry) return
+
+    const sim = this.state
+    telemetry.elapsed += dt
+
+    // Unit-seconds, the denominator that makes DPS comparable between a unit
+    // slotted from the start and one added halfway through.
+    const present: string[] = []
+    for (const m of sim.movements) if (m.disabledFor <= 0) present.push(m.def.id)
+    for (const c of sim.chimes) if (c.disabledFor <= 0) present.push(c.def.id)
+    telemetry.present(present, dt)
+
+    this.waveSeconds += dt
+    this.waveSpawned += Math.max(0, sim.slack.length - this.lastSlackCount + events.slackKilled)
+    this.waveKilled += events.slackKilled
+    this.lastSlackCount = sim.slack.length
+
+    if (events.waveCleared || events.stageCleared || events.stageLost) {
+      const maxTension = sim.mainspring.maxHp || 1
+      telemetry.wave({
+        index: sim.waveIndex,
+        seconds: this.waveSeconds,
+        spawned: this.waveSpawned,
+        killed: this.waveKilled,
+        tensionLost: (this.waveStartTension - sim.mainspring.hp) / maxTension,
+      })
+      this.waveSeconds = 0
+      this.waveSpawned = 0
+      this.waveKilled = 0
+      this.waveStartTension = sim.mainspring.hp
+    }
+
+    telemetry.tensionLost = sim.mainspring.maxHp - sim.mainspring.hp
+
+    if (events.stageCleared || events.stageLost) {
+      telemetry.stageSeconds = sim.elapsed
+      telemetry.outcome = events.stageCleared ? 'cleared' : 'lost'
+    }
+  }
+
   strike(x: number, y: number): boolean {
     const sim = this.state
     if (sim.phase !== 'wave-active' && sim.phase !== 'wave-gap') return false
@@ -298,6 +359,7 @@ export class Simulation {
     beat.charge -= 1
     beat.cooldown = BEAT.cooldown
     beat.struck++
+    if (sim.telemetry) sim.telemetry.beatsStruck++
 
     const dead = new Set<number>()
     const radiusSq = BEAT.radius * BEAT.radius
@@ -316,6 +378,7 @@ export class Simulation {
       )
       const before = slack.hp
       const died = damageSlack(slack, damage)
+      sim.telemetry?.damage(TELEMETRY_SOURCES.beat, Math.min(before, damage), died)
       sim.feed.emit(
         died ? 'kill' : 'damage',
         slack.position.x,
@@ -402,6 +465,7 @@ export class Simulation {
           p.lifetime = spawn.lifetime
           p.angularVelocity = spawn.angularVelocity
           p.sourceId = slack.id
+          p.sourceDefId = slack.def.id
         }
         continue
       }
@@ -430,6 +494,7 @@ export class Simulation {
       p.velocity.x = Math.cos(angle) * speed
       p.velocity.y = Math.sin(angle) * speed
       p.damage = shot.chime.def.attack * shot.chime.levelScale
+      p.sourceDefId = shot.chime.def.id
       p.damageType = 'resonant'
       p.radius = 4
       p.lifetime = 4

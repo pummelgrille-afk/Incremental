@@ -81,6 +81,20 @@
         <dt>conj.</dt><dd>{game.conjunctions}</dd>
         <dt>beats</dt><dd>{game.beatsStruck}</dd>
       </dl>
+
+      {#if game.telemetryRows.length > 0}
+        <!-- Dev-only: the collector does not exist in a production build. -->
+        <dl class="telemetry">
+          <dt class="sep head">source</dt><dd class="sep head">dps · share</dd>
+          {#each game.telemetryRows as row (row.id)}
+            <dt>{row.id}</dt>
+            <dd>
+              {row.dps.toFixed(1)}<span class="of"> · {(row.share * 100).toFixed(0)}%</span>
+              {#if row.disables > 0}<span class="warn"> ×{row.disables}</span>{/if}
+            </dd>
+          {/each}
+        </dl>
+      {/if}
     </aside>
   {/if}
 
@@ -224,6 +238,12 @@
     background: #1c1a14;
     border: 1px solid var(--brass-dim);
     border-radius: 0.2rem;
+  }
+
+  .telemetry .head {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.7;
   }
 
   .diagnostics {
