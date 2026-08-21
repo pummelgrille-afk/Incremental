@@ -1,6 +1,7 @@
 import type { StagePhase } from '../core/simulation'
 import type { Simulation } from '../core/loop'
 import { TARGET_FRAME_MS } from '../content/budgets'
+import { BEAT } from '../content/field'
 import { timeToNextConjunction } from '../systems/synergy'
 import { pairingOf, type TypePairing } from '../content/damageTypes'
 import type { DamageType } from '../entities/types'
@@ -136,6 +137,25 @@ class GameStore {
   /** Whole charges available. Fractional regeneration is not spendable. */
   beatsReady = $derived(Math.floor(this.beatCharge))
   canStrike = $derived(this.beatsReady >= 1 && this.beatCooldown <= 0 && this.running)
+
+  /**
+   * Progress toward the next moment the Beat can be struck, 0–1.
+   *
+   * Three things can gate a strike, and the bar reports whichever currently
+   * does: the stage being over, the post-strike cooldown, or the fractional
+   * charge still regenerating. When none of them gates it the bar is full,
+   * because there is nothing left to wait for — a bar that kept creeping toward
+   * a fourth charge while three were already spendable would be counting
+   * something the player cannot act on.
+   */
+  beatProgress = $derived.by(() => {
+    // A resolved stage refuses strikes whatever the charge, so a full bar there
+    // would advertise an input that does nothing.
+    if (!this.running) return 0
+    if (this.canStrike) return 1
+    if (this.beatCooldown > 0) return 1 - this.beatCooldown / BEAT.cooldown
+    return this.beatCharge - Math.floor(this.beatCharge)
+  })
 
   /**
    * Copy the scalars out of the simulation. Called once per rendered frame.

@@ -45,6 +45,9 @@
           <span class="pip" class:filled={i < game.beatsReady}></span>
         {/each}
       </div>
+      <div class="charge" class:ready={game.canStrike}>
+        <div class="fill" style:width="{game.beatProgress * 100}%"></div>
+      </div>
     </div>
 
     <p class="hint">
@@ -220,6 +223,29 @@
   .pip.filled {
     background: var(--brass);
     border-color: var(--brass);
+  }
+
+  /* Progress to the next strike: the cooldown, or the charge regenerating. */
+  .charge {
+    width: 100%;
+    height: 3px;
+    background: #1c1a14;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .charge .fill {
+    height: 100%;
+    background: var(--brass-dim);
+    /* Explicitly cancels the 120ms width transition the shared `.fill` rule
+       applies. The value already updates every frame, and 120ms of easing on a
+       250ms cooldown would leave the bar reporting a state the player has
+       already left. */
+    transition: none;
+  }
+
+  .charge.ready .fill {
+    background: var(--brass);
   }
 
   .hint {
