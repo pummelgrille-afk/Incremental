@@ -82,6 +82,21 @@ export interface SupportUnitView {
   stats: { maxCharge: number; chargeInterval: number; attack: number }
 }
 
+export interface RewindPreviewView {
+  award: number
+  after: number
+  depth: number
+  threshold: number
+  canRewind: boolean
+  refusedBecause: string | null
+  resets: { filings: number; movements: number; chimes: number; stagesThisRun: number }
+  keeps: { keys: number; nodes: number; unlockedUnits: number; zones: number }
+}
+
+export interface PrestigeActions {
+  rewind(): void
+}
+
 export interface FormationActions {
   place(defId: string, ring: number, slot: number, from?: { ring: number; slot: number }): void
   remove(ring: number, slot: number): void
@@ -226,6 +241,12 @@ class GameStore {
 
   /** The synergy preview panel. Toggled with F; deliberately not persisted. */
   showFormation = $state(false)
+
+  /** The Rewind modal. Toggled with P, once unlocked. */
+  showPrestige = $state(false)
+  rewindUnlocked = $state(false)
+  rewindPreview = $state<RewindPreviewView | null>(null)
+  prestigeActions = $state<PrestigeActions | null>(null)
 
   /** The Escapement Tree view. Toggled with T, once revealed. */
   showTree = $state(false)

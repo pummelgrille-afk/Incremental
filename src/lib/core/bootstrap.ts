@@ -3,6 +3,7 @@ import { chimeById, CHIMES } from '../content/supportUnits'
 import { STARTING_ZONE_ID, ZONES } from '../content/zones'
 import { game } from '../stores/game.svelte'
 import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
+import { isRewindUnlocked, rewind as rewindRun, rewindPreview } from '../progression/prestige'
 import {
   buyTrack,
   supportRoster,
@@ -188,6 +189,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // Stripped from a production build, where the authored gate is the only
     // way in — economy-spec.md §3.
     game.treeRevealed = isTreeRevealed(saveData) || import.meta.env.DEV
+    // Same dev allowance as the tree, and for the same reason: Phase 32 owns
+    // the boss that opens this, so it is otherwise unreachable to review.
+    game.rewindUnlocked = isRewindUnlocked(saveData) || import.meta.env.DEV
+    game.rewindPreview = rewindPreview(saveData, game.rewindUnlocked)
     game.recollection = saveData.meta.recollection
   }
 
@@ -310,6 +315,25 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     autosaver.request('purchase')
   }
 
+  game.prestigeActions = {
+    rewind() {
+      if (!rewindRun(saveData, Date.now(), game.rewindUnlocked).rewound) return
+
+      // The run is gone, so the simulation that was playing it must go too.
+      currentStage = DEFAULT_STAGE
+      saveData.run.currentStage = currentStage
+      pendingStage = null
+      advanceIn = 0
+      simulation = buildSimulation()
+
+      game.reset()
+      game.showPrestige = false
+      publishRoster()
+      publishTree()
+      autosaver.flush('purchase')
+    },
+  }
+
   game.formationActions = {
     place(defId, ring, slot, from) {
       const result = placeSaved(
@@ -414,6 +438,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // The tree stays hidden until it is revealed — economy-spec.md §3 wants a
     // first-time player meeting one progression system at a time.
     if (event.key === 't' && game.treeRevealed) game.showTree = !game.showTree
+    if (event.key === 'p' && game.rewindUnlocked) game.showPrestige = !game.showPrestige
     if (event.key === 'F2') {
       event.preventDefault()
       // Persisted, so a profiling session survives a reload.

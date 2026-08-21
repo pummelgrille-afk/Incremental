@@ -66,7 +66,8 @@
 
     <p class="hint">
       Click the floor to strike · <kbd>F</kbd> formation{#if game.treeRevealed}{' '}·
-        <kbd>T</kbd> tree{/if} · <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
+        <kbd>T</kbd> tree{/if}{#if game.rewindUnlocked}{' '}· <kbd>P</kbd> rewind{/if} ·
+      <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
     </p>
   </footer>
 

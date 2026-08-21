@@ -5,6 +5,7 @@
   import HUD from './lib/ui/HUD.svelte'
   import FormationEditor from './lib/ui/FormationEditor.svelte'
   import UpgradeTree from './lib/ui/UpgradeTree.svelte'
+  import PrestigeModal from './lib/ui/PrestigeModal.svelte'
 
   /**
    * Phase 10 vertical slice. The default view, so `npm run dev` shows the game
@@ -49,6 +50,7 @@
   <HUD showDiagnostics={game.showDiagnostics} />
   <FormationEditor open={game.showFormation} />
   <UpgradeTree open={game.showTree} />
+  <PrestigeModal open={game.showPrestige} />
 {/if}
 
 <style>

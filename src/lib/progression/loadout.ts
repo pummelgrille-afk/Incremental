@@ -277,10 +277,21 @@ export const OPENING_SLOTS: readonly [RingIndex, number][] = [
   [2, 5],
 ]
 
-export function grantStartingLoadout(save: SaveData): void {
-  if (!grantStartingRoster(save)) return
-
+/**
+ * Put the opening formation on the field, free.
+ *
+ * Separate from the grant below because **a Rewind needs it too**: the roster
+ * survives a Rewind, so the first-time grant declines to fire, and without this
+ * a Rewind would land the player in the same deadlock a fresh save had — no
+ * units, no Filings, and Filings only come from kills.
+ */
+export function placeOpeningFormation(save: SaveData): void {
   for (const [ring, slot] of OPENING_SLOTS) {
     save.run.formation[slotKeyOf(ring, slot)] = STARTING_MOVEMENT_ID
   }
+}
+
+export function grantStartingLoadout(save: SaveData): void {
+  if (!grantStartingRoster(save)) return
+  placeOpeningFormation(save)
 }
