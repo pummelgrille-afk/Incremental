@@ -2,6 +2,7 @@ import { SALVAGE, CLEARANCE, RECOLLECTION } from '../content/economy'
 import { isBossStage } from '../systems/scaling'
 import { zoneById } from '../content/zones'
 import { bossById } from '../content/bosses'
+import { unlockReachableZones } from './map'
 import { isBossWave } from '../entities/Wave'
 import { parseStageAddress, type StageAddress } from '../entities/Zone'
 import type { SaveData } from '../core/saveSchema'
@@ -157,6 +158,14 @@ export interface ClearReward {
    * the whole Salvage economy a function of one repeatable encounter.
    */
   bossSalvage: number
+
+  /**
+   * Zone ids this clear opened, if any.
+   *
+   * Always empty from `clearReward`, which reports rather than mutates —
+   * populated only by `applyStageClear`.
+   */
+  unlockedZones: string[]
 }
 
 /**
@@ -173,6 +182,7 @@ export function clearReward(save: SaveData, address: StageAddress): ClearReward 
     firstClear: false,
     zoneCompleted: false,
     bossSalvage: 0,
+    unlockedZones: [],
   }
   if (save.meta.clearedStages.includes(address)) return none
 
@@ -205,6 +215,7 @@ export function clearReward(save: SaveData, address: StageAddress): ClearReward 
     firstClear: true,
     zoneCompleted,
     bossSalvage,
+    unlockedZones: [],
   }
 }
 
@@ -224,6 +235,17 @@ export function applyStageClear(save: SaveData, address: StageAddress): ClearRew
   // Into the run's balance, not into meta: a bounty is won in a run and a
   // Rewind takes it with everything else.
   save.run.salvage += reward.bossSalvage
+
+  /*
+   * Open whatever this clear made reachable.
+   *
+   * Here rather than in the caller because a zone unlock is part of what a
+   * clear *is*: `meta.unlockedZones` and `ZoneDef.requires` both existed from
+   * Phase 8 and nothing ever wrote to the first, so every zone past the
+   * starting one was unreachable. Nothing noticed, because until Phase 33 there
+   * was no second zone.
+   */
+  reward.unlockedZones = unlockReachableZones(save)
   return reward
 }
 

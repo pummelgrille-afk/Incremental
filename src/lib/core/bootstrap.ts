@@ -55,6 +55,7 @@ import { createRng, seedFrom } from './rng'
 import { SaveManager } from './save'
 import type { SaveData } from './saveSchema'
 import { loadStage, stageOrder } from './stageLoader'
+import { isStageUnlocked, mapView } from '../progression/map'
 import type { StageAddress } from '../entities/Zone'
 import type { RingIndex } from '../entities/types'
 import type { SimulationState } from './simulation'
@@ -268,6 +269,19 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
    * run, and rebuilding it every frame would allocate arrays sixty times a
    * second to show numbers that do not move.
    */
+  /**
+   * The progression map, and the address of the stage in play.
+   *
+   * Republished on a clear and whenever the panel opens rather than every
+   * frame: it is forty stages across six zones and none of it changes between
+   * clears, so rebuilding it per frame would be forty allocations a frame for a
+   * panel that is usually shut.
+   */
+  const publishMap = (): void => {
+    game.map = mapView(saveData)
+    game.currentStage = currentStage
+  }
+
   const publishRoster = (): void => {
     game.platformRoster = rosterOf(saveData, 'platform')
     game.arrayRoster = rosterOf(saveData, 'array')
@@ -346,6 +360,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     game.lastRefusal = refusal
     syncFieldToSave()
     publishRoster()
+  publishMap()
     publishTree()
     // Publish the balance immediately rather than waiting for the next frame:
     // a price that updates a frame after the click reads as a click that did
@@ -508,6 +523,12 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // The synergy preview. Not persisted — it is a planning aid you open when
     // you are planning, unlike the diagnostics overlay.
     if (event.key === 'f') game.showFormation = !game.showFormation
+    // The progression map. Always available: it is where a player finds out
+    // there is anything past the zone they are on.
+    if (event.key === 'm') {
+      publishMap()
+      game.showMap = !game.showMap
+    }
     // The tree stays hidden until it is revealed — economy-spec.md §3 wants a
     // first-time player meeting one progression system at a time.
     if (event.key === 't' && game.treeRevealed) game.showTree = !game.showTree
@@ -588,6 +609,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       if (reward.clearance > 0) {
         game.lastClearanceAward = { clearance: reward.clearance, zoneCompleted: reward.zoneCompleted }
       }
+      // A clear can open a zone; the map has to say so before the player next
+      // opens it, not on the following frame.
+      publishMap()
 
       // Queue the next stage. Advancing on a timer rather than immediately so
       // the clear banner is readable — a stage that vanished the instant it
@@ -603,6 +627,33 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       game.nextStageIn = advanceIn
       publishTree()
       autosaver.request('stage-clear')
+    }
+
+    /*
+     * A stage picked from the map.
+     *
+     * Consumed here rather than acted on by the store, which is a projection
+     * and must never reach into the simulation. Re-validated against the save
+     * rather than trusted: the panel disables locked stages, but a disabled
+     * button is a presentation detail and the rule lives in progression/.
+     */
+    if (game.requestedStage) {
+      const requested = game.requestedStage as StageAddress
+      game.requestedStage = null
+      // Close on any accepted pick, including the stage already in play.
+      // Leaving the panel open there reads as a click that did not register.
+      if (isStageUnlocked(saveData, requested)) game.showMap = false
+      if (isStageUnlocked(saveData, requested) && requested !== currentStage) {
+        currentStage = requested
+        saveData.run.currentStage = currentStage
+        pendingStage = null
+        advanceIn = 0
+        game.nextStageIn = 0
+        simulation = buildSimulation()
+        game.reset()
+        publishMap()
+        autosaver.request('stage-clear')
+      }
     }
 
     // Count down to the next stage. The simulation is stopped, so this runs on

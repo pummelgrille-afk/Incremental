@@ -6,6 +6,7 @@ import { pairingOf, type TypePairing } from '../content/damageTypes'
 import type { DamageType } from '../entities/types'
 import type { UpgradeBranch } from '../entities/Upgrade'
 import type { UnavailableReason } from '../progression/upgradeTree'
+import type { ZoneView } from '../progression/map'
 
 /**
  * The Almanac, projected for the view.
@@ -272,6 +273,24 @@ class GameStore {
   rewindUnlocked = $state(false)
   rewindPreview = $state<RewindPreviewView | null>(null)
   prestigeActions = $state<PrestigeActions | null>(null)
+
+  /**
+   * The progression map. Toggled with M.
+   *
+   * `map` is projected from progression/map.ts rather than assembled here:
+   * which stages are enterable is a rule, and a rule living in a store or a
+   * template is a rule nothing can test.
+   */
+  showMap = $state(false)
+  map = $state<ZoneView[]>([])
+  /** Address of the stage in play, so the map can mark it. */
+  currentStage = $state<string | null>(null)
+  /**
+   * Set by the map when the player picks a stage; bootstrap consumes it and
+   * clears it. A request rather than a call, because the store is a projection
+   * and must not reach into the simulation.
+   */
+  requestedStage = $state<string | null>(null)
 
   /** The Almanac view. Toggled with T, once revealed. */
   showTree = $state(false)

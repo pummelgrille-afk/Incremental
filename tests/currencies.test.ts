@@ -115,7 +115,16 @@ describe('Salvage sinks', () => {
      * one zone once Phase 33 authors the rest.
      */
     expect(total(10)).toBeLessThan(zoneYield * 1.5)
-    expect(total(20)).toBeGreaterThan(zoneYield * 4)
+
+    /*
+     * The twentieth slot has to stay out of reach of raw drops. Phrased against
+     * the *curve* rather than against a zone's yield: yield moves whenever
+     * content is authored — Phase 33 grew zone 1 from three stages to four and
+     * nearly doubled it — and an invariant about the cost curve should not fail
+     * because a stage was added.
+     */
+    expect(total(20) / total(10)).toBeGreaterThan(5)
+    expect(total(20)).toBeGreaterThan(zoneYield * 3)
   })
 
   it('never charges a fraction', () => {

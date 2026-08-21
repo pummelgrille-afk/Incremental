@@ -72,6 +72,20 @@ Flat, predictable, non-scaling:
 | Re-clear of any stage | 0 |
 | Zone fully cleared | 10 |
 
+Against the ladder Phase 33 authored — six zones, forty stages, a boss at the
+end of each zone from the second — that totals **120 Clearance** for a complete
+traversal. Full roster breadth costs 89 (61 for ten Platforms, 28 for five
+Arrays), leaving 31 for levelling against a ceiling of 10 levels per unit.
+
+Deliberately not enough to max everything on one pass. Whether 31 is the *right*
+remainder is a Phase 35 question, not an authored one.
+
+**A boss also pays a one-off Salvage bounty** on first clear — 400 rising to
+1200, 3600 across the ladder. Salvage rather than Clearance because the two
+answer different questions: paying bosses in Clearance would gate roster breadth
+on *beating* them rather than on reaching them, which is a harder gate than the
+unlock curve is priced for.
+
 First-clear-only is intentional: Clearance measure *how much content you have seen*, so
 they cannot be farmed. This makes the roster unlock curve authored rather than
 grindable, which Phase 29's roster balance depends on.

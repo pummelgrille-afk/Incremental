@@ -5,6 +5,7 @@
   import HUD from './lib/ui/HUD.svelte'
   import FormationEditor from './lib/ui/FormationEditor.svelte'
   import UpgradeTree from './lib/ui/UpgradeTree.svelte'
+  import StageSelect from './lib/ui/StageSelect.svelte'
   import PrestigeModal from './lib/ui/PrestigeModal.svelte'
   import WelcomeBack from './lib/ui/WelcomeBack.svelte'
   import AchievementToast from './lib/ui/AchievementToast.svelte'
@@ -52,6 +53,7 @@
   <HUD showDiagnostics={game.showDiagnostics} />
   <FormationEditor open={game.showFormation} />
   <UpgradeTree open={game.showTree} />
+  <StageSelect open={game.showMap} />
   <PrestigeModal open={game.showPrestige} />
   <WelcomeBack />
   <AchievementToast />
