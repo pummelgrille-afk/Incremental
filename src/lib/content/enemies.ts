@@ -67,8 +67,10 @@ export const SLACK: readonly SlackDef[] = [
     attack: 6,
     defence: 8,
     speed: 15,
-    patternId: 'ring-8',
-    patternInterval: 4.5,
+    // Pulls a wedge in from the rim behind it. The longest telegraph in the
+    // game, because it denies the most ground.
+    patternId: 'converge-7',
+    patternInterval: 5.5,
     baseDrop: 18,
     threatWeight: 1.8,
   },
@@ -84,8 +86,10 @@ export const SLACK: readonly SlackDef[] = [
     attack: 11,
     defence: 14,
     speed: 22,
-    patternId: 'spread-3',
-    patternInterval: 3.6,
+    // Lays a wall across the arc it is approaching on. Slow enough to be a
+    // wall you plan around rather than one you react to.
+    patternId: 'wall-9',
+    patternInterval: 4.2,
     baseDrop: 14,
     threatWeight: 2,
     traits: {
@@ -128,8 +132,9 @@ export const SLACK: readonly SlackDef[] = [
     attack: 8,
     defence: 5,
     speed: 46,
-    patternId: 'aimed-1',
-    patternInterval: 2,
+    // An orbiting emitter tracing curved arms is what a spiral actually is.
+    patternId: 'spiral-4',
+    patternInterval: 2.6,
     baseDrop: 20,
     threatWeight: 3,
     traits: {

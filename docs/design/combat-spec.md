@@ -248,14 +248,40 @@ descriptors. Never hardcoded in enemy logic.
 
 | Pattern | Shape | Counterplay |
 |---------|-------|-------------|
-| `spread` | *n* projectiles across an arc | Nudge out of the cone |
-| `spiral` | Continuous stream, rotating emitter | Wait out the sweep |
-| `aimed` | Direct at nearest Movement or the Mainspring | Break the sightline |
-| `wall` | Line with one gap | Align the gap by nudging |
+| `spread` | *n* projectiles across an arc | Spread the formation; the cone covers one arc |
+| `spiral` | Curving arms from a rotating emitter | Wait out the sweep; the gaps are wide |
+| `aimed` | Direct at the target | Blocked by whatever is in the way |
+| `wall` | Line across an arc with one gap | Put the gap over something that can take it, or break the wall with a Beat |
 | `ring` | Full 360° expanding shell | Absorb with a defended ring |
-| `converge` | From rim inward on all arcs | Ring 1 defence matters |
+| `converge` | Wedge closing from the rim | Ring 1 defence matters |
 
-Each takes `{ count, speed, spread, rotationRate, telegraphMs }`.
+All six are implemented in Phase 16, each with exactly one user in
+`content/enemies.ts` — an unused pattern is untested configuration.
+
+> Counterplay was restated in Phase 16. The original table assumed the ring
+> nudge, which no longer exists; see §1.
+
+### Density and speed are a deliberate choice
+
+**The tone is "readable pressure", not danmaku.** P4 makes legibility
+non-negotiable, and the player's only input is a coarse area strike — there is
+no precise dodge to reward, so dense fast curtains would punish without offering
+counterplay.
+
+- **Speeds sit at 85–155 px/s**, roughly half genre-typical. Rim to centre takes
+  2–4 s, leaving time to read and act.
+- **Counts stay in single digits per emission.** Pressure comes from several
+  Slack on staggered cadences, not one wall of forty.
+- **Telegraphs run 450–750 ms** and scale with how much ground a pattern denies.
+  `converge` gets the longest.
+
+Measured across zone 1: peak concurrent projectiles of 12 / 18 / 30 across the
+three stages — **2–5% of the 600 budget**. That headroom is deliberate and is
+for Phase 32 bosses, which are where density should spike.
+
+**Open question for Phase 19/20:** 30 projectiles at peak may be *too* sparse to
+read as bullet-hell at all. The scaling director will drive this up; whether the
+result lands as pressure or as noise needs a playtest, not a measurement.
 
 ### Telegraph before threat — non-negotiable
 
