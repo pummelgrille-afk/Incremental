@@ -3,6 +3,11 @@
 > Phase 1 output. This file is the source of truth for the game's identity.
 > Later phases read from it rather than re-deciding.
 
+> **A theme revision is pending.** This document describes the clockwork Orrery
+> setting. A decided-but-deferred reskin to a literal solar system supersedes
+> parts of it — see [`theme-revision.md`](./theme-revision.md). Nothing here is
+> implemented differently yet.
+
 ## 1. The pitch — mechanics first
 
 A defence-shaped incremental where **the machine fights for you and your craft is

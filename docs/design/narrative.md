@@ -3,6 +3,11 @@
 > Phase 4 output. Original lore, characters and tone. Zone and boss flavour text
 > here is the source copy for `content/zones.ts` and `content/bosses.ts`.
 
+> **A theme revision is pending.** This document describes the clockwork Orrery
+> setting. A decided-but-deferred reskin to a literal solar system supersedes
+> parts of it — see [`theme-revision.md`](./theme-revision.md). Nothing here is
+> implemented differently yet.
+
 ## Premise
 
 The Orrery is a machine the size of a city. Brass rings, nested one inside the
