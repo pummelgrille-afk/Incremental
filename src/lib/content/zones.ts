@@ -1,5 +1,5 @@
 import type { ZoneDef } from '../entities/Zone'
-import { escorted, evenly, massed, pincer, withGap } from './waves'
+import { escorted, scattered, withGap } from './waves'
 
 /**
  * The progression map.
@@ -37,10 +37,11 @@ export const ZONES: readonly ZoneDef[] = [
         baseTension: 1000,
         keyReward: 1,
         waves: [
-          // Coverage, then a cluster worth a Beat, then both sides at once.
-          evenly('burr', 10, 0.55),
+          // Coverage, then an escort, then bulk. Every wave arrives on
+          // randomised bearings — see the note on `scattered` in waves.ts.
+          scattered('burr', 10, 0.55),
           escorted('burr', 13, 'backlash', 3),
-          massed('burr', 16),
+          scattered('burr', 16, 0.32),
         ],
       },
       {
@@ -54,7 +55,7 @@ export const ZONES: readonly ZoneDef[] = [
           // Introduces the splitter: killing it early is worth more than
           // killing it late, because the children still cross the same ground.
           escorted('burr', 16, 'wear', 5, 3),
-          pincer('burr', 16),
+          withGap(scattered('burr', 32, 0.2), 5),
         ],
       },
       {
@@ -72,7 +73,7 @@ export const ZONES: readonly ZoneDef[] = [
           escorted('burr', 18, 'cant', 4, 3),
           // Orbiters cannot be waited out; they settle and keep working.
           escorted('drift', 4, 'fret', 4, 4),
-          withGap(pincer('burr', 18), 6),
+          withGap(scattered('burr', 36, 0.2), 6),
         ],
       },
     ],

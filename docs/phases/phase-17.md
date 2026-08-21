@@ -244,3 +244,69 @@ make growth possible.
 
 If it still fails then, **density comes down** — the property wins, not the
 tuning.
+
+
+## Third playtest pass: arc waves read as scripted
+
+> *"the enemy spawn in wave 3 is still not randomized — just make it the same
+> pattern as wave 2 but with the same difficulty parameters"*
+
+The Phase 17 randomisation was applied *within* the arc: per-spawn jitter and a
+per-wave rotation of the whole arc. The reasoning was that the shape is the
+question the wave asks, so only its bearing should move.
+
+In play that reasoning does not survive contact. A `pincer` is still visibly two
+opposed clumps however the axis is rotated, and `massed` is still one clump —
+and the third wave of every stage was one of those two. Rotating a recognisable
+silhouette does not make it unpredictable; it makes it the same wave at a
+different angle.
+
+### What changed
+
+Every wave in zone 1 now takes the no-arc branch, which draws a fresh uniform
+bearing per spawn — the same distribution the `escorted` waves already used.
+Counts, arrival rate and recovery gaps are unchanged:
+
+| Stage | Was | Now |
+|---|---|---|
+| First Shift | `massed('burr', 16)` — 16 over 4.8 s | `scattered('burr', 16, 0.32)` — 16 over 4.8 s |
+| Routine Maintenance | `pincer('burr', 16)` — 32 over 6.0 s | `scattered('burr', 32, 0.2)` — 32 over 6.2 s |
+| Noted in the Log | `pincer('burr', 18)` — 36 over 6.8 s | `scattered('burr', 36, 0.2)` — 36 over 7.0 s |
+
+`evenly` was renamed `scattered`. The old name described behaviour that stopped
+being true when bearings were randomised — a group with no arc has never been
+evenly spaced since.
+
+### Difficulty held, measured
+
+Eight seeds per cell, mean lowest Tension:
+
+| | Before | After |
+|---|---|---|
+| Six units, Beat | 0.96 / 0.81 / 0.54 | 0.95 / 0.78 / 0.51 |
+| Six units, no Beat | 0.79 / LOST | 0.89 / LOST |
+| New player, Beat | 0.91 / 0.46 / 0.08 | 0.87 / 0.37 / 0.04 |
+| New player, no Beat, stage 1 | 0.47, **lost 1/8** | **0.63, lost 0/8** |
+
+Slightly harder with the Beat, slightly easier without it — scattered arrivals
+give the Beat fewer clusters to hit, and spread leakage instead of concentrating
+it. Stage 1 without the Beat gained real headroom, which strengthens the guard
+test rather than threatening it.
+
+### The cost, recorded
+
+`massed` existed to hand the Beat a cluster. Removing it drops the Beat's value
+on stage 1 from **+0.17 to +0.06** Tension. Stages 2 and 3 barely move
+(+0.75 → +0.74, +0.50 → +0.42) because Slack converge on the centre anyway and
+make their own clusters.
+
+So the Beat is now close to pointless on First Shift. That is acceptable there —
+stage 1 is deliberately the gentlest in the zone and clears without it either
+way — but **Phase 19 should not assume clusters arrive for free**. If the
+scaling director wants the Beat to matter, it has to create density itself.
+
+`massed` and `pincer` are kept in `waves.ts` for Phase 33. They are no longer
+used by any zone, so the arc branch of `spawnPosition` lost its only coverage;
+`tests/spawn.test.ts` now exercises it directly — bearings stay inside the arc,
+the per-wave offset rotates the whole arc, and no count produces a non-finite
+position. Verified by breaking both lines and watching the tests fail.

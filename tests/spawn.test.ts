@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Simulation, TICK_SECONDS } from '../src/lib/core/loop'
 import { loadStage } from '../src/lib/core/stageLoader'
 import { createRng } from '../src/lib/core/rng'
-import { createSlack, updateSlackMotion } from '../src/lib/systems/spawn'
+import { createSlack, updateSlackMotion, updateSpawning } from '../src/lib/systems/spawn'
+import { massed, pincer, scattered } from '../src/lib/content/waves'
 import { damageSlack, reapSlack } from '../src/lib/systems/combat'
 import { SLACK, slackById } from '../src/lib/content/enemies'
 import { ZONES } from '../src/lib/content/zones'
-import { isBossWave } from '../src/lib/entities/Wave'
+import { isBossWave, type WaveDef } from '../src/lib/entities/Wave'
 import type { SlackInstance } from '../src/lib/entities/Slack'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
@@ -235,6 +236,88 @@ describe('content integrity', () => {
             )
           }
         }
+      }
+    }
+  })
+})
+
+/**
+ * Spawn bearings.
+ *
+ * Zone 1 stopped using arc-based waves after the Phase 17 playtest — every
+ * shipped wave now takes the `else` branch of `spawnPosition`. That left the
+ * arc branch as authored-but-unexercised configuration, which is precisely the
+ * shape of the `wall(1)` NaN bug Phase 16 found. `massed` and `pincer` are kept
+ * for Phase 33, so they are covered here directly rather than by whatever
+ * content happens to use them.
+ */
+describe('spawn bearings', () => {
+  /** Shortest signed difference; raw atan2 values cannot be compared directly. */
+  function angleDelta(a: number, b: number): number {
+    let d = (a - b) % (Math.PI * 2)
+    if (d > Math.PI) d -= Math.PI * 2
+    if (d < -Math.PI) d += Math.PI * 2
+    return d
+  }
+
+  /** Run one wave's spawns against a **cloned** stage — never shared content. */
+  function bearings(wave: WaveDef, seed: number, arcOffset = 0): number[] {
+    const state = loadStage(STAGE)
+    const stage = { ...state.stage, waves: [wave] }
+    Object.assign(state, { stage, waveIndex: 0, waveArcOffset: arcOffset })
+
+    const rng = createRng(seed)
+    const total = wave.groups.reduce((n, g) => n + g.count, 0)
+    // Step past every due time in one call, so ordering matches a real tick.
+    state.waveElapsed = 1000
+    updateSpawning(state, rng, -1)
+
+    expect(state.slack).toHaveLength(total)
+    return state.slack.map((s) => Math.atan2(s.position.y, s.position.x))
+  }
+
+  it('scatters a group with no arc around the whole circle', () => {
+    const angles = bearings(scattered('burr', 60, 0.1), 3)
+    const quadrants = new Set(angles.map((a) => Math.floor((a + Math.PI) / (Math.PI / 2))))
+    expect(quadrants.size).toBe(4)
+  })
+
+  it('gives the same bearings for the same seed', () => {
+    expect(bearings(scattered('burr', 20, 0.1), 9)).toEqual(bearings(scattered('burr', 20, 0.1), 9))
+  })
+
+  it('gives different bearings for different seeds', () => {
+    // The whole point of the change: a wave is not memorisable across runs.
+    expect(bearings(scattered('burr', 20, 0.1), 1)).not.toEqual(
+      bearings(scattered('burr', 20, 0.1), 2),
+    )
+  })
+
+  it('keeps an arc wave inside its arc, jitter included', () => {
+    const width = Math.PI / 3
+    const count = 16
+    // Jitter may carry a spawn half a neighbour-gap past either end.
+    const slack = (width / (count - 1)) * 0.5
+    for (const a of bearings(massed('burr', count, 0, width), 5)) {
+      expect(Math.abs(angleDelta(a, 0))).toBeLessThanOrEqual(width / 2 + slack + 1e-9)
+    }
+  })
+
+  it('rotates the whole arc by the per-wave offset', () => {
+    const offset = 1.1
+    const at = (o: number) => bearings(massed('burr', 16, 0, Math.PI / 3), 5, o)
+    const shifted = at(offset)
+    at(0).forEach((a, i) => expect(angleDelta(shifted[i], a)).toBeCloseTo(offset, 6))
+  })
+
+  it('never produces a non-finite position', () => {
+    // wall(1) once yielded NaN from exactly this class of arc arithmetic.
+    for (const count of [1, 2, 3, 40]) {
+      for (const a of bearings(massed('burr', count, 0, Math.PI / 4), 2)) {
+        expect(Number.isFinite(a)).toBe(true)
+      }
+      for (const a of bearings(pincer('burr', count), 2)) {
+        expect(Number.isFinite(a)).toBe(true)
       }
     }
   })

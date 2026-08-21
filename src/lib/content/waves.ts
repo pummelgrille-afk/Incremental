@@ -17,8 +17,18 @@ import type { SpawnGroup, WaveDef } from '../entities/Wave'
  * +100% loses two of three. See docs/phases/phase-17.md.
  */
 
-/** Full circle. Nothing to align against; tests raw coverage. */
-export function evenly(defId: string, count: number, interval = 0.5): WaveDef {
+/**
+ * Full circle, unguessable bearings.
+ *
+ * A group with no `arc` gets a fresh uniform bearing per spawn (`spawn.ts`), so
+ * this shape asks for raw coverage and offers nothing to memorise. It was named
+ * `evenly` before spawn bearings were randomised, which had stopped being true.
+ *
+ * This is the zone's default shape. Arc-based waves — `massed`, `pincer` — keep
+ * a recognisable silhouette by design, and a Phase 17 playtest found that
+ * silhouette read as *scripted* rather than as a question being posed.
+ */
+export function scattered(defId: string, count: number, interval = 0.5): WaveDef {
   return {
     groups: [{ defId, count, delay: 0, interval }],
     gapAfter: 4,
