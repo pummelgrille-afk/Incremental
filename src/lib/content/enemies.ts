@@ -5,7 +5,17 @@ import type { SlackDef } from '../entities/Slack'
  *
  * PLACEHOLDER — Phase 31 produces the real tiered roster (basic, elite,
  * specialist) with a unique pattern each. What is here exists so the stage
- * loader has something to resolve and Phase 10 has something to fight.
+ * loader has something to resolve and the systems have something to fight.
+ *
+ * Phase 15 added the variety archetypes PLAN.md asks for, one per behavioural
+ * hook, so each hook has a live user rather than being dead configuration:
+ *
+ *   burr      swarm      the baseline
+ *   backlash  charge     fast; accelerates inside the outer ring
+ *   drift     drift      tanky; the anvil
+ *   cant      shielded   shrugs off N hits regardless of size
+ *   wear      splitter   divides on death
+ *   fret      orbiter    settles and circles; vulnerable while telegraphing
  *
  * Names follow narrative.md: Slack are named for modes of mechanical decay.
  */
@@ -61,6 +71,73 @@ export const SLACK: readonly SlackDef[] = [
     patternInterval: 4.5,
     baseDrop: 18,
     threatWeight: 1.8,
+  },
+  {
+    id: 'cant',
+    name: 'Cant',
+    description:
+      'Sitting at an angle it was never meant to sit at, and protected by the ' +
+      'fact. Strike it square or do not bother.',
+    armour: 'rigid',
+    motion: 'drift',
+    maxHp: 34,
+    attack: 11,
+    defence: 14,
+    speed: 22,
+    patternId: 'spread-3',
+    patternInterval: 3.6,
+    baseDrop: 14,
+    threatWeight: 2,
+    traits: {
+      // Shielded: shrugs off the first hits regardless of size, so chip damage
+      // is the wrong answer and a single heavy strike is the right one.
+      shieldHits: 3,
+    },
+  },
+  {
+    id: 'wear',
+    name: 'Wear',
+    description:
+      'Does not break so much as divide. The Manual notes that this was ' +
+      'observed in 1104 and recommends no change in procedure.',
+    armour: 'massed',
+    motion: 'drift',
+    maxHp: 48,
+    attack: 7,
+    defence: 3,
+    speed: 26,
+    patternId: 'ring-8',
+    patternInterval: 5,
+    baseDrop: 16,
+    threatWeight: 1.5,
+    traits: {
+      // Splitter: killing it far out is better than killing it late, because
+      // the children still have to cross the same distance.
+      splitsInto: { defId: 'burr', count: 3 },
+    },
+  },
+  {
+    id: 'fret',
+    name: 'Fret',
+    description:
+      'Settles at a distance and works away at the same spot indefinitely. ' +
+      'Cannot be waited out; it has more time than the shift does.',
+    armour: 'erratic',
+    motion: 'orbit',
+    maxHp: 40,
+    attack: 8,
+    defence: 5,
+    speed: 46,
+    patternId: 'aimed-1',
+    patternInterval: 2,
+    baseDrop: 20,
+    threatWeight: 3,
+    traits: {
+      orbitRadius: 205,
+      // Wide open while winding up: a player who reads the telegraph and acts
+      // is rewarded, not merely spared.
+      vulnerableWhileTelegraphing: 2,
+    },
   },
 ] as const
 

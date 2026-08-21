@@ -1,5 +1,7 @@
 import type { MovementInstance } from '../entities/Movement'
 import type { SlackInstance } from '../entities/Slack'
+import { slackById } from '../content/enemies'
+import { createSlack } from './spawn'
 import type { ArmourClass, DamageType } from '../entities/types'
 import { typeMultiplier } from '../content/damageTypes'
 import type { SimulationState } from '../core/simulation'
@@ -17,6 +19,10 @@ const DEFENCE_CONSTANT = 100
 
 /** Seconds a Movement stays disabled. Movements are never permanently lost. */
 const RECOVERY_TIME = 12
+
+/** How far children appear from a splitter, and across how wide an arc. */
+const SPLIT_OFFSET = 14
+const SPLIT_ARC = Math.PI / 2
 
 export function mitigate(raw: number, defence: number): number {
   return raw * (DEFENCE_CONSTANT / (DEFENCE_CONSTANT + Math.max(0, defence)))
@@ -46,7 +52,13 @@ export function damageSlack(slack: SlackInstance, amount: number): boolean {
     return false
   }
 
-  slack.hp -= amount
+  // A telegraphing Slack may be more vulnerable. This rewards a player for
+  // *acting* on a read telegraph rather than only for dodging it.
+  const vulnerability = slack.def.traits?.vulnerableWhileTelegraphing
+  const scaled =
+    vulnerability && slack.telegraphRemaining > 0 ? amount * vulnerability : amount
+
+  slack.hp -= scaled
   slack.hitFlash = 0.12
   return slack.hp <= 0
 }
@@ -121,7 +133,13 @@ export function resolveMovementAttacks(
   return reapSlack(sim, dead)
 }
 
-/** Remove dead Slack and award their Filings. */
+/**
+ * Remove dead Slack, award their Filings, and spawn anything they split into.
+ *
+ * Splitting happens here because this is where death is handled, and because a
+ * splitter's children must exist before the next system reads `sim.slack` —
+ * spawning them a step later would let a wave read as cleared for one tick.
+ */
 export function reapSlack(sim: SimulationState, dead: Set<number>): CombatResult {
   if (dead.size === 0) return { slackKilled: 0, filingsDropped: 0 }
 
@@ -129,11 +147,37 @@ export function reapSlack(sim: SimulationState, dead: Set<number>): CombatResult
   // Zone drop scaling — economy-spec.md §1.
   const zoneBonus = 1 + sim.zone.index * 0.35
 
+  const offspring: SlackInstance[] = []
+
   sim.slack = sim.slack.filter((slack) => {
     if (!dead.has(slack.id)) return true
+
     filings += slack.def.baseDrop * zoneBonus
+
+    const split = slack.def.traits?.splitsInto
+    if (split) {
+      const childDef = slackById(split.defId)
+      if (childDef) {
+        // Fan the children out around the parent so they do not stack into a
+        // single unhittable point, and inherit its heading.
+        const heading = Math.atan2(slack.velocity.y, slack.velocity.x)
+        for (let i = 0; i < split.count; i++) {
+          const spread = ((i / Math.max(1, split.count - 1)) - 0.5) * SPLIT_ARC
+          const angle = heading + (split.count > 1 ? spread : 0)
+          offspring.push(
+            createSlack(sim, childDef, {
+              x: slack.position.x + Math.cos(angle) * SPLIT_OFFSET,
+              y: slack.position.y + Math.sin(angle) * SPLIT_OFFSET,
+            }),
+          )
+        }
+      }
+    }
+
     return false
   })
+
+  if (offspring.length > 0) sim.slack.push(...offspring)
 
   sim.filingsEarned += filings
   return { slackKilled: dead.size, filingsDropped: filings }

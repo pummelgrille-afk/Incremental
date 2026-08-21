@@ -121,11 +121,20 @@ export function waveSpawnDuration(sim: SimulationState, waveIndex: number): numb
   )
 }
 
+/** Where an `orbit` Slack settles if its content does not say. */
+const DEFAULT_ORBIT_RADIUS = 210
+
 /**
  * Move Slack toward the Mainspring according to their motion archetype.
  *
- * PLACEHOLDER SCOPE — Phase 15 adds the full set. `orbit` is stubbed to `drift`
- * here rather than faked badly.
+ * Four archetypes, each meant to demand a different answer from the player:
+ *
+ * - `swarm`   weaves inward; hard to catch with a narrow arc, easy in bulk
+ * - `drift`   straight and slow; the anvil a front line grinds down
+ * - `charge`  accelerates once inside the outer ring; punishes a thin ring 1
+ * - `orbit`   settles at a radius and circles, firing — cannot be out-waited,
+ *             and is the one archetype a static Chime answers better than a
+ *             rotating Movement
  */
 export function updateSlackMotion(sim: SimulationState, dt: number): void {
   for (const slack of sim.slack) {
@@ -153,8 +162,36 @@ export function updateSlackMotion(sim: SimulationState, dt: number): void {
         if (slack.hitFlash > 0) slack.hitFlash = Math.max(0, slack.hitFlash - dt)
         continue
       }
+      case 'orbit': {
+        const target = slack.def.traits?.orbitRadius ?? DEFAULT_ORBIT_RADIUS
+
+        if (distance > target + 4) break // still closing; fall through to inward
+
+        // Settled: circle instead of closing. Tangential is the inward vector
+        // rotated a quarter turn, so this needs no extra trigonometry.
+        const direction = slack.id % 2 === 0 ? 1 : -1
+        slack.velocity.x = -towardCentreY * speed * direction
+        slack.velocity.y = towardCentreX * speed * direction
+        slack.position.x += slack.velocity.x * dt
+        slack.position.y += slack.velocity.y * dt
+
+        /*
+         * Pin the radius.
+         *
+         * A tangential step leaves the circle (the tangent lies outside it), so
+         * Euler integration walks the orbit outward until the re-close check
+         * yanks it back — an oscillating band rather than the fixed radius the
+         * archetype promises. Renormalising costs one square root and makes
+         * "settles at a radius" literally true.
+         */
+        const drifted = Math.hypot(slack.position.x, slack.position.y) || 1
+        slack.position.x = (slack.position.x / drifted) * target
+        slack.position.y = (slack.position.y / drifted) * target
+
+        if (slack.hitFlash > 0) slack.hitFlash = Math.max(0, slack.hitFlash - dt)
+        continue
+      }
       case 'drift':
-      case 'orbit':
       default:
         break
     }

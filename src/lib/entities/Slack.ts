@@ -21,12 +21,32 @@ export type SlackMotion =
 
 /** Behavioural hooks, reskinned per Phase 15. */
 export interface SlackTraits {
-  /** Spawns smaller Slack on death. */
+  /**
+   * Spawns smaller Slack on death.
+   *
+   * Content must not create a split cycle (A spawning A, directly or through a
+   * chain) — nothing clamps this at runtime, and a cycle would spawn without
+   * bound. Guarded by `tests/spawn.test.ts`.
+   */
   readonly splitsInto?: { defId: string; count: number }
+
   /** Absorbs a fixed number of hits before taking HP damage. */
   readonly shieldHits?: number
-  /** Multiplies incoming damage while telegraphing — a fairness window. */
+
+  /**
+   * Multiplies incoming damage while this Slack is telegraphing.
+   *
+   * A fairness window: the moment a Slack becomes dangerous is also the moment
+   * it is most worth shooting, so a player who reads the telegraph is rewarded
+   * for acting on it rather than only for avoiding it.
+   */
   readonly vulnerableWhileTelegraphing?: number
+
+  /**
+   * Radius an `orbit` Slack settles at before circling. Ignored by every other
+   * motion archetype.
+   */
+  readonly orbitRadius?: number
 }
 
 export interface SlackDef extends ContentDef {
