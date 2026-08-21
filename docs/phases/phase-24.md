@@ -83,36 +83,46 @@ Ring 1 is the last line — the only ring that reaches the Mainspring itself
 (`systems/ai.ts`, and the Phase 19 reach fix). A lone unit anywhere else watches
 things walk past it.
 
-So the fix is one line: the starting Movement stands on ring 1. Two tests lock
-it — one on the placement, one on the *outcome* across eight seeds, so a later
-change that moves the unit somewhere equally good still passes. Verified by
-moving it back to ring 2 and watching all three fail.
-
 **Stage 1's authored density was never the problem and has not been touched.**
+What the grant needed was ring coverage — and, as the next section shows, more
+than one unit.
 
-## The Beat is optional — no longer true at stage 1
-
-This needs stating plainly rather than burying.
+## The Beat is optional — and the opening grant grew to keep it
 
 Phase 20 verified "doing nothing is viable" (combat-spec.md §1, P1) against a
-five-unit stage-1 formation. With the real economy the stage-1 formation is one
-unit, and the property does not survive that:
+five-unit stage-1 formation. With the real economy the stage-1 formation was one
+unit, and the property did not survive that:
 
 | Opening formation | With Beat | Without Beat |
 |---|---|---|
-| 1 unit (what the game grants) | cleared 16/16 | **lost 16/16** |
+| 1 unit | cleared 16/16 | **lost 16/16** |
 | 3 units | cleared 16/16 | lost 8/16 |
 | **4 units** | cleared 16/16 | **cleared 16/16** |
 
-The property needs four units at stage 1. Granting four free Movements would
-delete the early slot economy entirely — the first four purchases, which are
-economy-spec §1's "main early sink".
+Two documented designs were in direct conflict — P1's "the machine runs without
+you" against economy-spec §6's deliberately slow unlock schedule. **P1 won**,
+which is the same call Phase 17 made when it said the property wins, not the
+tuning. A new save is granted four Movements.
 
-So two documented designs are now in direct conflict: **P1's "the machine runs
-without you"** and **economy-spec §6's deliberately slow unlock schedule**. This
-phase did not pick between them; it is a design call, not a tuning one, and the
-data above is what it should be decided on. Recorded in combat-spec.md §1
-alongside the Phase 20 table rather than left as a silent regression.
+### Where they stand was the real question
+
+| Four Hammers | With Beat | Without Beat |
+|---|---|---|
+| all on ring 2 | lost 8/24 | **lost 24/24** |
+| all on ring 1 | cleared 24/24 | 0.591 |
+| **2 on ring 1, 2 on ring 2** | cleared 24/24 | **0.780, min 0.507** |
+| 3 on ring 1, 1 on ring 2 | cleared 24/24 | 0.675 |
+
+Two-and-two, and not only because it measures best. Splitting across rings is
+what conjunction *requires* — two Movements on different rings — so the
+signature mechanic can now fire in the first stage rather than at economy-spec
+§6's ten-minute mark. The opening formation teaches the game's central idea by
+being shaped like it.
+
+**The slot curve is untouched.** The granted four count toward `slotsUsed`, so
+the fifth Movement costs 97 — what the fifth Movement costs. A grant, not a
+discount. economy-spec §6's schedule was updated to match: the first Movement is
+now at 0 s because it is given, and the cost curve is introduced at the fifth.
 
 ## The editor
 
@@ -146,18 +156,17 @@ that reports success is not the same as an edit that applied.
 
 ## Test coverage
 
-574 tests passing; 49 added — the starting grant and its ring, unlock and level
+577 tests passing; 52 added — the starting grant and its ring, unlock and level
 costs against the authored curves, the level ceiling, flat-not-compounding
 scaling, the slot economy's free moves and neutral refunds, every placement
 refusal, presets across a simulated Rewind, the schema-2 migration, the Filings
 counter's semantics, levelling reaching the simulation, and a fresh save
-clearing the opening stage with margin.
+clearing the opening stage with margin — and clearing it without a single Beat.
 
 ## Carried forward
 
 | Phase | Item |
 |-------|------|
-| **Design** | P1 vs the unlock schedule at stage 1 — see the table above |
 | 25 | Chime roster and upgrade paths; `roster.ts` already treats both kinds identically |
 | 26 | The Rewind clears `run.formation`; `clearFormation` is waiting for it |
 | 33 | Stage 3's density still cannot be settled — it needs the ladder past zone 1 |

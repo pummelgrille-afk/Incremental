@@ -99,29 +99,29 @@ negotiable in tuning:
    > 89 Slack — denser than stage 3. Its density came down to 69, as promised:
    > the property wins, not the tuning.
    >
-   > **Superseded at stage 1 by Phase 24.** The economy now exists, so the
-   > ladder is derived rather than estimated — and the real stage-1 formation is
-   > **one unit**, not the five assumed above:
+   > **Re-verified in Phase 24, and the opening grant grew to hold it.**
+   >
+   > The economy now exists, so the ladder is derived rather than estimated. The
+   > real stage-1 formation was **one unit**, not the five Phase 20 assumed, and
+   > the property did not survive that:
    >
    > | Opening formation | With Beat | Without Beat |
    > |---|---|---|
-   > | 1 unit (what a new save is granted) | cleared 16/16 | **lost 16/16** |
+   > | 1 unit | cleared 16/16 | **lost 16/16** |
    > | 3 units | cleared 16/16 | lost 8/16 |
-   > | 4 units | cleared 16/16 | cleared 16/16 |
+   > | **4 units** | cleared 16/16 | **cleared 16/16** |
    >
-   > The property needs four units at First Shift. Granting four free Movements
-   > would delete the early slot economy — the first four purchases are
-   > economy-spec.md §1's "main early sink".
+   > A new save is therefore granted **four Movements, two on ring 1 and two on
+   > ring 2** — 0.78 Tension without a single strike across 24 seeds, no losses.
+   > The pillar wins over the slot curve's first four purchases, which is the
+   > same call Phase 17 made when it said the property wins, not the tuning.
    >
-   > **This pillar and economy-spec.md §6's unlock schedule are therefore in
-   > direct conflict, and the conflict is open.** It is a design decision rather
-   > than a tuning one: either the opening grant grows, or the schedule
-   > accelerates, or P1 is qualified to exclude the first stage. Recorded here
-   > rather than resolved silently. Stage 1's authored density is *not* the
-   > variable — two units lose at every density tested from 42 Slack down to 20,
-   > and three clear at all of them.
+   > Coverage, not count, is what the measurement actually turned on: four
+   > Hammers all on ring 2 lose 24 of 24 without the Beat. Ring 1 is the only
+   > ring that reaches the Mainspring. Stage 1's authored density was never the
+   > variable — two units lose at every density from 42 Slack down to 20.
    >
-   > **The remaining caveat is the formation ladder itself.** How many units a
+      > **The remaining caveat is the formation ladder itself.** How many units a
    > player actually has at each stage is unknown until the economy exists, and
    > the measurement is highly sensitive to it: stage 3's content scores 0.929
    > against 11 units and **loses 13 of 16 runs against 7**. The ladder above is

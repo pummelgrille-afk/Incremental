@@ -19,6 +19,7 @@ import {
   loadPreset,
   MAX_PRESETS,
   mountChime,
+  OPENING_SLOTS,
   nextSlotCost,
   placeMovement,
   removeMovement,
@@ -56,19 +57,32 @@ describe('the starting loadout', () => {
     grantStartingLoadout(save)
 
     expect(isUnlocked(save, 'movement', STARTING_MOVEMENT_ID)).toBe(true)
-    expect(slotsUsed(save)).toBe(1)
-    expect(Object.values(save.run.formation)).toEqual([STARTING_MOVEMENT_ID])
+    expect(slotsUsed(save)).toBe(OPENING_SLOTS.length)
+    for (const defId of Object.values(save.run.formation)) {
+      expect(defId).toBe(STARTING_MOVEMENT_ID)
+    }
   })
 
-  it('stands the first unit on ring 1, the last line', () => {
+  it('spreads the opening across two rings', () => {
     /*
-     * Measured: one Hammer on ring 1 clears First Shift in 16 of 16 runs, the
-     * same Hammer on ring 2 loses 12 of them. Ring 1 is the only ring that
-     * reaches the Mainspring itself, so a lone unit anywhere else watches
-     * things walk past it.
+     * Coverage matters more than count at this size. Four Hammers all on ring 2
+     * lose 24 of 24 runs without the Beat; two-and-two clear all of them. Ring 1
+     * is the last line — the only ring that reaches the Mainspring.
+     *
+     * It also means conjunction can fire in the first stage, since that needs
+     * two Movements on *different* rings.
      */
     grantStartingLoadout(save)
-    expect(Object.keys(save.run.formation)[0]).toMatch(/^1:/)
+    const rings = new Set(Object.keys(save.run.formation).map((k) => k.split(':')[0]))
+    expect(rings.size).toBeGreaterThan(1)
+    expect(rings.has('1')).toBe(true)
+  })
+
+  it('does not discount the slots that follow', () => {
+    // The granted four count toward the curve: the fifth Movement costs what
+    // the fifth Movement costs. A grant, not a discount.
+    grantStartingLoadout(save)
+    expect(nextSlotCost(save)).toBe(slotCost(OPENING_SLOTS.length))
   })
 
   it('costs nothing, because there is nothing to spend', () => {
@@ -86,7 +100,7 @@ describe('the starting loadout', () => {
 
   it('is free only once, however many times it runs', () => {
     for (let i = 0; i < 5; i++) grantStartingLoadout(save)
-    expect(slotsUsed(save)).toBe(1)
+    expect(slotsUsed(save)).toBe(OPENING_SLOTS.length)
   })
 })
 
@@ -225,7 +239,7 @@ describe('the slot economy', () => {
     expect(moved.placed).toBe(true)
     expect(moved.spent).toBe(0)
     expect(save.run.filings).toBe(before)
-    expect(slotsUsed(save)).toBe(2)
+    expect(slotsUsed(save)).toBe(OPENING_SLOTS.length + 1)
   })
 
   it('refunds exactly what re-adding would cost', () => {
@@ -260,7 +274,7 @@ describe('the slot economy', () => {
 
     expect(result.refusedBecause).toBe('unaffordable')
     expect(save.run.filings).toBe(0)
-    expect(slotsUsed(save)).toBe(1)
+    expect(slotsUsed(save)).toBe(OPENING_SLOTS.length)
   })
 
   it('prices the nth slot from the authored curve', () => {
@@ -320,7 +334,7 @@ describe('presets', () => {
     // Refunding first means the player can always afford a formation they
     // already had, whatever order the slots come back in.
     expect(save.run.filings).toBeLessThan(fielded)
-    expect(slotsUsed(save)).toBe(3)
+    expect(slotsUsed(save)).toBe(OPENING_SLOTS.length + 2)
   })
 
   it('overwrites a preset of the same name rather than duplicating', () => {
@@ -329,7 +343,9 @@ describe('presets', () => {
     savePreset(save, 'wide')
 
     expect(save.meta.presets).toHaveLength(1)
-    expect(Object.keys(save.meta.presets[0].formation)).toHaveLength(2)
+    expect(Object.keys(save.meta.presets[0].formation)).toHaveLength(
+      OPENING_SLOTS.length + 1,
+    )
   })
 
   it('caps how many can be kept', () => {
@@ -435,7 +451,7 @@ describe('a brand-new save can actually play', () => {
    * outcome rather than the placement, so a later change that moves the unit
    * somewhere equally good still passes.
    */
-  function playOpening(seed: number): { cleared: boolean; lowest: number } {
+  function playOpening(seed: number, useBeat = true): { cleared: boolean; lowest: number } {
     const fresh = createDefaultSave(0)
     grantStartingLoadout(fresh)
 
@@ -453,7 +469,7 @@ describe('a brand-new save can actually play', () => {
     for (let i = 0; i < 6000 && !cleared && !lost; i++) {
       // The Beat, played the way the balance harness plays it.
       const slack = sim.state.slack
-      if (slack.length > 1 && sim.state.beat.charge >= 1) {
+      if (useBeat && slack.length > 1 && sim.state.beat.charge >= 1) {
         sim.strike(slack[0].position.x, slack[0].position.y)
       }
       const events = sim.tick(TICK_SECONDS)
@@ -475,5 +491,17 @@ describe('a brand-new save can actually play', () => {
     // that the game is unfair.
     const lows = [1, 2, 3, 4, 5, 6, 7, 8].map((s) => playOpening(s).lowest)
     expect(Math.min(...lows)).toBeGreaterThan(0.25)
+  })
+
+  it('clears it without a single Beat', () => {
+    /*
+     * Pillar P1, "the machine really does run without you" — combat-spec.md §1.
+     * This is the whole reason the opening grant is four units rather than one:
+     * at one unit the property failed 16 times in 16.
+     */
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
+      const result = playOpening(seed, false)
+      expect(result.cleared, `seed ${seed}`).toBe(true)
+    }
   })
 })

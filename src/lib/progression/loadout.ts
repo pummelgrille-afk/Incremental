@@ -249,28 +249,38 @@ export function loadPreset(save: SaveData, name: string): LoadPresetResult {
 }
 
 /**
- * Give a brand-new save something to play with.
+ * The opening formation, granted free on a new save.
  *
- * Without this the opening state is a deadlock: Filings buy slots, Filings come
- * from kills, and kills need a unit on the field. `content/allies.ts` already
- * declares the intent — "granted on a new save so the field is never empty" —
- * and economy-spec.md §6 wants the first Movement slotted inside thirty
- * seconds, which no amount of earning can achieve from zero.
+ * **Four Movements, two on ring 1 and two on ring 2.** Both halves of that were
+ * measured, not chosen:
  *
- * The placement is free and happens **only on the grant**, so a player who
- * later empties their field does not get a unit back for nothing.
+ * *Four*, because "doing nothing is viable" (combat-spec.md §1, pillar P1) does
+ * not survive fewer. One unit loses First Shift in 16 of 16 runs without the
+ * Beat, three lose 8 of 16, four clear all of them. The pillar is the reason
+ * the Beat exists as upside rather than as a tax, so it wins over the slot
+ * curve's first four purchases.
+ *
+ * *Two rings*, because coverage matters more than count at this size: four
+ * Hammers all on ring 2 lose 24 of 24 without the Beat, while two-and-two clear
+ * 24 of 24 at 0.78 Tension. Ring 1 is the last line — the only ring that
+ * reaches the Mainspring itself. Splitting them also means conjunction can fire
+ * in the first stage, since it requires two Movements on *different* rings.
+ *
+ * The slot curve is untouched: the granted four count toward `slotsUsed`, so
+ * the fifth Movement costs what the fifth Movement costs. The player is given a
+ * machine, not a discount.
  */
+export const OPENING_SLOTS: readonly [RingIndex, number][] = [
+  [1, 0],
+  [1, 3],
+  [2, 0],
+  [2, 5],
+]
+
 export function grantStartingLoadout(save: SaveData): void {
   if (!grantStartingRoster(save)) return
 
-  /*
-   * **Ring 1, not ring 2.** Measured, and the difference is the whole opening:
-   * one Hammer on ring 1 clears First Shift in 16 of 16 runs; the same Hammer
-   * on ring 2 loses 12 of them.
-   *
-   * Ring 1 is the last line — the only ring that defends the Mainspring itself
-   * (systems/ai.ts, and the Phase 19 reach fix). A lone unit anywhere else
-   * simply watches things walk past it.
-   */
-  save.run.formation[slotKeyOf(1, 0)] = STARTING_MOVEMENT_ID
+  for (const [ring, slot] of OPENING_SLOTS) {
+    save.run.formation[slotKeyOf(ring, slot)] = STARTING_MOVEMENT_ID
+  }
 }

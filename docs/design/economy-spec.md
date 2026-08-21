@@ -235,8 +235,8 @@ Design intent for a first-time player. Phase 35 validates against these.
 
 | Milestone | Target elapsed | Guard |
 |-----------|----------------|-------|
-| First Movement slotted | 30 s | Must be near-immediate |
-| Second Movement | 3 min | Introduces the cost curve |
+| First Movement slotted | 0 s | **Granted.** Four, in fact — combat-spec.md §1 |
+| Fifth Movement | 3 min | Introduces the cost curve; the granted four are free |
 | First Chime | 8 min | New system, after Movements are understood |
 | First conjunction fires | 10 min | Should be a surprise, then explained |
 | First boss reached | 20 min | |
