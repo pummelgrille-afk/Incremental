@@ -69,28 +69,36 @@ function spawnAt(
   }
 }
 
+/**
+ * Evenly spaced angles across an arc, centred on `centre`.
+ *
+ * **A single angle sits on the centre** — not at the arc's edge, and never NaN.
+ *
+ * This exists because the same three-line calculation was written out
+ * independently in `spread`, `wall` and `converge`, and got it wrong in two of
+ * them: `spread(1)` and `converge(1)` aimed half an arc wide, and `wall(1)`
+ * divided by zero and produced a NaN velocity — a projectile that would hold a
+ * pool slot without ever moving, colliding, or leaving by the distance check.
+ *
+ * No content uses a count of 1 today, so none of it reached play. Phases 31 and
+ * 32 author a lot of patterns, and one shared implementation is the only way
+ * this stays fixed.
+ */
+export function arcAngles(centre: number, arc: number, count: number): number[] {
+  if (count <= 0) return []
+  if (count === 1) return [centre]
+
+  const step = arc / (count - 1)
+  const start = centre - arc / 2
+  return Array.from({ length: count }, (_, i) => start + step * i)
+}
+
 /** *n* projectiles across an arc, centred on the target. Absorbed by the line. */
 export function spread(count: number, arc: number, speed: number) {
-  return (ctx: PatternContext): ProjectileSpawn[] => {
-    const centre = aimAngle(ctx.origin, ctx.target)
-    const out: ProjectileSpawn[] = []
-
-    /*
-     * A single projectile goes straight at the target.
-     *
-     * The zero-step guard alone is not enough: `centre - arc / 2` would still
-     * offset the lone shot to the arc's left edge, so `spread(1, ...)` aimed
-     * half an arc wide of where it claimed to. Caught by test; no content used
-     * count 1, so it had never shown up in play.
-     */
-    const step = count > 1 ? arc / (count - 1) : 0
-    const start = count > 1 ? centre - arc / 2 : centre
-
-    for (let i = 0; i < count; i++) {
-      out.push(spawnAt(ctx.origin, start + step * i, speed, ctx))
-    }
-    return out
-  }
+  return (ctx: PatternContext): ProjectileSpawn[] =>
+    arcAngles(aimAngle(ctx.origin, ctx.target), arc, count).map((angle) =>
+      spawnAt(ctx.origin, angle, speed, ctx),
+    )
 }
 
 /** A single shot straight at the target. Break the sightline. */
@@ -142,21 +150,15 @@ export function spiral(arms: number, speed: number, curve: number) {
  */
 export function wall(count: number, arc: number, speed: number, gapWidth = 2) {
   return (ctx: PatternContext): ProjectileSpawn[] => {
-    const centre = aimAngle(ctx.origin, ctx.target)
-    const out: ProjectileSpawn[] = []
-    const step = arc / (count - 1)
-    const start = centre - arc / 2
+    const angles = arcAngles(aimAngle(ctx.origin, ctx.target), arc, count)
 
     // Gap position varies per emission so the same wall is not solvable once.
-    const gapStart = Math.floor(
-      (Math.abs(Math.sin(ctx.emitterPhase)) * (count - gapWidth)),
-    )
+    const span = Math.max(0, count - gapWidth)
+    const gapStart = Math.floor(Math.abs(Math.sin(ctx.emitterPhase)) * span)
 
-    for (let i = 0; i < count; i++) {
-      if (i >= gapStart && i < gapStart + gapWidth) continue
-      out.push(spawnAt(ctx.origin, start + step * i, speed, ctx))
-    }
-    return out
+    return angles
+      .filter((_, i) => i < gapStart || i >= gapStart + gapWidth)
+      .map((angle) => spawnAt(ctx.origin, angle, speed, ctx))
   }
 }
 
@@ -171,17 +173,12 @@ export function wall(count: number, arc: number, speed: number, gapWidth = 2) {
 export function converge(count: number, arc: number, speed: number, radius: number) {
   return (ctx: PatternContext): ProjectileSpawn[] => {
     const bearing = Math.atan2(ctx.origin.y, ctx.origin.x)
-    const out: ProjectileSpawn[] = []
-    const step = count > 1 ? arc / (count - 1) : 0
-    const start = bearing - arc / 2
 
-    for (let i = 0; i < count; i++) {
-      const angle = start + step * i
+    return arcAngles(bearing, arc, count).map((angle) => {
       const from = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius }
       // Inward, toward the centre rather than at the target.
-      out.push(spawnAt(from, angle + Math.PI, speed, ctx))
-    }
-    return out
+      return spawnAt(from, angle + Math.PI, speed, ctx)
+    })
   }
 }
 

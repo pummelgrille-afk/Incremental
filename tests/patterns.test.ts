@@ -3,6 +3,7 @@ import {
   MIN_TELEGRAPH_MS,
   PATTERNS,
   aimed,
+  arcAngles,
   converge,
   patternById,
   ring,
@@ -267,5 +268,91 @@ describe('content wiring', () => {
   it('has no duplicate pattern ids', () => {
     const ids = PATTERNS.map((p) => p.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+/**
+ * The Phase 16 spread bug was one instance of a class: the same arc-spacing
+ * calculation written out three times, wrong in two of them. `spread(1)` and
+ * `converge(1)` aimed half an arc wide, and `wall(1)` divided by zero and
+ * produced a NaN velocity — a projectile that would hold a pool slot without
+ * ever moving, colliding, or leaving by the distance check.
+ *
+ * These test the class, not the instance.
+ */
+describe('arc spacing is correct at every count', () => {
+  const ARC = Math.PI / 2
+
+  it('puts a single angle on the centre, not at an edge', () => {
+    expect(arcAngles(1, ARC, 1)).toEqual([1])
+  })
+
+  it('spans the full arc for two or more', () => {
+    const angles = arcAngles(0, ARC, 2)
+    expect(angles[0]).toBeCloseTo(-ARC / 2, 10)
+    expect(angles[1]).toBeCloseTo(ARC / 2, 10)
+  })
+
+  it('stays centred on the requested bearing', () => {
+    for (const count of [1, 2, 3, 7, 20]) {
+      const angles = arcAngles(0.4, ARC, count)
+      const mean = angles.reduce((a, b) => a + b, 0) / angles.length
+      expect(mean, `count ${count}`).toBeCloseTo(0.4, 10)
+    }
+  })
+
+  it('returns nothing for a non-positive count', () => {
+    expect(arcAngles(0, ARC, 0)).toEqual([])
+    expect(arcAngles(0, ARC, -3)).toEqual([])
+  })
+
+  it('never produces a non-finite angle', () => {
+    for (const count of [0, 1, 2, 5, 50]) {
+      for (const angle of arcAngles(0, ARC, count)) {
+        expect(Number.isFinite(angle), `count ${count}`).toBe(true)
+      }
+    }
+  })
+})
+
+describe('every arc-based pattern survives a count of one', () => {
+  const builders: Array<[string, (n: number) => (c: PatternContext) => ReturnType<ReturnType<typeof spread>>]> = [
+    ['spread', (n) => spread(n, Math.PI / 2, 100)],
+    ['wall', (n) => wall(n, Math.PI / 2, 100, 0)],
+    ['converge', (n) => converge(n, Math.PI / 3, 90, SPAWN_RADIUS)],
+    ['ring', (n) => ring(n, 90)],
+    ['spiral', (n) => spiral(n, 95, 0.5)],
+  ]
+
+  it('produces only finite positions and velocities', () => {
+    for (const [name, make] of builders) {
+      for (const count of [1, 2, 3]) {
+        for (const s of make(count)(context())) {
+          expect(Number.isFinite(s.position.x), `${name}(${count}) position.x`).toBe(true)
+          expect(Number.isFinite(s.position.y), `${name}(${count}) position.y`).toBe(true)
+          expect(Number.isFinite(s.velocity.x), `${name}(${count}) velocity.x`).toBe(true)
+          expect(Number.isFinite(s.velocity.y), `${name}(${count}) velocity.y`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('always gives a projectile real speed, so none can stall in the pool', () => {
+    for (const [name, make] of builders) {
+      for (const s of make(1)(context())) {
+        expect(speedOf(s.velocity), `${name}(1)`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('aims a lone spread shot at the target', () => {
+    const [only] = spread(1, Math.PI / 2, 100)(context())
+    expect(delta(angleOf(only.velocity), Math.PI)).toBeCloseTo(0, 10)
+  })
+
+  it('spawns a lone converge shot on the emitter bearing', () => {
+    const [only] = converge(1, Math.PI / 3, 90, SPAWN_RADIUS)(context())
+    const bearing = Math.atan2(only.position.y, only.position.x)
+    expect(delta(bearing, 0)).toBeCloseTo(0, 10)
   })
 })

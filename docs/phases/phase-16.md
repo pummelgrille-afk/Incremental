@@ -91,6 +91,31 @@ than descriptive.
 No content used `count: 1`, so it had never shown up in play. It would have
 surfaced as a mysteriously inaccurate single-shot enemy somewhere in Phase 31.
 
+### The report was incomplete
+
+Fixing that one instance and moving on was the wrong call. The same arc-spacing
+calculation had been written out **three times**, and it was wrong in two of
+them:
+
+| Function | `count: 1` |
+|----------|-----------|
+| `spread` | Aimed half an arc wide — the reported bug |
+| `converge` | **Same bug**, off by half its arc |
+| `wall` | **Worse — no guard at all.** `arc / 0` gave `Infinity`, then `start + Infinity * 0` gave a **`NaN` velocity** |
+
+A NaN-velocity projectile is the nastiest of the three: it holds a pool slot
+without ever moving, colliding, or leaving by the distance check, so it just
+quietly shrinks the budget until its lifetime expires.
+
+All three now share one `arcAngles()` helper. Writing the same three lines in
+three places is what caused this, and one implementation is the only thing that
+keeps it fixed while Phases 31 and 32 author many more patterns.
+
+Tests were rewritten to cover the **class** rather than the instance: every
+arc-based pattern is exercised at counts 0, 1, 2, 3 and 50, asserting finite
+positions and velocities and non-zero speed. Verified in a live run across all
+of zone 1 — zero NaN projectiles, zero stalled projectiles.
+
 ## Angle assertions need care
 
 Four test failures were mine, not the code's: raw `atan2` values cannot be
@@ -103,7 +128,7 @@ Phase 32's boss patterns.
 
 ## Test coverage
 
-274 tests passing; 26 added, covering each pattern's defining property, purity
+283 tests passing; 35 added, covering each pattern's defining property, purity
 (same input → same output, no context mutation, no shared position objects), the
 telegraph floor, the tone bounds, and content wiring in both directions — every
 Slack has a pattern that exists, and every pattern has a user.
