@@ -258,7 +258,20 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `utils/hash.ts` | FNV-1a checksum for export strings | 9 |
 | `core/simulation.ts` | `SimulationState` — the complete mutable stage state | 8 |
 | `core/stageLoader.ts` | Resolve, validate and initialize a stage | 8 |
-| `core/render.ts` | Pixi scene (currently the Phase 7 harness) | 7 → 10 |
+| `core/rng.ts` | Seeded PRNG; the simulation never calls Math.random | 10 |
+| `core/loop.ts` | Fixed-timestep tick in combat-spec §8 order; the ring nudge | 10 |
+| `core/formation.ts` | Unit placement and cached formation bonuses | 10 |
+| `core/bootstrap.ts` | Wires simulation, renderer, input and autosave; owns rAF | 10 |
+| `core/render.ts` | Pixi scene reading simulation state | 7 → 10 |
+| `systems/ai.ts` | Targeting policies, annular-arc range, Chime lead | 10 |
+| `systems/spawn.ts` | Wave schedules, enemy motion, stat scaling | 10 |
+| `systems/patterns.ts` | Bullet patterns as pure functions | 10 → 16 |
+| `systems/collision.ts` | Projectile integration, block arc, hitboxes | 10 → 17 |
+| `systems/combat.ts` | Damage formulas, death handling, drops | 10 |
+| `systems/synergy.ts` | Conjunction detection, effects, preview | 10 |
+| `utils/pool.ts` | Fixed-capacity object pool | 10 |
+| `stores/game.svelte.ts` | The reactive projection — the only Svelte bridge | 10 |
+| `ui/HUD.svelte` | Tension, Filings, wave, ring cooldowns, diagnostics | 10 → 42 |
 
 ### Boundary enforcement
 

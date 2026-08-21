@@ -1,60 +1,60 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { startHarness, type RenderHarness } from './lib/core/render'
+  import { startGame, type GameSession } from './lib/core/bootstrap'
+  import HUD from './lib/ui/HUD.svelte'
 
-  // Phase 7 confirmation harness. Phase 10 replaces this with the vertical
-  // slice and Phase 42 builds the real HUD. Nothing here is load-bearing.
+  /**
+   * Phase 10 vertical slice. The default view, so `npm run dev` shows the game
+   * immediately (PLAN.md Phase 10). Phase 42 builds the real shell around this.
+   */
+
   let host = $state<HTMLDivElement>()
-  let harness: RenderHarness | undefined
-  let frameMs = $state(0)
-  let sprites = $state(0)
-  let count = $state(600)
+  let session: GameSession | undefined
+  let error = $state<string | null>(null)
+  let showDiagnostics = $state(true)
 
   onMount(() => {
     let disposed = false
-    startHarness(host!, count).then((h) => {
-      if (disposed) {
-        h.destroy()
-        return
+
+    startGame(host!)
+      .then((s) => {
+        if (disposed) {
+          s.destroy()
+          return
+        }
+        session = s
+      })
+      .catch((e: unknown) => {
+        error = e instanceof Error ? e.message : String(e)
+        console.error('[orrery] failed to start', e)
+      })
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'F2') {
+        event.preventDefault()
+        showDiagnostics = !showDiagnostics
       }
-      harness = h
-      const poll = setInterval(() => {
-        frameMs = h.frameMs
-        sprites = h.spriteCount
-      }, 250)
-      return () => clearInterval(poll)
-    })
+    }
+    window.addEventListener('keydown', onKey)
 
     return () => {
       disposed = true
-      harness?.destroy()
+      window.removeEventListener('keydown', onKey)
+      session?.destroy()
     }
   })
-
-  function setCount(n: number) {
-    count = n
-    harness?.setProjectileCount(n)
-  }
 </script>
 
 <div class="stage" bind:this={host}></div>
 
-<aside class="readout">
-  <h1>Phase 7 — render confirmation</h1>
-  <dl>
-    <dt>frame</dt>
-    <dd>{frameMs.toFixed(2)} ms</dd>
-    <dt>fps</dt>
-    <dd>{frameMs > 0 ? (1000 / frameMs).toFixed(0) : '—'}</dd>
-    <dt>sprites</dt>
-    <dd>{sprites}</dd>
-  </dl>
-  <div class="counts">
-    {#each [200, 600, 1200, 2400] as n (n)}
-      <button class:active={count === n} onclick={() => setCount(n)}>{n}</button>
-    {/each}
+{#if error}
+  <div class="error">
+    <strong>The Orrery did not start.</strong>
+    <code>{error}</code>
   </div>
-</aside>
+{:else}
+  <HUD {showDiagnostics} />
+{/if}
 
 <style>
   .stage {
@@ -62,63 +62,27 @@
     inset: 0;
   }
 
-  .readout {
+  .error {
     position: fixed;
-    top: 1rem;
-    left: 1rem;
-    padding: 0.75rem 1rem;
-    background: rgba(11, 10, 8, 0.85);
-    border: 1px solid var(--brass-dim);
-    border-radius: 0.4rem;
-    font-size: 0.8rem;
-  }
-
-  h1 {
-    margin: 0 0 0.5rem;
-    font-size: 0.7rem;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--brass);
-  }
-
-  dl {
-    display: grid;
-    grid-template-columns: auto auto;
-    gap: 0.1rem 0.75rem;
-    margin: 0 0 0.6rem;
-  }
-
-  dt {
-    color: var(--muted);
-  }
-
-  dd {
-    margin: 0;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-  }
-
-  .counts {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
-    gap: 0.25rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.5rem 2rem;
+    text-align: center;
+    background: rgba(11, 10, 8, 0.95);
+    border: 1px solid #f87171;
+    border-radius: 0.4rem;
   }
 
-  button {
-    flex: 1;
-    padding: 0.25rem 0.4rem;
-    font: inherit;
-    font-size: 0.7rem;
+  strong {
+    color: #f87171;
+  }
+
+  code {
     color: var(--muted);
-    background: none;
-    border: 1px solid var(--brass-dim);
-    border-radius: 0.25rem;
-    cursor: pointer;
-  }
-
-  button.active {
-    color: var(--bg);
-    background: var(--brass);
-    border-color: var(--brass);
+    font-size: 0.8rem;
   }
 </style>

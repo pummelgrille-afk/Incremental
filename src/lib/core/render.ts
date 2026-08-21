@@ -1,174 +1,351 @@
 import { Application, Container, Graphics } from 'pixi.js'
-import { RINGS, RIM_RADIUS } from '../content/field'
+import { RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
+import { chimePosition } from '../systems/ai'
+import { TICK_SECONDS, type Simulation } from './loop'
 
 /**
- * Phase 7 rendering confirmation harness.
+ * The Pixi render layer.
  *
- * Proves three things before Stage 2 commits to PixiJS:
- *   1. Pixi v8 boots under Vite and Svelte without bundler or SSR trouble.
- *   2. The container-per-ring model works — one `rotation` write per ring moves
- *      every unit on it, so rotation costs O(rings) rather than O(units).
- *   3. Frame time holds at the projectile budget in `balancing.csv`.
+ * **Reads simulation state and never writes it** (docs/architecture.md). A
+ * dropped frame must not change the simulation.
  *
- * Phase 10 replaces this with the real vertical slice. Nothing here is
- * load-bearing; it exists so the Phase 7 decision rests on a measurement.
+ * The simulation runs at a fixed 20 Hz while this draws at display rate, so
+ * positions are extrapolated forward by `alpha * TICK_SECONDS` using each
+ * entity's velocity. That is cheaper than storing previous positions and
+ * interpolating, and exact for the constant-velocity motion that dominates —
+ * projectiles and ring rotation.
+ *
+ * PLACEHOLDER ART — everything is a Graphics primitive in the brass palette.
+ * Phases 37–40 replace these with sprites, atlases and VFX.
  */
 
-export interface RenderHarness {
-  /** Rolling mean frame time in milliseconds. */
-  readonly frameMs: number
-  /** Sprites currently drawn, including ring furniture. */
-  readonly spriteCount: number
-  setProjectileCount(n: number): void
-  destroy(): void
+const PALETTE = {
+  background: 0x0b0a08,
+  ringTrack: 0x2a2417,
+  mainspring: 0xc9a227,
+  mainspringLow: 0xf87171,
+  movement: 0xc9a227,
+  movementDisabled: 0x4a4335,
+  detent: 0x8fb3c9,
+  pallet: 0xc98f4a,
+  chime: 0x5eead4,
+  slack: 0x8a8474,
+  slackFlash: 0xffffff,
+  projectileSlack: 0xe8e2d4,
+  projectileChime: 0x5eead4,
+  telegraph: 0xf87171,
+  conjunction: 0xfff1a8,
+} as const
+
+const MOVEMENT_COLOURS: Record<string, number> = {
+  hammer: PALETTE.movement,
+  detent: PALETTE.detent,
+  pallet: PALETTE.pallet,
 }
 
-export async function startHarness(
-  host: HTMLElement,
-  initialProjectiles = 600,
-): Promise<RenderHarness> {
+export interface Renderer {
+  render(simulation: Simulation): void
+  resize(): void
+  destroy(): void
+  readonly canvas: HTMLCanvasElement
+}
+
+export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   const app = new Application()
   await app.init({
-    background: 0x0b0a08,
+    background: PALETTE.background,
     antialias: true,
     resizeTo: host,
-    // Cap DPR: a 3x retina backing store triples fill cost for no legibility
-    // gain on shapes this simple.
+    // Cap DPR: a 3x backing store triples fill cost for no legibility gain on
+    // shapes this simple.
     resolution: Math.min(window.devicePixelRatio, 2),
     autoDensity: true,
   })
   host.appendChild(app.canvas)
 
-  // World is centred on the Mainspring, so children use polar-derived local
-  // coordinates and never need to know about screen space.
+  // Everything is centred on the Mainspring, so children work in world
+  // coordinates and never think about screen space.
   const world = new Container()
   app.stage.addChild(world)
 
-  const ringContainers: Container[] = []
-  const unitSprites: Graphics[] = []
-
+  // --- Static furniture: drawn once, never touched again. -------------------
+  const trackLayer = new Container()
+  world.addChild(trackLayer)
   for (const ring of RINGS) {
-    // Ring track: drawn once, never touched again.
-    const track = new Graphics()
-      .circle(0, 0, ring.radius)
-      .stroke({ width: 1, color: 0x7a6418, alpha: 0.35 })
-    world.addChild(track)
+    trackLayer.addChild(
+      new Graphics().circle(0, 0, ring.radius).stroke({
+        width: 1,
+        color: PALETTE.ringTrack,
+        alpha: 0.9,
+      }),
+    )
+  }
+  trackLayer.addChild(
+    new Graphics().circle(0, 0, RIM_RADIUS).stroke({
+      width: 1,
+      color: PALETTE.ringTrack,
+      alpha: 0.5,
+    }),
+  )
 
-    // One container per ring. Rotating this moves every unit on it.
+  // --- One container per ring. Rotating it moves every unit on it. ----------
+  const ringContainers = RINGS.map(() => {
     const container = new Container()
     world.addChild(container)
-    ringContainers.push(container)
+    return container
+  })
 
-    for (let slot = 0; slot < ring.slots; slot++) {
-      const angle = (slot / ring.slots) * Math.PI * 2
-      const unit = new Graphics()
-        .circle(0, 0, 7)
-        .fill({ color: 0xc9a227 })
-      // Local coordinates. The parent's rotation carries them around.
-      unit.x = Math.cos(angle) * ring.radius
-      unit.y = Math.sin(angle) * ring.radius
-      container.addChild(unit)
-      unitSprites.push(unit)
-    }
-  }
+  const slackLayer = new Container()
+  const projectileLayer = new Container()
+  const effectLayer = new Container()
+  const chimeLayer = new Container()
+  world.addChild(slackLayer, chimeLayer, projectileLayer, effectLayer)
 
   const mainspring = new Graphics()
-    .circle(0, 0, 28)
-    .fill({ color: 0xc9a227, alpha: 0.9 })
   world.addChild(mainspring)
 
-  // Projectiles: the load test. Pooled up front, same as the real system will
-  // do via utils/pool.ts in Phase 11.
-  const projectileLayer = new Container()
-  world.addChild(projectileLayer)
-
-  const projectiles: Graphics[] = []
-  const velocities: { vx: number; vy: number }[] = []
-
-  const growTo = (n: number) => {
-    while (projectiles.length < n) {
-      const p = new Graphics().circle(0, 0, 3).fill({ color: 0xe8e2d4 })
-      const angle = Math.random() * Math.PI * 2
-      const speed = 40 + Math.random() * 80
-      p.x = Math.cos(angle) * RIM_RADIUS
-      p.y = Math.sin(angle) * RIM_RADIUS
-      projectileLayer.addChild(p)
-      projectiles.push(p)
-      velocities.push({
-        vx: -Math.cos(angle) * speed,
-        vy: -Math.sin(angle) * speed,
-      })
-    }
-    while (projectiles.length > n) {
-      projectiles.pop()!.destroy()
-      velocities.pop()
-    }
-  }
-  growTo(initialProjectiles)
-
-  const ringPhase = new Float32Array(RINGS.length)
-  let frameMs = 0
+  // Sprite registries, keyed by entity id so they survive across frames.
+  const movementSprites = new Map<number, Graphics>()
+  const slackSprites = new Map<number, Graphics>()
+  const chimeSprites = new Map<number, Graphics>()
+  const projectileSprites: Graphics[] = []
 
   const recentre = () => {
     world.x = app.screen.width / 2
     world.y = app.screen.height / 2
+    // Scale down on small viewports so the whole field stays visible.
+    const fit = Math.min(app.screen.width, app.screen.height) / (RIM_RADIUS * 2.2)
+    world.scale.set(Math.min(1, fit))
   }
   recentre()
   app.renderer.on('resize', recentre)
 
-  const step = (dt: number) => {
-    // The claim under test: one write per ring, not per unit.
-    for (let i = 0; i < RINGS.length; i++) {
-      ringPhase[i] += (Math.PI * 2) / RINGS[i].period * dt
-      ringContainers[i].rotation = ringPhase[i]
-    }
+  function drawMovements(simulation: Simulation, alpha: number) {
+    const sim = simulation.state
+    const seen = new Set<number>()
 
-    // Projectiles still need per-entity integration — unavoidable, and the
-    // reason the budget is measured against this count.
-    for (let i = 0; i < projectiles.length; i++) {
-      const p = projectiles[i]
-      const v = velocities[i]
-      p.x += v.vx * dt
-      p.y += v.vy * dt
-      if (p.x * p.x + p.y * p.y < 28 * 28) {
-        const angle = Math.random() * Math.PI * 2
-        p.x = Math.cos(angle) * RIM_RADIUS
-        p.y = Math.sin(angle) * RIM_RADIUS
-        const speed = 40 + Math.random() * 80
-        v.vx = -Math.cos(angle) * speed
-        v.vy = -Math.sin(angle) * speed
+    for (const movement of sim.movements) {
+      seen.add(movement.id)
+      const ring = ringByIndex(movement.slot.ring)
+      if (!ring) continue
+
+      let sprite = movementSprites.get(movement.id)
+      if (!sprite) {
+        sprite = new Graphics()
+        movementSprites.set(movement.id, sprite)
+        ringContainers[ring.index - 1].addChild(sprite)
+      }
+
+      // Local coordinates only — the parent container's rotation carries them.
+      const localAngle = slotAngle(ring, movement.slot.slot, 0)
+      sprite.x = Math.cos(localAngle) * ring.radius
+      sprite.y = Math.sin(localAngle) * ring.radius
+
+      const disabled = movement.disabledFor > 0
+      const colour = disabled
+        ? PALETTE.movementDisabled
+        : (MOVEMENT_COLOURS[movement.def.id] ?? PALETTE.movement)
+
+      sprite.clear()
+      // Body.
+      sprite.circle(0, 0, 8).fill({ color: colour, alpha: disabled ? 0.4 : 1 })
+
+      if (!disabled) {
+        // Health ring, so damage is legible without a bar.
+        const health = movement.hp / movement.maxHp
+        if (health < 1) {
+          sprite
+            .arc(0, 0, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * health)
+            .stroke({ width: 2, color: colour, alpha: 0.8 })
+        }
+        if (movement.shield > 0) {
+          sprite.circle(0, 0, 13).stroke({ width: 1.5, color: PALETTE.chime, alpha: 0.7 })
+        }
       }
     }
 
+    for (const [id, sprite] of movementSprites) {
+      if (seen.has(id)) continue
+      sprite.destroy()
+      movementSprites.delete(id)
+    }
+
+    // The entire rotation system: one write per ring.
+    for (let i = 0; i < ringContainers.length; i++) {
+      const state = sim.rings[i]
+      if (!state) continue
+      ringContainers[i].rotation = state.phase + state.angularVelocity * alpha * TICK_SECONDS
+    }
   }
 
-  app.ticker.add((ticker) => {
-    step(ticker.deltaMS / 1000)
-    // Exponential moving average; a single slow frame should not dominate.
-    frameMs = frameMs === 0 ? ticker.deltaMS : frameMs * 0.9 + ticker.deltaMS * 0.1
-  })
+  function drawChimes(simulation: Simulation) {
+    const seen = new Set<number>()
 
-  if (import.meta.env.DEV) {
-    // Dev-only handle so the render budget can be measured without relying on
-    // requestAnimationFrame, which is throttled in headless/backgrounded tabs.
-    // Phase 11 formalises this into a proper profiling toggle.
-    ;(window as unknown as Record<string, unknown>).__orreryHarness = {
-      app,
-      step,
-      setProjectileCount: growTo,
+    for (const chime of simulation.state.chimes) {
+      seen.add(chime.id)
+      let sprite = chimeSprites.get(chime.id)
+      if (!sprite) {
+        sprite = new Graphics()
+        chimeSprites.set(chime.id, sprite)
+        chimeLayer.addChild(sprite)
+      }
+
+      const position = chimePosition(chime)
+      sprite.x = position.x
+      sprite.y = position.y
+
+      sprite.clear()
+      sprite.rect(-7, -7, 14, 14).fill({
+        color: PALETTE.chime,
+        alpha: chime.disabledFor > 0 ? 0.3 : 1,
+      })
+
+      // Charge pips — the resource that makes Chimes burst-y, made visible.
+      const whole = Math.floor(chime.charge)
+      for (let i = 0; i < chime.def.maxCharge; i++) {
+        sprite
+          .circle(-6 + i * 6, 13, 2)
+          .fill({ color: PALETTE.chime, alpha: i < whole ? 1 : 0.22 })
+      }
+    }
+
+    for (const [id, sprite] of chimeSprites) {
+      if (seen.has(id)) continue
+      sprite.destroy()
+      chimeSprites.delete(id)
+    }
+  }
+
+  function drawSlack(simulation: Simulation, alpha: number) {
+    const seen = new Set<number>()
+    const lead = alpha * TICK_SECONDS
+
+    for (const slack of simulation.state.slack) {
+      seen.add(slack.id)
+      let sprite = slackSprites.get(slack.id)
+      if (!sprite) {
+        sprite = new Graphics()
+        slackSprites.set(slack.id, sprite)
+        slackLayer.addChild(sprite)
+      }
+
+      sprite.x = slack.position.x + slack.velocity.x * lead
+      sprite.y = slack.position.y + slack.velocity.y * lead
+
+      const size = slack.def.motion === 'drift' ? 11 : 7
+      const flashing = slack.hitFlash > 0
+
+      sprite.clear()
+      sprite
+        .circle(0, 0, size)
+        .fill({ color: flashing ? PALETTE.slackFlash : PALETTE.slack })
+
+      // Telegraph: a pattern that fires without warning is a bug, so the
+      // warning has to be visible from the render layer, not implied.
+      if (slack.telegraphRemaining > 0) {
+        const t = slack.telegraphRemaining
+        sprite.circle(0, 0, size + 6 + t * 14).stroke({
+          width: 2,
+          color: PALETTE.telegraph,
+          alpha: 0.35 + 0.4 * Math.abs(Math.sin(t * 18)),
+        })
+      }
+
+      const health = slack.hp / slack.maxHp
+      if (health < 1) {
+        sprite
+          .arc(0, 0, size + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * health)
+          .stroke({ width: 1.5, color: PALETTE.slack, alpha: 0.8 })
+      }
+    }
+
+    for (const [id, sprite] of slackSprites) {
+      if (seen.has(id)) continue
+      sprite.destroy()
+      slackSprites.delete(id)
+    }
+  }
+
+  function drawProjectiles(simulation: Simulation, alpha: number) {
+    const items = simulation.projectiles.items
+    const lead = alpha * TICK_SECONDS
+
+    // Sprites are allocated once and reused by index, matching the pool. No
+    // per-frame allocation on the hot path.
+    while (projectileSprites.length < items.length) {
+      const sprite = new Graphics()
+      sprite.visible = false
+      projectileLayer.addChild(sprite)
+      projectileSprites.push(sprite)
+    }
+
+    for (let i = 0; i < items.length; i++) {
+      const p = items[i]
+      const sprite = projectileSprites[i]
+
+      if (!p.active) {
+        if (sprite.visible) sprite.visible = false
+        continue
+      }
+
+      if (!sprite.visible) {
+        sprite.visible = true
+        sprite.clear()
+        sprite.circle(0, 0, p.radius).fill({
+          color: p.faction === 'slack' ? PALETTE.projectileSlack : PALETTE.projectileChime,
+        })
+      }
+
+      sprite.x = p.position.x + p.velocity.x * lead
+      sprite.y = p.position.y + p.velocity.y * lead
+    }
+  }
+
+  function drawMainspring(simulation: Simulation) {
+    const state = simulation.state.mainspring
+    const fraction = state.maxHp > 0 ? state.hp / state.maxHp : 0
+    const low = fraction < 0.3
+
+    mainspring.clear()
+    mainspring.circle(0, 0, 26).fill({
+      color: state.hitFlash > 0 ? 0xffffff : low ? PALETTE.mainspringLow : PALETTE.mainspring,
+      alpha: 0.95,
+    })
+
+    // Tension as an arc around the core — the objective's health is the one
+    // number that must never require looking away from the field.
+    mainspring
+      .arc(0, 0, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fraction)
+      .stroke({ width: 4, color: low ? PALETTE.mainspringLow : PALETTE.mainspring })
+
+    if (state.shield > 0) {
+      mainspring.circle(0, 0, 40).stroke({ width: 2, color: PALETTE.chime, alpha: 0.6 })
     }
   }
 
   return {
-    get frameMs() {
-      return frameMs
+    canvas: app.canvas,
+
+    render(simulation: Simulation) {
+      const alpha = simulation.alpha
+
+      drawMovements(simulation, alpha)
+      drawChimes(simulation)
+      drawSlack(simulation, alpha)
+      drawProjectiles(simulation, alpha)
+      drawMainspring(simulation)
+
+      app.render()
     },
-    get spriteCount() {
-      return unitSprites.length + projectiles.length + RINGS.length + 1
-    },
-    setProjectileCount: growTo,
+
+    resize: recentre,
+
     destroy() {
       app.destroy(true, { children: true })
+      movementSprites.clear()
+      slackSprites.clear()
+      chimeSprites.clear()
+      projectileSprites.length = 0
     },
   }
 }
