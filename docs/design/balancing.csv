@@ -1,0 +1,79 @@
+category,parameter,value,min,max,unit,owning_phase,notes
+field,ring1_radius,90,60,120,px,5,Inner ring radius
+field,ring2_radius,160,130,200,px,5,Main line radius
+field,ring3_radius,240,200,280,px,5,Outer ring radius
+field,rim_radius,320,280,380,px,5,Chime mounts and enemy spawn boundary
+field,ring1_slots,6,4,8,count,5,Fewer slots inner so placement matters
+field,ring2_slots,10,8,12,count,5,
+field,ring3_slots,14,10,18,count,5,
+field,rim_mounts,8,4,12,count,5,Chime mount points
+field,ring1_period,8,5,12,s,5,Seconds per revolution
+field,ring2_period,14,10,20,s,5,Non-integer ratio to ring1 on purpose
+field,ring3_period,22,16,30,s,5,Non-integer ratio to ring1 and ring2
+nudge,nudge_impulse_slots,1,1,2,slots,5,One slot-width so input reads the same on every ring
+nudge,nudge_duration,0.4,0.2,0.8,s,5,Eased not instant
+nudge,nudge_cooldown,2.5,1.5,5.0,s,5,Per ring independent
+objective,mainspring_hitbox,28,20,40,px,5,Smaller than rendered sprite for fairness
+objective,tension_base,1000,500,2000,hp,6,Starting Tension pool
+objective,tension_per_bracing_tier,250,100,500,hp,6,Bracing branch scaling
+combat,retarget_interval,0.75,0.5,1.5,s,5,Never retarget mid-swing
+combat,threat_distance_weight,2.0,1.0,4.0,multiplier,5,Weight on proximity to Mainspring in threat score
+combat,defence_constant,100,50,200,constant,5,In final = raw * 100/(100+defence)
+combat,movement_recovery_time,12,6,20,s,5,Disabled duration; never permadeath
+combat,block_arc,12,8,20,degrees,5,Arc within which a Movement absorbs a projectile
+conjunction,tolerance,6,3,12,degrees,5,Angular window counting as aligned
+conjunction,eval_interval,100,50,250,ms,5,Not every tick
+conjunction,cooldown,6,3,12,s,5,Keyed on participating slot set
+conjunction,minor_multiplier,1.25,1.1,1.5,multiplier,5,2 units aligned
+conjunction,major_multiplier,1.6,1.4,2.0,multiplier,5,3 units aligned
+conjunction,grand_multiplier,2.2,1.8,3.0,multiplier,5,4+ units aligned
+chime,max_charge,3,2,6,count,5,Burst not sustained
+chime,charge_interval,4,2,8,s,5,Seconds to regain one charge
+patterns,min_telegraph,400,300,600,ms,5,Hard floor; never zero
+patterns,boss_telegraph,700,600,900,ms,5,
+patterns,max_projectiles,600,300,1200,count,11,Performance budget; see architecture.md
+types,favourable_multiplier,1.5,1.3,1.6,multiplier,5,Shear vs Massed etc
+types,unfavourable_multiplier,0.75,0.6,0.9,multiplier,5,Band stays narrow to protect roster diversity
+types,neutral_multiplier,1.0,1.0,1.0,multiplier,5,
+filings,base_drop,5,3,10,filings,6,Per basic Slack
+filings,zone_drop_scaling,0.35,0.2,0.6,rate,6,Per zone index
+filings,slot_cost_base,50,30,80,filings,6,First Movement slot
+filings,slot_cost_growth,1.18,1.12,1.28,factor,6,Load-bearing early curve
+filings,chime_cost_base,120,80,180,filings,6,Deliberately above slot cost
+filings,chime_cost_growth,1.22,1.15,1.35,factor,6,
+filings,repair_cost_base,40,20,80,filings,6,Restores 25% Tension
+filings,repair_cost_growth,1.5,1.35,1.8,factor,6,Steep so repair stays a panic button
+filings,reinforce_cost_base,200,120,320,filings,6,Expires at stage end
+filings,reinforce_cost_growth,1.25,1.15,1.4,factor,6,
+filings,reinforce_bonus,0.20,0.10,0.35,rate,6,Stat boost to one slot
+recollection,depth_exponent,1.6,1.4,1.9,exponent,6,Expect movement during Phase 35
+recollection,depth_divisor,8,5,12,divisor,6,
+tree,node_cost_growth,1.9,1.6,2.2,factor,6,Within a branch
+tree,winding_nodes,22,18,26,count,34,Offence branch
+tree,bracing_nodes,20,16,24,count,34,Defence branch
+tree,salvage_nodes,16,12,20,count,34,Economy branch
+tree,regulation_nodes,14,10,18,count,34,Utility branch; buys control not numbers
+keys,normal_stage_first_clear,1,1,2,keys,6,First clear only; not farmable
+keys,boss_stage_first_clear,5,3,8,keys,6,
+keys,zone_complete,10,5,15,keys,6,
+offline,cap_base,4,2,8,hours,6,
+offline,cap_max,24,12,48,hours,6,Fully upgraded via Salvage
+offline,efficiency_base,0.40,0.25,0.55,rate,6,
+offline,efficiency_max,0.75,0.6,0.9,rate,6,Must stay below 1.0 always
+offline,diminishing_halflife,4,2,8,hours,6,In 1/(1 + t/(4*3600))
+scaling,enemy_hp_growth,1.14,1.10,1.20,factor,6,Faster than damage growth on purpose
+scaling,enemy_damage_growth,1.09,1.05,1.14,factor,6,Slower so stalls precede walls
+scaling,enemy_count_stage_divisor,3,2,5,divisor,6,+1 enemy every N stages
+scaling,boss_interval,8,6,12,stages,6,
+scaling,boss_hp_multiplier,12,8,20,multiplier,6,
+scaling,boss_damage_multiplier,1.5,1.2,2.0,multiplier,6,
+pacing,first_slot,30,15,60,s,6,Target time-to-unlock
+pacing,second_slot,180,120,300,s,6,
+pacing,first_chime,480,300,720,s,6,
+pacing,first_conjunction,600,420,900,s,6,
+pacing,first_boss,1200,900,1800,s,6,
+pacing,tree_revealed,1320,1000,1900,s,6,Immediately after first boss
+pacing,first_rewind,2100,1500,2400,s,6,Session-one destination
+pacing,all_zones,30,25,40,hours,6,Full authored content
+invariant,max_unit_pick_rate,0.60,0.50,0.70,rate,35,No Movement or Chime above this in endgame formations
+invariant,max_offline_vs_active,0.50,0.40,0.60,rate,35,Offline must never approach active rate
