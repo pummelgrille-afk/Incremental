@@ -7,6 +7,9 @@ import {
 } from '../entities/Upgrade'
 import { UPGRADE_NODES, upgradeById } from '../content/upgrades'
 import { TREE } from '../content/economy'
+import { parseStageAddress } from '../entities/Zone'
+import { zoneById } from '../content/zones'
+import { isBossStage } from '../systems/scaling'
 import type { SaveData } from '../core/saveSchema'
 
 /**
@@ -256,4 +259,160 @@ export function validateTree(nodes: readonly UpgradeNodeDef[] = UPGRADE_NODES): 
   }
 
   return problems
+}
+
+export interface PathStep {
+  node: UpgradeNodeDef
+  /** What this node costs at the point in the path it is reached. */
+  cost: number
+}
+
+export interface PathPreview {
+  /** Nodes still to buy, in a buyable order. Empty when already purchased. */
+  steps: PathStep[]
+  /** Everything the path costs together. */
+  total: number
+  affordable: boolean
+}
+
+/**
+ * What reaching a node would cost, prerequisites included.
+ *
+ * **Not a sum of `nodeCost`.** Each purchase raises its branch's depth, so the
+ * second node in a chain is dearer than it looks today — quoting the sum of
+ * current prices would under-quote every multi-step path, which is the one
+ * thing a planning affordance must not do.
+ *
+ * Simulated against a scratch tally rather than the real save, so asking the
+ * question never changes the answer.
+ */
+export function pathTo(save: SaveData, nodeId: string): PathPreview {
+  const target = upgradeById(nodeId)
+  if (!target) return { steps: [], total: 0, affordable: false }
+
+  const owned = purchasedSet(save)
+  const ordered: UpgradeNodeDef[] = []
+  const seen = new Set<string>()
+
+  // Depth-first through prerequisites, emitting each before its dependents.
+  const visit = (node: UpgradeNodeDef): void => {
+    if (owned.has(node.id) || seen.has(node.id)) return
+    seen.add(node.id)
+    for (const id of node.requires) {
+      const prerequisite = upgradeById(id)
+      if (prerequisite) visit(prerequisite)
+    }
+    ordered.push(node)
+  }
+  visit(target)
+
+  // Walk the branch curves forward as the path is bought.
+  const depths = new Map<UpgradeBranch, number>()
+  for (const branch of UPGRADE_BRANCHES) depths.set(branch, branchDepth(save, branch))
+
+  let total = 0
+  const steps = ordered.map((node) => {
+    const depth = depths.get(node.branch) ?? 0
+    const cost = Math.ceil(node.baseCost * TREE.nodeCostGrowth ** depth)
+    depths.set(node.branch, depth + 1)
+    total += cost
+    return { node, cost }
+  })
+
+  return { steps, total, affordable: save.meta.recollection >= total }
+}
+
+export interface NodeLayout {
+  nodeId: string
+  x: number
+  y: number
+  branch: UpgradeBranch
+}
+
+/** Radians per branch. Four branches, so a quadrant each. */
+const BRANCH_ARC = (Math.PI * 2) / 4
+/** Pixels between tiers, measured outward from the centre. */
+const TIER_SPACING = 110
+/** Where tier 1 sits. Leaves the middle for the branch labels. */
+const FIRST_TIER_RADIUS = 130
+
+/**
+ * Where each node sits, derived rather than authored.
+ *
+ * **Radial, because the game is an orrery.** Branches take a quadrant each and
+ * tiers step outward, so investing in a branch reads as winding that arm of the
+ * mechanism further out — and the shape needs no art direction to stay legible
+ * as Phase 34 grows it from twelve nodes to seventy-two.
+ *
+ * Hand-placing coordinates in content was the alternative. It would look better
+ * for twelve nodes and become a liability at seventy-two, where every insertion
+ * means re-nudging its neighbours.
+ */
+export function treeLayout(nodes: readonly UpgradeNodeDef[] = UPGRADE_NODES): NodeLayout[] {
+  const layout: NodeLayout[] = []
+
+  UPGRADE_BRANCHES.forEach((branch, branchIndex) => {
+    const inBranch = nodes.filter((n) => n.branch === branch)
+    const byTier = new Map<number, UpgradeNodeDef[]>()
+    for (const node of inBranch) {
+      const tier = byTier.get(node.tier) ?? []
+      tier.push(node)
+      byTier.set(node.tier, tier)
+    }
+
+    // Centre of this branch's quadrant, rotated so no branch sits on an axis —
+    // an arm pointing straight up reads as "first" when none of them is.
+    const centre = branchIndex * BRANCH_ARC + BRANCH_ARC / 2 - Math.PI / 2
+
+    for (const [tier, tierNodes] of byTier) {
+      const radius = FIRST_TIER_RADIUS + (tier - 1) * TIER_SPACING
+
+      // Siblings share a tier and spread across the quadrant, narrowed so
+      // neighbouring branches never touch.
+      const usable = BRANCH_ARC * 0.7
+      tierNodes.forEach((node, index) => {
+        const offset =
+          tierNodes.length === 1
+            ? 0
+            : (index / (tierNodes.length - 1) - 0.5) * usable
+        const angle = centre + offset
+        layout.push({
+          nodeId: node.id,
+          x: Math.cos(angle) * radius,
+          y: Math.sin(angle) * radius,
+          branch,
+        })
+      })
+    }
+  })
+
+  return layout
+}
+
+/**
+ * Whether the tree should be visible at all.
+ *
+ * economy-spec.md §3: **hidden entirely** until the first boss clear, because a
+ * first-time player should meet exactly one progression system at a time.
+ *
+ * Two ways in, because the boss that gates it does not exist yet (Phase 32) and
+ * a save that has already Rewound has plainly met the system:
+ *
+ * - any boss stage cleared, which is the authored condition; or
+ * - a Rewind completed, which cannot happen before the tree is reachable but
+ *   makes the gate robust to Phase 26 landing first.
+ *
+ * The consequence today is that the tree is unreachable on every save — there
+ * is no boss and no Rewind. That is correct rather than broken: Recollection is
+ * likewise unobtainable until Phase 26, so a visible tree would be a menu of
+ * things nobody can buy.
+ */
+export function isTreeRevealed(save: SaveData): boolean {
+  if (save.meta.rewindCount > 0) return true
+
+  return save.meta.clearedStages.some((address) => {
+    const { zoneId, stageId } = parseStageAddress(address)
+    const stage = zoneById(zoneId)?.stages.find((s) => s.id === stageId)
+    return stage ? isBossStage(stage.scalingIndex) : false
+  })
 }

@@ -3,7 +3,16 @@ import { CHIMES } from '../content/supportUnits'
 import { STARTING_ZONE_ID } from '../content/zones'
 import { game } from '../stores/game.svelte'
 import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
-import { effectsOf } from '../progression/upgradeTree'
+import {
+  effectsOf,
+  pathTo,
+  purchase as purchaseNode,
+  refundValue,
+  respec as respecTree,
+  isTreeRevealed,
+  treeLayout,
+  treeStatus,
+} from '../progression/upgradeTree'
 import { Autosaver } from './autosave'
 import { mountChime, placeMovement } from './formation'
 import { Simulation } from './loop'
@@ -90,6 +99,64 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     return effects
   }
 
+  /**
+   * Push the tree to the view, and install the callbacks it spends through.
+   *
+   * Called on change rather than per frame: `treeStatus` walks every node and
+   * the result moves a handful of times per run.
+   */
+  const publishTree = (): void => {
+    const positions = new Map(treeLayout().map((l) => [l.nodeId, l]))
+    game.tree = treeStatus(saveData).map((status) => {
+      const at = positions.get(status.node.id)
+      return {
+        id: status.node.id,
+        name: status.node.name,
+        description: status.node.description,
+        branch: status.node.branch,
+        tier: status.node.tier,
+        requires: status.node.requires,
+        cost: status.cost,
+        purchased: status.purchased,
+        unlocked: status.unlocked,
+        affordable: status.affordable,
+        blockedBy: status.blockedBy,
+        x: at?.x ?? 0,
+        y: at?.y ?? 0,
+        effects: status.node.effects,
+      }
+    })
+    game.treeRefund = refundValue(saveData)
+    game.treeRevealed = isTreeRevealed(saveData)
+    game.recollection = saveData.meta.recollection
+  }
+
+  game.treeActions = {
+    purchase(nodeId: string) {
+      if (!purchaseNode(saveData, nodeId)) return
+      publishTree()
+      autosaver.request('purchase')
+    },
+    respec() {
+      // "Only between runs" is this layer's check to make — `upgradeTree.ts`
+      // deliberately cannot see whether a stage is in progress.
+      if (game.running) return
+      respecTree(saveData)
+      publishTree()
+      autosaver.request('purchase')
+    },
+    preview(nodeId: string) {
+      const path = pathTo(saveData, nodeId)
+      return {
+        ids: path.steps.map((step) => step.node.id),
+        total: path.total,
+        affordable: path.affordable,
+      }
+    },
+  }
+
+  publishTree()
+
   let simulation = buildSimulation()
   const renderer: Renderer = await createRenderer(host)
 
@@ -128,6 +195,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // The synergy preview. Not persisted — it is a planning aid you open when
     // you are planning, unlike the diagnostics overlay.
     if (event.key === 'f') game.showFormation = !game.showFormation
+    // The tree stays hidden until it is revealed — economy-spec.md §3 wants a
+    // first-time player meeting one progression system at a time.
+    if (event.key === 't' && game.treeRevealed) game.showTree = !game.showTree
     if (event.key === 'F2') {
       event.preventDefault()
       // Persisted, so a profiling session survives a reload.

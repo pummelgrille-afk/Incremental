@@ -4,6 +4,7 @@
   import { game } from './lib/stores/game.svelte'
   import HUD from './lib/ui/HUD.svelte'
   import FormationEditor from './lib/ui/FormationEditor.svelte'
+  import UpgradeTree from './lib/ui/UpgradeTree.svelte'
 
   /**
    * Phase 10 vertical slice. The default view, so `npm run dev` shows the game
@@ -47,6 +48,7 @@
 {:else}
   <HUD showDiagnostics={game.showDiagnostics} />
   <FormationEditor open={game.showFormation} />
+  <UpgradeTree open={game.showTree} />
 {/if}
 
 <style>

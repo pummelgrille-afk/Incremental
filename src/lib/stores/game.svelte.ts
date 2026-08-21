@@ -4,6 +4,40 @@ import { TARGET_FRAME_MS } from '../content/budgets'
 import { timeToNextConjunction } from '../systems/synergy'
 import { pairingOf, type TypePairing } from '../content/damageTypes'
 import type { DamageType } from '../entities/types'
+import type { UpgradeBranch } from '../entities/Upgrade'
+import type { UnavailableReason } from '../progression/upgradeTree'
+
+/**
+ * The Escapement Tree, projected for the view.
+ *
+ * The tree reads the **save**, not the simulation, so it cannot ride on
+ * `syncFrom`. `bootstrap.ts` pushes it whenever a purchase changes it, and the
+ * component calls back through `treeActions` to spend — keeping `stores/` the
+ * only bridge in both directions.
+ */
+export interface TreeNodeView {
+  id: string
+  name: string
+  description: string
+  branch: UpgradeBranch
+  tier: number
+  requires: readonly string[]
+  cost: number
+  purchased: boolean
+  unlocked: boolean
+  affordable: boolean
+  blockedBy: UnavailableReason | null
+  x: number
+  y: number
+  effects: readonly { kind: string; magnitude: number }[]
+}
+
+export interface TreeActions {
+  purchase(nodeId: string): void
+  respec(): void
+  /** What reaching a node costs, prerequisites included. */
+  preview(nodeId: string): { ids: string[]; total: number; affordable: boolean }
+}
 
 /** One row of the dev-only telemetry readout. */
 export interface TelemetryRow {
@@ -127,6 +161,17 @@ class GameStore {
 
   /** The synergy preview panel. Toggled with F; deliberately not persisted. */
   showFormation = $state(false)
+
+  /** The Escapement Tree view. Toggled with T, once revealed. */
+  showTree = $state(false)
+  /** Hidden entirely until the first boss clear — economy-spec.md §3. */
+  treeRevealed = $state(false)
+
+  // The tree. Pushed by bootstrap on change, not read per frame.
+  tree = $state<TreeNodeView[]>([])
+  treeRefund = $state(0)
+  /** Installed by bootstrap. Null until the session exists. */
+  treeActions = $state<TreeActions | null>(null)
 
   tensionFraction = $derived(this.maxTension > 0 ? this.tension / this.maxTension : 0)
 

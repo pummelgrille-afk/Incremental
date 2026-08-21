@@ -11,6 +11,9 @@ import {
   refundValue,
   respec,
   statusOf,
+  isTreeRevealed,
+  pathTo,
+  treeLayout,
   treeStatus,
   validateTree,
 } from '../src/lib/progression/upgradeTree'
@@ -20,7 +23,9 @@ import {
   type UpgradeEffectKind,
   type UpgradeNodeDef,
 } from '../src/lib/entities/Upgrade'
+import { ZONES } from '../src/lib/content/zones'
 import type { SaveData } from '../src/lib/core/saveSchema'
+import type { StageAddress } from '../src/lib/entities/Zone'
 
 let save: SaveData
 
@@ -286,5 +291,139 @@ describe('the tree view', () => {
     for (const status of available) {
       expect(status.node.requires).toEqual([])
     }
+  })
+})
+
+describe('the path preview', () => {
+  it('quotes nothing for a node already owned', () => {
+    purchase(save, ROOT)
+    expect(pathTo(save, ROOT).steps).toEqual([])
+    expect(pathTo(save, ROOT).total).toBe(0)
+  })
+
+  it('lists prerequisites before the node that needs them', () => {
+    const path = pathTo(save, THIRD)
+    expect(path.steps.map((s) => s.node.id)).toEqual([ROOT, SECOND, THIRD])
+  })
+
+  it('costs more than the sum of current prices', () => {
+    /*
+     * The whole reason this lives in the backend. Each purchase raises its
+     * branch's depth, so quoting the sum of today's prices under-quotes every
+     * multi-step path — the one thing a planning affordance must not do.
+     */
+    const naive = [ROOT, SECOND, THIRD].reduce((sum, id) => sum + nodeCost(save, node(id)), 0)
+    expect(pathTo(save, THIRD).total).toBeGreaterThan(naive)
+  })
+
+  it('walks the branch curve exactly', () => {
+    const g = TREE.nodeCostGrowth
+    const expected =
+      Math.ceil(node(ROOT).baseCost) +
+      Math.ceil(node(SECOND).baseCost * g) +
+      Math.ceil(node(THIRD).baseCost * g ** 2)
+
+    expect(pathTo(save, THIRD).total).toBe(expected)
+  })
+
+  it('shortens as prerequisites are bought', () => {
+    const full = pathTo(save, THIRD)
+    purchase(save, ROOT)
+    const remaining = pathTo(save, THIRD)
+
+    expect(remaining.steps).toHaveLength(full.steps.length - 1)
+    expect(remaining.steps.map((s) => s.node.id)).toEqual([SECOND, THIRD])
+  })
+
+  it('never changes the save it was asked about', () => {
+    // Asking the question must not change the answer.
+    const before = JSON.stringify(save.meta)
+    pathTo(save, THIRD)
+    expect(JSON.stringify(save.meta)).toBe(before)
+  })
+
+  it('reports affordability against the whole path, not one node', () => {
+    save.meta.recollection = node(ROOT).baseCost
+    const path = pathTo(save, THIRD)
+
+    expect(path.total).toBeGreaterThan(save.meta.recollection)
+    expect(path.affordable).toBe(false)
+  })
+
+  it('reports nothing for an unknown id', () => {
+    expect(pathTo(save, 'no-such-node').steps).toEqual([])
+  })
+})
+
+describe('the layout', () => {
+  it('places every node exactly once', () => {
+    const layout = treeLayout()
+    expect(layout).toHaveLength(UPGRADE_NODES.length)
+    expect(new Set(layout.map((l) => l.nodeId)).size).toBe(UPGRADE_NODES.length)
+  })
+
+  it('pushes later tiers further from the centre', () => {
+    const at = new Map(treeLayout().map((l) => [l.nodeId, l]))
+    const radius = (id: string) => Math.hypot(at.get(id)!.x, at.get(id)!.y)
+
+    expect(radius(SECOND)).toBeGreaterThan(radius(ROOT))
+    expect(radius(THIRD)).toBeGreaterThan(radius(SECOND))
+  })
+
+  it('gives each branch its own quadrant', () => {
+    // Branches must not overlap, or the tree stops reading as four arms once
+    // Phase 34 grows it to seventy-two nodes.
+    const bearings = new Map<string, number[]>()
+    for (const l of treeLayout()) {
+      const list = bearings.get(l.branch) ?? []
+      list.push(Math.atan2(l.y, l.x))
+      bearings.set(l.branch, list)
+    }
+
+    const spans = [...bearings.entries()].map(([branch, angles]) => ({
+      branch,
+      min: Math.min(...angles),
+      max: Math.max(...angles),
+    }))
+
+    for (const a of spans) {
+      for (const b of spans) {
+        if (a.branch === b.branch) continue
+        const overlaps = a.min <= b.max && b.min <= a.max
+        expect(overlaps, `${a.branch} overlaps ${b.branch}`).toBe(false)
+      }
+    }
+  })
+
+  it('never places a node on the origin', () => {
+    // The centre is reserved, and a node there would sit under the labels.
+    for (const l of treeLayout()) {
+      expect(Math.hypot(l.x, l.y), l.nodeId).toBeGreaterThan(50)
+    }
+  })
+})
+
+describe('the reveal gate', () => {
+  it('hides the tree on a fresh save', () => {
+    // economy-spec.md §3: a first-time player meets one system at a time.
+    expect(isTreeRevealed(save)).toBe(false)
+  })
+
+  it('stays hidden after clearing ordinary stages', () => {
+    for (const stage of ZONES[0].stages) {
+      save.meta.clearedStages.push(`${ZONES[0].id}:${stage.id}` as StageAddress)
+    }
+    expect(isTreeRevealed(save)).toBe(false)
+  })
+
+  it('reveals after a Rewind', () => {
+    save.meta.rewindCount = 1
+    expect(isTreeRevealed(save)).toBe(true)
+  })
+
+  it('ignores a cleared stage that no longer exists', () => {
+    save.meta.clearedStages.push('gone:missing' as StageAddress)
+    expect(() => isTreeRevealed(save)).not.toThrow()
+    expect(isTreeRevealed(save)).toBe(false)
   })
 })
