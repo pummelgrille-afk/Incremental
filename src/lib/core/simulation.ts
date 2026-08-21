@@ -4,6 +4,7 @@ import type { MovementInstance } from '../entities/Movement'
 import type { Projectile } from '../entities/Projectile'
 import type { SlackInstance } from '../entities/Slack'
 import type { StageDef, ZoneDef } from '../entities/Zone'
+import type { AnyWaveDef } from '../entities/Wave'
 import { BEAT, RINGS } from '../content/field'
 import type { CombatFeed } from '../systems/feed'
 
@@ -72,6 +73,15 @@ export interface SimulationState {
    * formation itself.
    */
   formationVersion: number
+  /**
+   * The wave actually being run, after `systems/scaling.ts` has applied the
+   * curve. Computed once when a wave begins, never per tick: spawning, the
+   * wave total and the spawn duration must all read the same numbers, and a
+   * wave whose total shifted underneath the clear check would never finish.
+   *
+   * Null before the first wave starts, when the authored wave still applies.
+   */
+  activeWave: AnyWaveDef | null
   /** Counts down during 'wave-gap'. */
   gapRemaining: number
 

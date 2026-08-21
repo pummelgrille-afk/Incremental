@@ -80,6 +80,9 @@ scaling,enemy_count_stage_divisor,3,2,5,divisor,6,+1 enemy every N stages
 scaling,boss_interval,8,6,12,stages,6,
 scaling,boss_hp_multiplier,12,8,20,multiplier,6,
 scaling,boss_damage_multiplier,1.5,1.2,2.0,multiplier,6,
+scaling,overlevel_threshold,3.0,2.5,5.0,pressure,19,Below this the director does nothing
+scaling,overlevel_count_per_pressure,0.35,0.2,0.6,rate,19,Extra count per unit of pressure over threshold
+scaling,overlevel_max_count_bonus,0.5,0.25,1.0,fraction,19,Ceiling on added count
 pacing,first_slot,30,15,60,s,6,Target time-to-unlock
 pacing,second_slot,180,120,300,s,6,
 pacing,first_chime,480,300,720,s,6,

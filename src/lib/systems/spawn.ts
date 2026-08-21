@@ -4,6 +4,7 @@ import { slackById } from '../content/enemies'
 import { SPAWN_RADIUS } from '../content/field'
 import { allocateId, type SimulationState } from '../core/simulation'
 import type { Rng } from '../core/rng'
+import { scaleDamage, scaleHp } from './scaling'
 
 /**
  * Wave spawning and enemy motion.
@@ -13,15 +14,6 @@ import type { Rng } from '../core/rng'
  * which is the fiction's explanation for why everything converges on the centre
  * (narrative.md, "The Unwinding").
  */
-
-/** Enemy stat scaling. economy-spec.md §5. */
-export function scaleHp(base: number, scalingIndex: number, zoneMultiplier: number): number {
-  return base * 1.14 ** scalingIndex * zoneMultiplier
-}
-
-export function scaleDamage(base: number, scalingIndex: number, zoneMultiplier: number): number {
-  return base * 1.09 ** scalingIndex * zoneMultiplier
-}
 
 /**
  * How much of the gap between neighbours a spawn may wander, either way.
@@ -101,10 +93,23 @@ export function createSlack(
  * Driven by `waveElapsed` rather than by a per-group timer, so the schedule is
  * declarative and a wave can be restarted by resetting one number.
  */
+/**
+ * The wave in play — the directed one when the director has produced it,
+ * otherwise what the stage authored.
+ *
+ * One accessor rather than three call sites reaching for `stage.waves[i]`,
+ * because spawning, the wave total and the spawn duration disagreeing about a
+ * count is a wave that never completes.
+ */
+export function currentWave(sim: SimulationState, waveIndex: number) {
+  if (waveIndex === sim.waveIndex && sim.activeWave) return sim.activeWave
+  return sim.stage.waves[waveIndex]
+}
+
 export function updateSpawning(sim: SimulationState, rng: Rng, previousElapsed: number): void {
   if (sim.phase !== 'wave-active') return
 
-  const wave = sim.stage.waves[sim.waveIndex]
+  const wave = currentWave(sim, sim.waveIndex)
   if (!wave || isBossWave(wave)) return
 
   for (const group of wave.groups) {
@@ -130,14 +135,14 @@ export function updateSpawning(sim: SimulationState, rng: Rng, previousElapsed: 
 
 /** Total Slack a wave will produce. Used to decide when it is cleared. */
 export function waveTotal(sim: SimulationState, waveIndex: number): number {
-  const wave = sim.stage.waves[waveIndex]
+  const wave = currentWave(sim, waveIndex)
   if (!wave || isBossWave(wave)) return 0
   return wave.groups.reduce((n, g) => n + g.count, 0)
 }
 
 /** Seconds until a wave has finished spawning everything. */
 export function waveSpawnDuration(sim: SimulationState, waveIndex: number): number {
-  const wave = sim.stage.waves[waveIndex]
+  const wave = currentWave(sim, waveIndex)
   if (!wave || isBossWave(wave)) return 0
   return wave.groups.reduce(
     (max, g) => Math.max(max, g.delay + g.interval * Math.max(0, g.count - 1)),

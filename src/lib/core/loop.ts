@@ -25,6 +25,7 @@ import {
 } from '../systems/ai'
 import { updateSlackMotion, updateSpawning, waveSpawnDuration } from '../systems/spawn'
 import { createCooldowns, updateSynergy } from '../systems/synergy'
+import { directWave } from '../systems/scaling'
 import { Pool } from '../utils/pool'
 import type { Rng } from './rng'
 import type { SimulationState } from './simulation'
@@ -119,8 +120,22 @@ export class Simulation {
       sourceId: -1,
     }))
     state.projectiles = this.projectiles.items
-    // Wave 0 never fires waveStarted, so seed its bearing here.
+    // Wave 0 never fires waveStarted, so seed its bearing here. Its *content*
+    // is directed lazily on the first tick instead: the formation is slotted
+    // after construction, so measuring power now would read an empty field.
     rerollWaveArc(state, rng)
+  }
+
+  /**
+   * Ask the director for the wave that will actually run, and cache it.
+   *
+   * Cached rather than recomputed because spawning, the wave total and the
+   * spawn duration must agree — a wave whose total moved underneath the clear
+   * check would never complete.
+   */
+  private directCurrentWave(): void {
+    const authored = this.state.stage.waves[this.state.waveIndex]
+    this.state.activeWave = authored ? directWave(this.state, authored) : null
   }
 
   /**
@@ -164,6 +179,10 @@ export class Simulation {
     const events: TickEvents = noTickEvents()
 
     if (sim.phase === 'cleared' || sim.phase === 'overwhelmed') return events
+
+    // The opening wave is directed on the first tick that runs, once the
+    // formation exists. Later waves are directed as they start (step 10).
+    if (sim.activeWave === null) this.directCurrentWave()
 
     this.tickCount++
     const previousWaveElapsed = sim.waveElapsed
@@ -225,7 +244,10 @@ export class Simulation {
     if (thresholds.length > 0) events.thresholdsCrossed.push(...thresholds)
 
     const objective = updateStageProgress(sim, dt)
-    if (objective.waveStarted) rerollWaveArc(sim, this.rng)
+    if (objective.waveStarted) {
+      rerollWaveArc(sim, this.rng)
+      this.directCurrentWave()
+    }
     events.stageCleared = objective.stageCleared
     events.stageLost = objective.stageLost
     events.waveCleared = objective.waveCleared

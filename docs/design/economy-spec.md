@@ -195,6 +195,40 @@ patterns. Bosses ignore the count formula.
 `zoneMultiplier` fixed at the Unnumbered Ring's value, so there is no cliff at the
 content boundary — just an unbroken curve.
 
+### Over-level pressure (Phase 19)
+
+PLAN.md asks the Phase 19 director for a curve "tied to the player's current
+power". Taken in both directions that is rubber-banding, and it contradicts this
+section: the formulas above make HP outgrow damage precisely so a player who has
+out-scaled their build **feels a stall**, and `game-loop.md` makes that stall the
+signal to Rewind. A director that quietly eased off when the player was weak
+would erase the only thing telling them the run is over.
+
+So the response is **one-sided**. Being over-levelled adds enemies; being
+under-levelled changes nothing, ever.
+
+```
+pressure = formationDps / waveHpPerSecond
+bonus    = clamp(0, (pressure - 3.0) × 0.35, 0.5)   // fraction of authored count
+```
+
+Measured against the wave itself rather than an authored power baseline, so it
+needs no magic number that would rot as the roster grows. `formationDps` counts
+Chimes at their **Charge** rate, not their fire rate, and excludes the Beat —
+the Beat is the player's input, not their formation, and scaling waves against
+how well someone is *playing* is the rubber-banding this rejects.
+
+The threshold is calibrated so the reference formation — six Movements and two
+Chimes at level 1, what every balance pass since Phase 14 has measured against —
+scores zero on **every** authored stage. Its worst case is 2.39, on First Shift.
+Anything else would mean the director was rebalancing the game rather than
+answering farming.
+
+Added enemies keep the wave's **duration**, not its interval, so a wave gets
+denser rather than longer. Stretching it would raise clear time without raising
+pressure, which is the opposite of the intent. The bonus is capped at +50%
+because the authored wave is still the *shape* of the question being asked.
+
 ## 6. Time-to-unlock targets
 
 Design intent for a first-time player. Phase 35 validates against these.

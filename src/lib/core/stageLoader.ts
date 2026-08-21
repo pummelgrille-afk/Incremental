@@ -2,6 +2,7 @@ import { createMainspring } from '../entities/Mainspring'
 import { isBossWave } from '../entities/Wave'
 import { parseStageAddress, type StageAddress, type StageDef, type ZoneDef } from '../entities/Zone'
 import { slackById } from '../content/enemies'
+import { isBossStage } from '../systems/scaling'
 import { zoneById } from '../content/zones'
 import { createBeatState, createRingStates, type SimulationState } from './simulation'
 import { CombatFeed } from '../systems/feed'
@@ -51,6 +52,21 @@ export function validateStage(stage: StageDef): string[] {
 
   if (stage.waves.length === 0) {
     problems.push(`Stage "${stage.id}" has no waves`)
+  }
+
+  /*
+   * Boss milestones — economy-spec.md §5, every 8th stage.
+   *
+   * Checked here rather than left as an unwired constant. Zone 1 stops at
+   * scaling index 3 so nothing trips it today, but the moment Phase 33 authors
+   * a stage on the interval without a boss, the content tests fail and say so.
+   * Phase 32 owns the encounters themselves.
+   */
+  if (isBossStage(stage.scalingIndex) && !stage.waves.some(isBossWave)) {
+    problems.push(
+      `Stage "${stage.id}" is on the boss interval (scaling index ` +
+        `${stage.scalingIndex}) but has no boss wave`,
+    )
   }
 
   stage.waves.forEach((wave, index) => {
@@ -109,6 +125,7 @@ export function loadStage(
     waveElapsed: 0,
     waveArcOffset: 0,
     formationVersion: 0,
+    activeWave: null,
     gapRemaining: 0,
 
     mainspring: createMainspring(maxTension),
