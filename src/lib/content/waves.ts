@@ -10,10 +10,15 @@ import type { SpawnGroup, WaveDef } from '../entities/Wave'
  * A wave is **a question posed to the formation**. Each builder below states
  * which question it asks, because a wave that does not ask anything is just
  * time passing.
+ *
+ * Arrival intervals were tightened in Phase 17 after a playtest reported the
+ * field feeling empty. Density was measured against the fixed starting
+ * formation: +50% counts with faster arrival still clears every stage, while
+ * +100% loses two of three. See docs/phases/phase-17.md.
  */
 
 /** Full circle. Nothing to align against; tests raw coverage. */
-export function evenly(defId: string, count: number, interval = 0.6): WaveDef {
+export function evenly(defId: string, count: number, interval = 0.5): WaveDef {
   return {
     groups: [{ defId, count, delay: 0, interval }],
     gapAfter: 4,
@@ -33,7 +38,7 @@ export function massed(
   width = Math.PI / 3,
 ): WaveDef {
   return {
-    groups: [{ defId, count, delay: 0, interval: 0.4, arc: { centre, width } }],
+    groups: [{ defId, count, delay: 0, interval: 0.32, arc: { centre, width } }],
     gapAfter: 4,
   }
 }
@@ -52,14 +57,14 @@ export function pincer(defId: string, countPerSide: number): WaveDef {
         defId,
         count: countPerSide,
         delay: 0,
-        interval: 0.5,
+        interval: 0.4,
         arc: { centre: 0, width: Math.PI / 4 },
       },
       {
         defId,
         count: countPerSide,
         delay: 0,
-        interval: 0.5,
+        interval: 0.4,
         arc: { centre: Math.PI, width: Math.PI / 4 },
       },
     ],
@@ -82,7 +87,7 @@ export function escorted(
 ): WaveDef {
   return {
     groups: [
-      { defId: bulkId, count: bulkCount, delay: 0, interval: 0.5 },
+      { defId: bulkId, count: bulkCount, delay: 0, interval: 0.4 },
       { defId: eliteId, count: eliteCount, delay: eliteDelay, interval: 1.2 },
     ],
     gapAfter: 5,

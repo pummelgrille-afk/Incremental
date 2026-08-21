@@ -398,7 +398,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     damage: 0xe8e2d4,
     kill: PALETTE.mainspring,
     block: PALETTE.detent,
-    objective: PALETTE.mainspringLow,
   }
 
   /**

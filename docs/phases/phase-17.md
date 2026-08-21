@@ -106,3 +106,73 @@ independence.
 | 37 | Sprite sizes are set here and must **not** be tied to hurtboxes |
 | 40 | Death and hit VFX build on the feed rather than adding a parallel channel |
 | 42 | The HUD may want a feed-derived recent-damage readout |
+
+
+## Playtest follow-up
+
+Two pieces of feedback from playing the Phase 17 build, both acted on.
+
+### The Mainspring damage numbers were cut
+
+> *"the damage dealt from the enemies to the mainspring isn't that clear to see
+> with the numbers ... it is still flashing white when hit and I can see the
+> health in the top left so it's fine"*
+
+Right call. A number popping at the point of impact competed with the
+Mainspring's own white flash and with the densest action on the field, while the
+HUD Tension bar is already the authoritative readout **and is persistent rather
+than transient**. Two channels for the same information, one of them worse, is
+noise (P4).
+
+`objective` is gone from `CombatEventKind` entirely rather than left unemitted —
+dead configuration is what this project keeps finding bugs in. Damage to the
+Mainspring is now carried by the flash and the bar alone, and a test asserts no
+popup is produced.
+
+### Density was raised
+
+> *"it feels just a little boring with the amount of enemies right now"*
+
+Confirmed the concern flagged in Phase 16. Peak concurrent enemies was 6–11
+against a **budget of 200** — 5% of what the engine handles. The Beat is an area
+strike that wants clusters, and 6 enemies rarely gives one.
+
+| | Before | After |
+|---|---|---|
+| Peak enemies | 6 / 9 / 11 | **9 / 11 / 14** |
+| Kills per stage | 23 / 35 / 26 | **36 / 56 / 32** |
+| Lowest Tension | 0.96 / 0.86 / 0.81 | **0.95 / 0.73 / 0.65** |
+
+More to shoot, ~50% more kill feedback, and an actual difficulty ramp instead of
+three stages that all sat above 80%.
+
+### The tuning harness was wrong twice
+
+Worth recording, because both errors produced confident nonsense.
+
+**Shared content mutation.** The first sweep scaled wave counts through
+`sim.state.stage.waves` — which is a **reference into `content/zones.ts`**, not a
+copy. Every run compounded on the last, so what was labelled "×3" was really ×6
+and "×5" was ×120. That produced a dramatic "difficulty cliff" that did not
+exist, and the conclusion drawn from it (that ×2 was already lethal) was wrong.
+
+`readonly` in TypeScript is compile-time only and offered no protection.
+`tests/stageLoader.test.ts` now asserts a full simulated stage leaves content
+byte-identical.
+
+**Measuring an approximation instead of the thing.** The corrected sweep scaled
+*every* group interval, while the change actually shipped only tightened bulk
+arrival. Close enough to look confirmatory, different enough that stage 3 lost
+where the sweep predicted a clear at 0.36. Re-tuned against the real content.
+
+### Stage 3 is on a knife edge
+
+Found while re-tuning: at the raised density, a **10% count change flips stage 3
+from a comfortable clear to a loss**, and the relationship is non-monotonic —
+fewer enemies sometimes produced *worse* outcomes.
+
+Stage 3 is held below the density of the earlier stages for now. The underlying
+cause is not diagnosed, and it should be: a difficulty boundary that sharp
+against a fixed formation suggests a cascade (likely a Movement disabling and
+opening an arc). **Phase 19 owns this** — the scaling director should govern that
+boundary rather than authored counts.

@@ -154,18 +154,27 @@ describe('the combat feed', () => {
     expect(sim.state.feed.items.filter((e) => e.active && e.kind === 'kill')).toHaveLength(1)
   })
 
-  it('records a block and an objective hit distinctly', () => {
+  it('records a block', () => {
     placeMovement(sim.state, movementById('detent')!, 2, 0)
     projectile('slack', RINGS[1].radius, 0, 20)
     updateProjectiles(sim.state, sim.projectiles, TICK_SECONDS)
 
-    sim.projectiles.reset()
-    projectile('slack', 0, 0, 20)
-    updateProjectiles(sim.state, sim.projectiles, TICK_SECONDS)
-
     const kinds = sim.state.feed.items.filter((e) => e.active).map((e) => e.kind)
     expect(kinds).toContain('block')
-    expect(kinds).toContain('objective')
+  })
+
+  it('emits no popup for a Mainspring hit', () => {
+    // Playtest: a number at the point of impact competes with the white flash
+    // and the HUD bar, which already carry it. Two channels, one worse.
+    const before = sim.state.mainspring.hp
+    projectile('slack', 0, 0, 20)
+    const result = updateProjectiles(sim.state, sim.projectiles, TICK_SECONDS)
+
+    expect(result.mainspringHits).toBe(1)
+    expect(sim.state.mainspring.hp).toBeLessThan(before)
+    // The hit is still communicated — just not as a popup.
+    expect(sim.state.mainspring.hitFlash).toBeGreaterThan(0)
+    expect(sim.state.feed.items.filter((e) => e.active)).toHaveLength(0)
   })
 
   it('places the event where the hit happened', () => {

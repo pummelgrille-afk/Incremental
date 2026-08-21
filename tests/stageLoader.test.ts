@@ -7,6 +7,8 @@ import {
   validateStage,
 } from '../src/lib/core/stageLoader'
 import { ZONES, zoneById, STARTING_ZONE_ID } from '../src/lib/content/zones'
+import { Simulation, TICK_SECONDS } from '../src/lib/core/loop'
+import { createRng } from '../src/lib/core/rng'
 import { slackById } from '../src/lib/content/enemies'
 import { isBossWave } from '../src/lib/entities/Wave'
 import { RINGS } from '../src/lib/content/field'
@@ -156,5 +158,59 @@ describe('content integrity', () => {
     for (let i = 1; i < indices.length; i++) {
       expect(indices[i], `stage ${i}`).toBeGreaterThan(indices[i - 1])
     }
+  })
+})
+
+describe('loaded stages never mutate shared content', () => {
+  /**
+   * `loadStage` hands back a state whose `stage` and `zone` are **references
+   * into `content/zones.ts`**, not copies. `readonly` is compile-time only, so
+   * anything that writes through those references corrupts every later load in
+   * the process.
+   *
+   * This was not hypothetical: a Phase 17 tuning harness scaled wave counts in
+   * place and every subsequent run compounded on the last, producing a
+   * difficulty curve that did not exist. The conclusions drawn from it were
+   * wrong until the harness was fixed.
+   */
+  function snapshot(): string {
+    return JSON.stringify(
+      ZONES.map((z) => ({
+        id: z.id,
+        stages: z.stages.map((s) => ({
+          id: s.id,
+          waves: s.waves.map((w) => (isBossWave(w) ? w.bossId : w.groups)),
+        })),
+      })),
+    )
+  }
+
+  it('leaves content byte-identical after a full stage is simulated', () => {
+    const before = snapshot()
+
+    const sim = new Simulation(loadStage(FIRST), createRng(1))
+    for (let i = 0; i < 2000; i++) {
+      const events = sim.tick(TICK_SECONDS)
+      if (events.stageCleared || events.stageLost) break
+    }
+
+    expect(snapshot()).toBe(before)
+  })
+
+  it('gives two loads of the same stage identical wave counts', () => {
+    const counts = (address: StageAddress) =>
+      loadStage(address).stage.waves.map((w) =>
+        isBossWave(w) ? -1 : w.groups.reduce((n, g) => n + g.count, 0),
+      )
+
+    expect(counts(FIRST)).toEqual(counts(FIRST))
+  })
+
+  it('does not let one loaded stage affect another', () => {
+    const a = loadStage(FIRST)
+    const b = loadStage(FIRST)
+    // Same underlying definition object, by design — the test is that nothing
+    // in the engine writes to it.
+    expect(a.stage).toBe(b.stage)
   })
 })

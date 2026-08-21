@@ -112,7 +112,8 @@ function resolveSlackProjectile(
   const hitRadius = sim.mainspring.hitboxRadius + p.radius
   if (distanceSq <= hitRadius * hitRadius) {
     damageMainspring(sim, p.damage)
-    sim.feed.emit('objective', p.position.x, p.position.y, p.damage)
+    // No popup: the white flash and the HUD Tension bar already say this, and
+    // a third channel at the busiest point on the field only adds noise.
     result.mainspringHits++
     return true
   }

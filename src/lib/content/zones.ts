@@ -34,9 +34,9 @@ export const ZONES: readonly ZoneDef[] = [
         keyReward: 1,
         waves: [
           // Coverage, then a cluster worth a Beat, then both sides at once.
-          evenly('burr', 6, 0.8),
-          escorted('burr', 8, 'backlash', 2),
-          massed('burr', 10),
+          evenly('burr', 9, 0.6),
+          escorted('burr', 12, 'backlash', 3),
+          massed('burr', 15),
         ],
       },
       {
@@ -46,25 +46,29 @@ export const ZONES: readonly ZoneDef[] = [
         baseTension: 1000,
         keyReward: 1,
         waves: [
-          escorted('burr', 10, 'backlash', 3, 4),
+          escorted('burr', 15, 'backlash', 5, 4),
           // Introduces the splitter: killing it early is worth more than
           // killing it late, because the children still cross the same ground.
-          escorted('burr', 6, 'wear', 2, 3),
-          pincer('burr', 6),
+          escorted('burr', 9, 'wear', 3, 3),
+          pincer('burr', 9),
         ],
       },
       {
         id: 'noted-in-the-log',
         name: 'Noted in the Log',
+        // Held below the density of the earlier stages: this stage sits on a
+        // knife edge against the fixed starting formation, where a 10% count
+        // change flips a comfortable clear into a loss. Phase 19's scaling
+        // director should own that boundary rather than authored counts.
         scalingIndex: 3,
         baseTension: 1000,
         keyReward: 1,
         waves: [
           // Shielded: chip damage is the wrong answer here.
-          escorted('burr', 8, 'cant', 2, 3),
+          escorted('burr', 10, 'cant', 2, 3),
           // Orbiters cannot be waited out; they settle and keep working.
           escorted('drift', 2, 'fret', 2, 4),
-          withGap(pincer('burr', 8), 6),
+          withGap(pincer('burr', 10), 6),
         ],
       },
     ],
