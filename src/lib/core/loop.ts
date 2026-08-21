@@ -495,7 +495,7 @@ export class Simulation {
       p.position.y = origin.y
       p.velocity.x = Math.cos(angle) * speed
       p.velocity.y = Math.sin(angle) * speed
-      p.damage = shot.chime.def.attack * shot.chime.levelScale
+      p.damage = shot.chime.def.attack * shot.chime.levelScale * shot.chime.attackScale
       p.sourceDefId = shot.chime.def.id
       p.damageType = 'resonant'
       p.radius = 4

@@ -73,9 +73,17 @@ export function createChime(
   def: ChimeDef,
   mount: number,
   level = 1,
+  stats?: { maxCharge: number; chargeInterval: number; attack: number },
 ): ChimeInstance {
   const scale = levelScale(level)
   const maxHp = def.maxHp * scale
+
+  // Defaults to the def's own numbers, so a caller with no save — a test, or
+  // the loader before progression exists — gets an unupgraded Chime rather
+  // than having to know about tracks.
+  const maxCharge = stats?.maxCharge ?? def.maxCharge
+  const chargeInterval = stats?.chargeInterval ?? def.chargeInterval
+  const attackScale = (stats?.attack ?? def.attack) / def.attack
 
   return {
     id: allocateId(sim),
@@ -84,12 +92,15 @@ export function createChime(
     level,
     hp: maxHp,
     maxHp,
-    charge: def.maxCharge,
+    charge: maxCharge,
     cooldownRemaining: 0,
     targetId: null,
     timeSinceRetarget: 0,
     disabledFor: 0,
     levelScale: scale,
+    maxCharge,
+    chargeInterval,
+    attackScale,
   }
 }
 
@@ -129,11 +140,12 @@ export function mountChime(
   def: ChimeDef,
   mount: number,
   level = 1,
+  stats?: { maxCharge: number; chargeInterval: number; attack: number },
 ): ChimeInstance {
   if (sim.chimes.some((c) => c.mount === mount)) {
     throw new FormationError(`Mount ${mount} is already occupied`)
   }
-  const chime = createChime(sim, def, mount, level)
+  const chime = createChime(sim, def, mount, level, stats)
   sim.chimes.push(chime)
   return chime
 }

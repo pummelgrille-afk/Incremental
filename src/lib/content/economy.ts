@@ -106,3 +106,48 @@ export const ROSTER = {
    */
   levelScaling: 0.12,
 } as const
+
+/**
+ * Chime upgrade tracks — Phase 25.
+ *
+ * **Deliberately not levelling.** A Movement levels: it gets uniformly
+ * stronger. A Chime is *shaped*: you choose burst, sustain, or punch, and the
+ * three pull against each other for the same scarce Keys. That is the
+ * "distinct in feel from front-line allies" PLAN.md asks for, expressed as
+ * mechanics rather than as different numbers on the same lever.
+ *
+ * Each track keys on what makes a Chime a Chime (combat-spec.md §4): Charge is
+ * the resource that defines the class, so two of the three tracks are about it.
+ */
+export const SUPPORT = {
+  /** `base × growth^(levels already held on this track)`, in Keys. */
+  trackCost: { base: 2, growth: 1.7 },
+
+  capacity: {
+    maxLevel: 3,
+    /** Whole extra shots held at once. Burst. */
+    chargesPerLevel: 1,
+  },
+
+  winding: {
+    /**
+     * Faster regeneration. Sustain.
+     *
+     * **Bounded hard, and the bound is measured.** `chargeInterval` is the
+     * balance lever between the two unit classes: Phase 14 found 4 s makes a
+     * Chime strictly better per Filing than the Movements it competes with, 6 s
+     * is the crossover, and 7 s tips the other way. Two levels of −0.5 s put a
+     * fully wound Chime at 5 s — better, and still short of dominant.
+     */
+    maxLevel: 2,
+    secondsPerLevel: 0.5,
+    /** Never below this, whatever a later re-balance does to the levels. */
+    floorSeconds: 4.5,
+  },
+
+  resonance: {
+    maxLevel: 3,
+    /** Fraction added to attack. Punch. */
+    attackPerLevel: 0.15,
+  },
+} as const

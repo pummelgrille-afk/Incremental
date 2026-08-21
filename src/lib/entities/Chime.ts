@@ -80,6 +80,18 @@ export interface ChimeInstance {
    * Phase 25's support upgrades are where transient Chime modifiers belong.
    */
   levelScale: number
+
+  /**
+   * Stats after the Chime's upgrade tracks (progression/support.ts).
+   *
+   * Carried on the instance rather than read from the def, because a def is
+   * immutable shared content — a save that has bought upgrades must never be
+   * able to write into the roster every other save reads.
+   */
+  maxCharge: number
+  chargeInterval: number
+  /** Multiplier on `def.attack`, from the Resonance track. */
+  attackScale: number
 }
 
 /** A Chime can fire only with at least one whole charge banked. */

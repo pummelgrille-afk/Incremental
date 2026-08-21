@@ -107,7 +107,8 @@ describe('1 → 2: presets', () => {
     const meta = save.meta as Record<string, unknown>
 
     expect(applied).toContain(1)
-    expect(save.schemaVersion).toBe(2)
+    // The chain runs all the way to current, not just one step.
+    expect(save.schemaVersion).toBe(SCHEMA_VERSION)
     expect(meta.presets).toEqual([])
   })
 
@@ -146,5 +147,67 @@ describe('1 → 2: presets', () => {
     const snapshot = JSON.stringify(original)
     migrate(original)
     expect(JSON.stringify(original)).toBe(snapshot)
+  })
+})
+
+describe('2 → 3: chime upgrade tracks', () => {
+  /** A save exactly as schema 2 wrote it, with no `chimeUpgrades` field. */
+  const schemaTwo = (): RawSave => ({
+    schemaVersion: 2,
+    savedAt: 0,
+    run: { filings: 30, formation: { '1:0': 'hammer' }, mounts: { '0': 'quarter-bell' } },
+    meta: {
+      recollection: 9,
+      keys: 4,
+      purchasedNodes: [],
+      movements: { hammer: 3 },
+      chimes: { 'quarter-bell': 1 },
+      presets: [{ name: 'wide', formation: {}, mounts: {} }],
+      unlockedZones: ['escapement-floor'],
+      clearedStages: [],
+      achievements: [],
+      rewindCount: 0,
+    },
+  })
+
+  it('adds an empty track ledger', () => {
+    const { save, applied } = migrate(schemaTwo())
+    const meta = save.meta as Record<string, unknown>
+
+    expect(applied).toContain(2)
+    expect(save.schemaVersion).toBe(SCHEMA_VERSION)
+    expect(meta.chimeUpgrades).toEqual({})
+  })
+
+  it('keeps the presets schema 2 introduced', () => {
+    // Each migration must leave the one before it intact, or the chain is not
+    // a chain.
+    const { save } = migrate(schemaTwo())
+    const meta = save.meta as Record<string, unknown>
+    expect(meta.presets).toEqual([{ name: 'wide', formation: {}, mounts: {} }])
+    expect(meta.chimes).toEqual({ 'quarter-bell': 1 })
+  })
+
+  it('does not clobber tracks a newer build already wrote', () => {
+    const save = schemaTwo()
+    ;(save.meta as Record<string, unknown>).chimeUpgrades = { 'quarter-bell': { capacity: 2 } }
+
+    const migrated = migrate(save).save
+    expect((migrated.meta as Record<string, unknown>).chimeUpgrades).toEqual({
+      'quarter-bell': { capacity: 2 },
+    })
+  })
+
+  it('carries a schema 1 save all the way to current', () => {
+    // The whole point of a chain: an old save must not need to be opened by
+    // every intermediate build on the way.
+    const { save, applied } = migrate({ schemaVersion: 1, meta: { keys: 7 } })
+    const meta = save.meta as Record<string, unknown>
+
+    expect(applied).toEqual([1, 2])
+    expect(save.schemaVersion).toBe(SCHEMA_VERSION)
+    expect(meta.keys).toBe(7)
+    expect(meta.presets).toEqual([])
+    expect(meta.chimeUpgrades).toEqual({})
   })
 })

@@ -303,6 +303,46 @@
         {/each}
       </ul>
 
+      <h3>Chimes</h3>
+      <!-- Chimes are *shaped*, not levelled: burst, sustain or punch, pulling
+           against each other for the same Keys. combat-spec.md §4. -->
+      <ul class="support">
+        {#each game.supportRoster as chime (chime.id)}
+          <li class="unit" class:locked={!chime.unlocked}>
+            <span class="name">{chime.name}</span>
+            {#if chime.unlocked}
+              <span class="stats">
+                {chime.stats.maxCharge} charge · {chime.stats.chargeInterval}s
+              </span>
+            {:else}
+              <span class="stats">locked</span>
+            {/if}
+          </li>
+          {#if chime.unlocked}
+            {#each chime.tracks as track (track.track)}
+              <li class="track">
+                <span class="name">
+                  {track.name}
+                  <span class="kind">{track.effect}</span>
+                </span>
+                <span class="level">{track.level}/{track.maxLevel}</span>
+                {#if track.atMax}
+                  <span class="maxed">max</span>
+                {:else}
+                  <button
+                    disabled={!track.affordable}
+                    title="{track.cost} Keys"
+                    onclick={() => game.formationActions?.buyTrack(chime.id, track.track)}
+                  >
+                    +{track.cost}
+                  </button>
+                {/if}
+              </li>
+            {/each}
+          {/if}
+        {/each}
+      </ul>
+
       <h3>Presets</h3>
       <div class="preset-new">
         <input
@@ -520,6 +560,7 @@
   }
 
   .roster li,
+  .support li,
   .presets li {
     display: flex;
     align-items: center;
@@ -538,8 +579,28 @@
   }
 
   .roster .name,
+  .support .name,
   .presets .name {
     flex: 1;
+  }
+
+  .support .track {
+    padding-left: 0.7rem;
+    border-bottom: none;
+  }
+
+  .support .track .name {
+    color: var(--muted);
+  }
+
+  .support .stats {
+    color: var(--brass-dim);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .support .unit .name {
+    color: var(--text);
   }
 
   .kind {

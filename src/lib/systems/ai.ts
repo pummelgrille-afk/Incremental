@@ -276,7 +276,7 @@ export function updateChimes(sim: SimulationState, dt: number): ChimeShot[] {
     }
 
     // Charge regenerates continuously; firing costs one whole unit.
-    chime.charge = Math.min(chime.def.maxCharge, chime.charge + dt / chime.def.chargeInterval)
+    chime.charge = Math.min(chime.maxCharge, chime.charge + dt / chime.chargeInterval)
     if (chime.cooldownRemaining > 0) chime.cooldownRemaining -= dt
     chime.timeSinceRetarget += dt
 

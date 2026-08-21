@@ -91,9 +91,9 @@ export function formationPower(sim: SimulationState): number {
 
   for (const chime of sim.chimes) {
     if (chime.disabledFor > 0) continue
-    const attack = chime.def.attack * chime.levelScale
+    const attack = chime.def.attack * chime.levelScale * chime.attackScale
     // One shot per charge, one charge per chargeInterval.
-    power += attack / chime.def.chargeInterval
+    power += attack / chime.chargeInterval
   }
 
   return power

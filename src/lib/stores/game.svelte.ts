@@ -62,12 +62,33 @@ export interface SlotView {
   level: number
 }
 
+/** A Chime's upgrade tracks, for the editor. */
+export interface SupportTrackView {
+  track: string
+  name: string
+  effect: string
+  level: number
+  maxLevel: number
+  cost: number | null
+  atMax: boolean
+  affordable: boolean
+}
+
+export interface SupportUnitView {
+  id: string
+  name: string
+  unlocked: boolean
+  tracks: SupportTrackView[]
+  stats: { maxCharge: number; chargeInterval: number; attack: number }
+}
+
 export interface FormationActions {
   place(defId: string, ring: number, slot: number, from?: { ring: number; slot: number }): void
   remove(ring: number, slot: number): void
   mount(defId: string, mount: number): void
   unmount(mount: number): void
   unlock(kind: 'movement' | 'chime', id: string): void
+  buyTrack(defId: string, track: string): void
   levelUp(kind: 'movement' | 'chime', id: string): void
   savePreset(name: string): void
   loadPreset(name: string): void
@@ -219,6 +240,7 @@ class GameStore {
   nextSlotCost = $state(0)
   nextMountCost = $state(0)
   presetNames = $state<string[]>([])
+  supportRoster = $state<SupportUnitView[]>([])
   formationActions = $state<FormationActions | null>(null)
   /** Last refusal, so the editor can say why rather than doing nothing. */
   lastRefusal = $state<string | null>(null)

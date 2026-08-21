@@ -224,7 +224,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
       // Charge pips — the resource that makes Chimes burst-y, made visible.
       const whole = Math.floor(chime.charge)
-      for (let i = 0; i < chime.def.maxCharge; i++) {
+      for (let i = 0; i < chime.maxCharge; i++) {
         sprite
           .circle(-6 + i * 6, 13, 2)
           .fill({ color: PALETTE.chime, alpha: i < whole ? 1 : 0.22 })

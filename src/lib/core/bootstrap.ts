@@ -4,6 +4,13 @@ import { STARTING_ZONE_ID, ZONES } from '../content/zones'
 import { game } from '../stores/game.svelte'
 import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
 import {
+  buyTrack,
+  supportRoster,
+  supportStats,
+  SUPPORT_TRACKS,
+  type SupportTrack,
+} from '../progression/support'
+import {
   levelsOf,
   levelUp as levelUpUnit,
   rosterOf,
@@ -106,7 +113,13 @@ function fieldFormation(simulation: Simulation, save: SaveData): void {
     // `applyFormation` skips a missing Movement: a save must survive content
     // changing, and refusing to load would be worse than a missing unit.
     try {
-      mountChime(simulation.state, def, Number(mount), chimeLevels[defId] ?? 1)
+      mountChime(
+        simulation.state,
+        def,
+        Number(mount),
+        chimeLevels[defId] ?? 1,
+        supportStats(save, def),
+      )
     } catch {
       continue
     }
@@ -239,6 +252,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     game.nextSlotCost = nextSlotCost(saveData)
     game.nextMountCost = nextMountCost(saveData)
     game.presetNames = saveData.meta.presets.map((p) => p.name)
+    game.supportRoster = supportRoster(saveData)
     game.keys = saveData.meta.keys
   }
 
@@ -277,7 +291,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     for (const [mount, defId] of Object.entries(saveData.run.mounts)) {
       if (sim.chimes.some((c) => c.mount === Number(mount))) continue
       const def = chimeById(defId)
-      if (def) mountChime(sim, def, Number(mount), chimeLevels[defId] ?? 1)
+      if (def) mountChime(sim, def, Number(mount), chimeLevels[defId] ?? 1, supportStats(saveData, def))
     }
 
     recomputeBonuses(sim)
@@ -323,6 +337,12 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     },
     levelUp(kind, id) {
       afterEdit(levelUpUnit(saveData, kind, id) ? null : 'unaffordable')
+    },
+    buyTrack(defId, track) {
+      // The store types the track as a string so `stores/` need not import
+      // from `progression/`; the guard is what makes that safe.
+      if (!(SUPPORT_TRACKS as readonly string[]).includes(track)) return
+      afterEdit(buyTrack(saveData, defId, track as SupportTrack) ? null : 'unaffordable')
     },
     savePreset(name) {
       afterEdit(savePresetTo(saveData, name) ? null : 'preset-limit')

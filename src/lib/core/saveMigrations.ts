@@ -35,6 +35,28 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
    * runs on raw parsed JSON, before validation: a hand-edited or truncated save
    * must degrade to defaults rather than throw here.
    */
+  /**
+   * 2 → 3: Phase 25 added `meta.chimeUpgrades`.
+   *
+   * Same shape as the previous step, and deliberately so: a new field with a
+   * safe empty default, `meta` read defensively because this runs before
+   * validation.
+   */
+  2: (save) => {
+    const meta = (save.meta ?? {}) as Record<string, unknown>
+    return {
+      ...save,
+      schemaVersion: 3,
+      meta: {
+        ...meta,
+        chimeUpgrades:
+          meta.chimeUpgrades !== null && typeof meta.chimeUpgrades === 'object'
+            ? meta.chimeUpgrades
+            : {},
+      },
+    }
+  },
+
   1: (save) => {
     const meta = (save.meta ?? {}) as Record<string, unknown>
     return {

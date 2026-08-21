@@ -73,6 +73,14 @@ roster,level_cost_base,1,1,3,keys,24,Keys to reach level 2
 roster,level_cost_growth,1.55,1.3,2.0,factor,24,Per level already held
 roster,max_level,10,6,15,level,24,Ceiling per unit
 roster,level_scaling,0.12,0.08,0.18,rate,24,Stat multiplier per level above 1
+support,track_cost_base,2,1,4,keys,25,Keys for the first level of a track
+support,track_cost_growth,1.7,1.4,2.2,factor,25,Per level already held on that track
+support,capacity_max,3,2,5,level,25,Extra whole charges
+support,winding_max,2,1,3,level,25,Bounded by the phase 14 class-balance lever
+support,winding_seconds,0.5,0.25,0.75,s,25,Charge interval reduction per level
+support,winding_floor,4.5,4.0,5.5,s,25,chargeInterval never below this
+support,resonance_max,3,2,5,level,25,Attack fraction per level
+support,resonance_attack,0.15,0.1,0.25,rate,25,
 offline,cap_base,4,2,8,hours,6,
 offline,cap_max,24,12,48,hours,6,Fully upgraded via Salvage
 offline,efficiency_base,0.40,0.25,0.55,rate,6,

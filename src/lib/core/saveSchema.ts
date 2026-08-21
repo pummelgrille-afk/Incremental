@@ -14,7 +14,7 @@ import { STARTING_ZONE_ID } from '../content/zones'
  * def object — content changes between versions, saves must not.
  */
 
-export const SCHEMA_VERSION = 2
+export const SCHEMA_VERSION = 3
 
 /** Discarded on Rewinding. */
 export interface RunState {
@@ -73,6 +73,14 @@ export interface MetaState {
    * mean rebuilding from memory. They store ids and slots only, never costs.
    */
   presets: Preset[]
+
+  /**
+   * Chime upgrade tracks, keyed by def id then track name. Added in schema 3.
+   *
+   * Separate from `chimes` (which holds unlock state) because a Chime is
+   * *shaped* rather than levelled — see progression/support.ts.
+   */
+  chimeUpgrades: Record<string, Record<string, number>>
 
   /** Zone ids the player may enter. */
   unlockedZones: string[]
@@ -140,6 +148,7 @@ export function createDefaultSave(now = Date.now()): SaveData {
       movements: {},
       chimes: {},
       presets: [],
+      chimeUpgrades: {},
       unlockedZones: [STARTING_ZONE_ID],
       clearedStages: [],
       achievements: [],
@@ -243,6 +252,16 @@ function presetArray(v: unknown): Preset[] {
   return out
 }
 
+/** Two levels of `numRecord`, for `defId -> track -> level`. */
+function nestedNumRecord(v: unknown): Record<string, Record<string, number>> {
+  if (!isObject(v)) return {}
+  const out: Record<string, Record<string, number>> = {}
+  for (const [k, val] of Object.entries(v)) {
+    if (isObject(val)) out[k] = numRecord(val)
+  }
+  return out
+}
+
 function numRecord(v: unknown): Record<string, number> {
   if (!isObject(v)) return {}
   const out: Record<string, number> = {}
@@ -307,6 +326,7 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
       movements: numRecord(meta.movements),
       chimes: numRecord(meta.chimes),
       presets: presetArray(meta.presets),
+      chimeUpgrades: nestedNumRecord(meta.chimeUpgrades),
       unlockedZones: strArray(meta.unlockedZones),
       clearedStages: strArray(meta.clearedStages) as StageAddress[],
       achievements: strArray(meta.achievements),
