@@ -107,6 +107,7 @@ export function loadStage(
 
     waveIndex: 0,
     waveElapsed: 0,
+    waveArcOffset: 0,
     gapRemaining: 0,
 
     mainspring: createMainspring(maxTension),

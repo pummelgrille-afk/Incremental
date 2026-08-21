@@ -77,9 +77,20 @@ negotiable in tuning:
 2. **Failure is soft.** A badly spent Beat costs you damage you did not deal. It
    never costs Tension, never opens a gap, never punishes. Compare the nudge,
    where a mistimed input meant taking a hit.
-3. **Doing nothing is viable.** A player who never clicks still clears stages.
-   The Beat is a lever for someone who wants one, not a tax on everyone else.
-   This is P1 held honestly — the machine really does run without you.
+3. **Doing nothing is viable.** The Beat is a lever for someone who wants one,
+   not a tax on everyone else. This is P1 held honestly — the machine really does
+   run without you.
+
+   > **Partially unverified as of Phase 17.** Measured against the *starting*
+   > formation, stage 1 clears without a single strike (0.73 Tension with a full
+   > formation, 0.55 with four units), but stages 2 and 3 do not.
+   >
+   > The confound is that the formation is currently frozen at six units for
+   > every stage, because there is no economy yet. A player reaching stage 3 in
+   > the finished game will have bought more. **Phase 20 must re-verify this
+   > property with a formation appropriate to each stage**, once Phases 21–24
+   > make growth possible. If it still fails there, density comes down — the
+   > property wins, not the tuning.
 4. **Area damage keeps it satisfying off-type.** Percussive is unfavourable
    against `Massed`, the most common armour class. Without a blast radius the
    one manual action in the game would feel weakest against the enemies the

@@ -10,7 +10,12 @@ import {
   resolveMovementAttacks,
   updateBuffs,
 } from '../systems/combat'
-import { checkThresholds, updateObjective, updateStageProgress } from '../systems/objectiveRules'
+import {
+  checkThresholds,
+  rerollWaveArc,
+  updateObjective,
+  updateStageProgress,
+} from '../systems/objectiveRules'
 import { grantShield, repair, repairCost } from '../entities/Mainspring'
 import {
   chimePosition,
@@ -114,6 +119,8 @@ export class Simulation {
       sourceId: -1,
     }))
     state.projectiles = this.projectiles.items
+    // Wave 0 never fires waveStarted, so seed its bearing here.
+    rerollWaveArc(state, rng)
   }
 
   /**
@@ -218,6 +225,7 @@ export class Simulation {
     if (thresholds.length > 0) events.thresholdsCrossed.push(...thresholds)
 
     const objective = updateStageProgress(sim, dt)
+    if (objective.waveStarted) rerollWaveArc(sim, this.rng)
     events.stageCleared = objective.stageCleared
     events.stageLost = objective.stageLost
     events.waveCleared = objective.waveCleared

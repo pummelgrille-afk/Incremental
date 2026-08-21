@@ -23,13 +23,32 @@ export function scaleDamage(base: number, scalingIndex: number, zoneMultiplier: 
   return base * 1.09 ** scalingIndex * zoneMultiplier
 }
 
-function spawnPosition(group: SpawnGroup, index: number, count: number, rng: Rng) {
+/**
+ * How much of the gap between neighbours a spawn may wander, either way.
+ *
+ * Zero gives a comb of perfectly even spacing, which a player memorises after
+ * two attempts. One would smear the group into noise and destroy the shape the
+ * wave exists to pose. Half keeps it legibly a wall or a pincer while making
+ * the individual positions unguessable.
+ */
+const ARC_JITTER = 0.5
+
+function spawnPosition(
+  group: SpawnGroup,
+  index: number,
+  count: number,
+  rng: Rng,
+  arcOffset: number,
+) {
   let angle: number
   if (group.arc) {
-    // Spread the group evenly across its arc so a concentrated wave reads as a
-    // wall rather than a random smear, concentrating the threat on one arc.
+    // Spread across the arc so a concentrated wave reads as a wall, then jitter
+    // each spawn within its own slot and rotate the whole arc per wave.
     const t = count > 1 ? index / (count - 1) : 0.5
-    angle = group.arc.centre + (t - 0.5) * group.arc.width
+    const spacing = group.arc.width / Math.max(1, count - 1)
+    const jitter = (rng.next() - 0.5) * spacing * ARC_JITTER
+
+    angle = group.arc.centre + arcOffset + (t - 0.5) * group.arc.width + jitter
   } else {
     angle = rng.next() * Math.PI * 2
   }
@@ -97,7 +116,12 @@ export function updateSpawning(sim: SimulationState, rng: Rng, previousElapsed: 
       // Fire exactly once, on the tick that crosses the due time.
       if (due > previousElapsed && due <= sim.waveElapsed) {
         sim.slack.push(
-          createSlack(sim, def, spawnPosition(group, i, group.count, rng), rng),
+          createSlack(
+            sim,
+            def,
+            spawnPosition(group, i, group.count, rng, sim.waveArcOffset),
+            rng,
+          ),
         )
       }
     }

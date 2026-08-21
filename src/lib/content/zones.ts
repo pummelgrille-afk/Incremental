@@ -29,14 +29,18 @@ export const ZONES: readonly ZoneDef[] = [
       {
         id: 'first-shift',
         name: 'First Shift',
+        // Deliberately the gentlest stage in the zone. A new player meets it
+        // with a partial formation and no upgrades, and must be able to clear
+        // it without touching the Beat — the Beat is upside, never a tax
+        // (combat-spec.md section 1). Guarded by tests/simulation.test.ts.
         scalingIndex: 1,
         baseTension: 1000,
         keyReward: 1,
         waves: [
           // Coverage, then a cluster worth a Beat, then both sides at once.
-          evenly('burr', 9, 0.6),
-          escorted('burr', 12, 'backlash', 3),
-          massed('burr', 15),
+          evenly('burr', 10, 0.55),
+          escorted('burr', 13, 'backlash', 3),
+          massed('burr', 16),
         ],
       },
       {
@@ -46,29 +50,29 @@ export const ZONES: readonly ZoneDef[] = [
         baseTension: 1000,
         keyReward: 1,
         waves: [
-          escorted('burr', 15, 'backlash', 5, 4),
+          escorted('burr', 27, 'backlash', 9, 4),
           // Introduces the splitter: killing it early is worth more than
           // killing it late, because the children still cross the same ground.
-          escorted('burr', 9, 'wear', 3, 3),
-          pincer('burr', 9),
+          escorted('burr', 16, 'wear', 5, 3),
+          pincer('burr', 16),
         ],
       },
       {
         id: 'noted-in-the-log',
         name: 'Noted in the Log',
-        // Held below the density of the earlier stages: this stage sits on a
-        // knife edge against the fixed starting formation, where a 10% count
-        // change flips a comfortable clear into a loss. Phase 19's scaling
-        // director should own that boundary rather than authored counts.
+        // Densities across this zone are tuned against play *with the Beat*,
+        // which is worth roughly +0.5 Tension on the later stages. Measuring
+        // without it — as every pass before this one did — tunes the game for
+        // a player who never touches the controls.
         scalingIndex: 3,
         baseTension: 1000,
         keyReward: 1,
         waves: [
           // Shielded: chip damage is the wrong answer here.
-          escorted('burr', 10, 'cant', 2, 3),
+          escorted('burr', 18, 'cant', 4, 3),
           // Orbiters cannot be waited out; they settle and keep working.
-          escorted('drift', 2, 'fret', 2, 4),
-          withGap(pincer('burr', 10), 6),
+          escorted('drift', 4, 'fret', 4, 4),
+          withGap(pincer('burr', 18), 6),
         ],
       },
     ],

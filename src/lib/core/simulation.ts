@@ -59,6 +59,13 @@ export interface SimulationState {
   waveIndex: number
   /** Seconds since the current wave began. */
   waveElapsed: number
+  /**
+   * Radians the current wave's arcs are rotated by.
+   *
+   * Rerolled per wave so a `pincer` is not always on the same axis. The *shape*
+   * is the question the wave asks and must survive; only its bearing moves.
+   */
+  waveArcOffset: number
   /** Counts down during 'wave-gap'. */
   gapRemaining: number
 

@@ -7,6 +7,7 @@ import {
 } from '../entities/Mainspring'
 import { isBossWave } from '../entities/Wave'
 import type { SimulationState } from '../core/simulation'
+import type { Rng } from '../core/rng'
 import { waveSpawnDuration } from './spawn'
 
 /**
@@ -109,6 +110,16 @@ export function isFinalWave(sim: SimulationState): boolean {
  * tick the last Slack dies is a **loss**, not a clear — the machine stopped, and
  * clearing a stage you did not survive would be incoherent.
  */
+/**
+ * Reroll the arc bearing for a new wave.
+ *
+ * Taken from the run's seeded generator, so a stage still plays identically
+ * from the same seed while no longer being memorisable by bearing.
+ */
+export function rerollWaveArc(sim: SimulationState, rng: Rng): void {
+  sim.waveArcOffset = rng.angle()
+}
+
 export function updateStageProgress(sim: SimulationState, dt: number): ObjectiveEvents {
   const events = noEvents()
 

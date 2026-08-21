@@ -176,3 +176,71 @@ cause is not diagnosed, and it should be: a difficulty boundary that sharp
 against a fixed formation suggests a cascade (likely a Movement disabling and
 opening an arc). **Phase 19 owns this** — the scaling director should govern that
 boundary rather than authored counts.
+
+
+## Second playtest pass: the Beat, and predictable spawns
+
+> *"the enemy spawn in stage 3 was just too predictable ... factor the beat in
+> and check again for the density"*
+
+Both correct, and the second exposed a hole in method.
+
+### Every density measurement so far ignored the player
+
+Every tuning pass up to this point ran with **zero Beats struck**. The game was
+being balanced with the player's hands off the controls.
+
+Measured properly, the Beat is worth **+0.52 and +0.48 Tension** on stages 2 and
+3. That is not a rounding error — it is half the health bar, and it meant the
+"correct" densities were calibrated for a game nobody plays.
+
+A simulated player was added to the harness: strike the densest cluster whenever
+a charge is up and the cluster is worth it. Not optimal play, but representative.
+
+### Spawn bearings are now randomised
+
+Arc-based waves spawned perfectly evenly across a fixed arc — a comb a player
+memorises in two attempts. Two changes, both preserving the shape:
+
+- **Per-spawn jitter** of half the neighbour spacing, so individual positions
+  are unguessable.
+- **Per-wave arc rotation**, rerolled from the run's seeded generator, so a
+  `pincer` is not always on the same axis.
+
+The *shape* is the question the wave asks and must survive; only its bearing
+moves. Still fully deterministic from a seed, so tests stay stable.
+
+### Retuned against real play
+
+| | Peak enemies | With Beat | Without Beat |
+|---|---|---|---|
+| First Shift | 7 | 0.96 | 0.73 |
+| Routine Maintenance | 15 | **0.77** | LOST |
+| Noted in the Log | 21 | **0.46** | LOST |
+
+A genuine ramp, and peak enemies roughly doubled from where this phase started.
+
+### The guard tests did their job
+
+At the first attempt (a uniform ×1.8) **two tests failed** — the ones asserting
+the Beat is optional. Weakening them to fit the change would have been the
+obvious mistake; the property is why the Beat exists at all.
+
+Instead stage 1 was pulled back separately. It is the stage a new player meets
+with a partial formation and no upgrades, so it is now deliberately the gentlest
+in the zone: four Movements and no strikes clear it at 0.55 Tension.
+
+### An honest gap
+
+**Stages 2 and 3 are not currently clearable without the Beat**, which
+contradicts the "doing nothing is viable" property as written.
+
+The confound is that the test formation is frozen at six units for every stage
+because there is no economy yet. A player reaching stage 3 in the finished game
+will have bought more. `combat-spec.md` §1 now records this as *partially
+unverified* rather than claiming a property that does not currently hold, and
+Phase 20 must re-check it with a stage-appropriate formation once Phases 21–24
+make growth possible.
+
+If it still fails then, **density comes down** — the property wins, not the
+tuning.
