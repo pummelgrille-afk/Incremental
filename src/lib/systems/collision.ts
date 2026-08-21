@@ -23,6 +23,15 @@ import {
  * access patterns are known would be guesswork.
  */
 
+/**
+ * How far either side of its ring a Movement can intercept, in pixels.
+ *
+ * A projectile well inside or outside the ring is not passing through the unit,
+ * so this bounds the block check radially. Decoupled from any sprite size:
+ * changing what a Movement looks like must not change what it blocks.
+ */
+const BLOCK_BAND = 10
+
 export interface CollisionResult {
   mainspringHits: number
   movementHits: number
@@ -103,6 +112,7 @@ function resolveSlackProjectile(
   const hitRadius = sim.mainspring.hitboxRadius + p.radius
   if (distanceSq <= hitRadius * hitRadius) {
     damageMainspring(sim, p.damage)
+    sim.feed.emit('objective', p.position.x, p.position.y, p.damage)
     result.mainspringHits++
     return true
   }
@@ -121,13 +131,14 @@ function resolveSlackProjectile(
 
     // Only intercept near the ring's radius — a projectile well inside or
     // outside is not passing through this unit.
-    if (Math.abs(projectileRadius - ring.radius) > 10 + p.radius) continue
+    if (Math.abs(projectileRadius - ring.radius) > BLOCK_BAND + p.radius) continue
 
     const ringState = sim.rings[ring.index - 1]
     const unitAngle = slotAngle(ring, movement.slot.slot, ringState?.phase ?? 0)
 
     if (Math.abs(angleDelta(unitAngle, projectileAngle)) <= movement.def.blockArc) {
       damageMovement(movement, p.damage)
+      sim.feed.emit('block', p.position.x, p.position.y, p.damage)
       result.movementHits++
       return true
     }
@@ -147,11 +158,12 @@ function resolveChimeProjectile(
 
     const dx = slack.position.x - p.position.x
     const dy = slack.position.y - p.position.y
-    // Slack hurtboxes are generous relative to their sprite, which favours the
-    // player — the same fairness principle as the Mainspring's small hitbox.
-    const radius = p.radius + 11
+    // Authored per Slack, and generous relative to the sprite — the same
+    // fairness principle as the Mainspring's deliberately small hitbox.
+    const radius = p.radius + slack.def.hurtboxRadius
 
     if (dx * dx + dy * dy <= radius * radius) {
+      const before = slack.hp
       // Friendly projectiles go through the same formula as every other damage
       // source. Applying raw damage here would make "Chimes are always
       // Resonant" (combat-spec.md section 4) meaningless — the whole reason
@@ -164,7 +176,14 @@ function resolveChimeProjectile(
         slack.def.armour,
         slack.def.defence,
       )
-      if (damageSlack(slack, damage)) dead.add(slack.id)
+      const died = damageSlack(slack, damage)
+      sim.feed.emit(
+        died ? 'kill' : 'damage',
+        slack.position.x,
+        slack.position.y,
+        before - slack.hp,
+      )
+      if (died) dead.add(slack.id)
       return true
     }
   }

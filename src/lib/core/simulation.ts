@@ -5,6 +5,7 @@ import type { Projectile } from '../entities/Projectile'
 import type { SlackInstance } from '../entities/Slack'
 import type { StageDef, ZoneDef } from '../entities/Zone'
 import { BEAT, RINGS } from '../content/field'
+import type { CombatFeed } from '../systems/feed'
 
 /**
  * The complete mutable state of one loaded stage.
@@ -64,6 +65,9 @@ export interface SimulationState {
   mainspring: MainspringState
   rings: RingState[]
   beat: BeatState
+
+  /** Transient presentation events. Never read by the simulation itself. */
+  feed: CombatFeed
 
   movements: MovementInstance[]
   chimes: ChimeInstance[]

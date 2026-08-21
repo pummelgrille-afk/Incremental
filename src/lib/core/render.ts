@@ -1,7 +1,8 @@
-import { Application, Container, Graphics } from 'pixi.js'
+import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
 import { BEAT, RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
 import type { SlackInstance } from '../entities/Slack'
 import { chimePosition } from '../systems/ai'
+import { EVENT_LIFETIME } from '../systems/feed'
 import { TICK_SECONDS, type Simulation } from './loop'
 
 /**
@@ -110,6 +111,18 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   // Strike feedback lives above everything, so it reads even in dense fire.
   const strikeGraphic = new Graphics()
   effectLayer.addChild(strikeGraphic)
+
+  // Damage popups. Text objects are expensive to create, so the pool of them
+  // matches the feed's capacity and is allocated once.
+  const feedLayer = new Container()
+  world.addChild(feedLayer)
+  const popupStyle = new TextStyle({
+    fontFamily: 'system-ui, sans-serif',
+    fontSize: 13,
+    fontWeight: '600',
+    fill: PALETTE.projectileSlack,
+  })
+  const popups: Text[] = []
 
   // Sprite registries, keyed by entity id so they survive across frames.
   const movementSprites = new Map<number, Graphics>()
@@ -381,6 +394,53 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       .stroke({ width: 3 * (1 - t) + 1, color: PALETTE.conjunction, alpha: 1 - t })
   }
 
+  const FEED_COLOURS: Record<string, number> = {
+    damage: 0xe8e2d4,
+    kill: PALETTE.mainspring,
+    block: PALETTE.detent,
+    objective: PALETTE.mainspringLow,
+  }
+
+  /**
+   * Draw the combat feed.
+   *
+   * Text objects are reused by index rather than created per event — creating a
+   * Pixi Text allocates a texture, which on a burst of kills would spike the
+   * frame far worse than the drawing itself.
+   */
+  function drawFeed(simulation: Simulation) {
+    const events = simulation.state.feed.items
+
+    while (popups.length < events.length) {
+      const text = new Text({ text: '', style: popupStyle })
+      text.anchor.set(0.5)
+      text.visible = false
+      feedLayer.addChild(text)
+      popups.push(text)
+    }
+
+    for (let i = 0; i < events.length; i++) {
+      const event = events[i]
+      const popup = popups[i]
+
+      if (!event.active) {
+        if (popup.visible) popup.visible = false
+        continue
+      }
+
+      const t = event.age / EVENT_LIFETIME
+
+      popup.visible = true
+      popup.text = event.kind === 'block' ? '–' : String(event.amount)
+      popup.style.fill = FEED_COLOURS[event.kind] ?? PALETTE.projectileSlack
+      // Drift upward and fade, so overlapping numbers separate over time.
+      popup.x = event.x
+      popup.y = event.y - t * 22
+      popup.alpha = 1 - t * t
+      popup.scale.set(event.kind === 'kill' ? 1.15 : 1)
+    }
+  }
+
   return {
     canvas: app.canvas,
 
@@ -393,6 +453,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       drawProjectiles(simulation, alpha)
       drawMainspring(simulation)
       drawStrike(simulation)
+      drawFeed(simulation)
 
       app.render()
     },
@@ -414,6 +475,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       slackSprites.clear()
       chimeSprites.clear()
       projectileSprites.length = 0
+      popups.length = 0
     },
   }
 }

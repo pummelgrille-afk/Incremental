@@ -59,6 +59,18 @@ export interface SlackDef extends ContentDef {
   /** Pixels per second, before wave scaling. */
   readonly speed: number
 
+  /**
+   * Collision radius, **decoupled from sprite bounds** (combat-spec.md §5).
+   *
+   * Deliberately generous relative to what is drawn, which favours the player:
+   * a shot that looks like a graze counts as a hit. The Mainspring's hitbox is
+   * decoupled the other way — smaller than drawn — so near misses read as
+   * misses. Both err toward the player.
+   *
+   * Phase 37 sets sprite sizes; this number must not follow them.
+   */
+  readonly hurtboxRadius: number
+
   /** Id into content/patterns — what this Slack fires. */
   readonly patternId: string
   /** Seconds between pattern emissions. */

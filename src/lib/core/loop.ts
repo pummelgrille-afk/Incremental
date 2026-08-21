@@ -167,6 +167,7 @@ export class Simulation {
 
     // 2. Cooldowns, charge, buffs, objective recovery.
     this.advanceBeat(dt)
+    sim.feed.update(dt)
     updateBuffs(sim, dt)
     updateObjective(sim, dt)
 
@@ -283,7 +284,15 @@ export class Simulation {
         slack.def.armour,
         slack.def.defence,
       )
-      if (damageSlack(slack, damage)) dead.add(slack.id)
+      const before = slack.hp
+      const died = damageSlack(slack, damage)
+      sim.feed.emit(
+        died ? 'kill' : 'damage',
+        slack.position.x,
+        slack.position.y,
+        before - slack.hp,
+      )
+      if (died) dead.add(slack.id)
     }
 
     if (dead.size > 0) {

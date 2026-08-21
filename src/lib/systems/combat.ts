@@ -127,7 +127,15 @@ export function resolveMovementAttacks(
       target.def.defence,
     )
 
-    if (damageSlack(target, damage)) dead.add(target.id)
+    const before = target.hp
+    const died = damageSlack(target, damage)
+    sim.feed.emit(
+      died ? 'kill' : 'damage',
+      target.position.x,
+      target.position.y,
+      before - target.hp,
+    )
+    if (died) dead.add(target.id)
   }
 
   return reapSlack(sim, dead)

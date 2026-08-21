@@ -57,6 +57,8 @@ class GameStore {
   projectileExhausted = $state(0)
   slackPeak = $state(0)
   ticksOverBudget = $state(0)
+  /** Popups discarded because the feed was full. Legibility signal, not an error. */
+  feedDropped = $state(0)
 
   /** Mirrors settings.showFps. Toggled with F2, persisted to the save. */
   showDiagnostics = $state(false)
@@ -111,6 +113,7 @@ class GameStore {
     this.projectileExhausted = simulation.projectiles.exhausted
     this.slackPeak = simulation.peakSlack
     this.ticksOverBudget = simulation.ticksOverSlackBudget
+    this.feedDropped = sim.feed.dropped
 
     this.beatCharge = sim.beat.charge
     this.beatMaxCharge = sim.beat.maxCharge

@@ -4,6 +4,7 @@ import { parseStageAddress, type StageAddress, type StageDef, type ZoneDef } fro
 import { slackById } from '../content/enemies'
 import { zoneById } from '../content/zones'
 import { createBeatState, createRingStates, type SimulationState } from './simulation'
+import { CombatFeed } from '../systems/feed'
 
 /**
  * Reads a zone/stage definition from content and initializes the simulation.
@@ -111,6 +112,7 @@ export function loadStage(
     mainspring: createMainspring(maxTension),
     rings: createRingStates(),
     beat: createBeatState(),
+    feed: new CombatFeed(),
 
     movements: [],
     chimes: [],

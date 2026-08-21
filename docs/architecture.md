@@ -366,6 +366,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `systems/collision.ts` | Projectile integration, block arc, hitboxes | 10 → 17 |
 | `systems/combat.ts` | Damage formulas, death handling, drops | 10 |
 | `systems/objectiveRules.ts` | Win/loss, wave advance, regen, shields, thresholds | 12 |
+| `systems/feed.ts` | Transient combat events for the render layer | 17 |
 | `systems/synergy.ts` | Conjunction detection, effects, preview | 10 |
 | `utils/pool.ts` | Fixed-capacity object pool | 10 |
 | `stores/game.svelte.ts` | The reactive projection — the only Svelte bridge | 10 |
