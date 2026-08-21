@@ -30,6 +30,9 @@ import {
   updateSpawning,
   waveSpawnDuration,
 } from '../systems/spawn'
+import { spawnBoss, updateBoss } from '../systems/boss'
+import { bossById } from '../content/bosses'
+import { isBossWave } from '../entities/Wave'
 import { createCooldowns, updateSynergy } from '../systems/synergy'
 import { directWave } from '../systems/scaling'
 import { TELEMETRY_SOURCES } from '../systems/telemetry'
@@ -237,11 +240,30 @@ export class Simulation {
     // 3. Spawning.
     if (sim.phase === 'wave-active') {
       sim.waveElapsed += dt
+
+      /*
+       * A boss wave has no spawn groups, so `updateSpawning` skips it and the
+       * encounter has to be placed here. Keyed on the wave index rather than on
+       * `sim.boss` being null, because a defeated boss clears its own runtime —
+       * without the marker the same encounter would respawn on the very next
+       * tick and the wave could never complete.
+       */
+      const wave = sim.stage.waves[sim.waveIndex]
+      if (wave && isBossWave(wave) && sim.bossSpawnedFor !== sim.waveIndex) {
+        const def = bossById(wave.bossId)
+        if (def) spawnBoss(sim, def, this.rng)
+        // Marked even when the id does not resolve, so a bad reference costs an
+        // empty wave rather than an attempt every tick forever. stageLoader
+        // rejects the stage before this is reachable.
+        sim.bossSpawnedFor = sim.waveIndex
+      }
+
       updateSpawning(sim, this.rng, previousWaveElapsed)
     }
 
     // 4. Enemy motion and pattern emission.
     updateWards(sim)
+    updateBoss(sim, dt)
     updateContactMotion(sim, dt)
     this.emitPatterns(dt)
 

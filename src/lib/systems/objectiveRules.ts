@@ -125,6 +125,7 @@ export function updateStageProgress(sim: SimulationState, dt: number): Objective
 
   if (isOverwhelmed(sim.sun)) {
     sim.phase = 'overwhelmed'
+    sim.boss = null
     events.stageLost = true
     return events
   }
@@ -147,6 +148,14 @@ export function updateStageProgress(sim: SimulationState, dt: number): Objective
 
   if (isFinalWave(sim)) {
     sim.phase = 'cleared'
+    /*
+     * Drop the encounter with the stage. `Simulation.tick` returns early once a
+     * stage resolves, so `updateBoss` never runs again to clear this itself —
+     * the runtime would sit pointing at an entity that no longer exists for as
+     * long as the state is kept. Stale cached state that nothing invalidates is
+     * the failure this codebase keeps rediscovering.
+     */
+    sim.boss = null
     events.stageCleared = true
     events.waveCleared = true
     return events

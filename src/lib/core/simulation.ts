@@ -3,6 +3,7 @@ import type { SunState } from '../entities/Sun'
 import type { PlatformInstance } from '../entities/Platform'
 import type { Projectile } from '../entities/Projectile'
 import type { ContactInstance } from '../entities/Contact'
+import type { BossRuntime } from '../entities/Boss'
 import type { StageDef, ZoneDef } from '../entities/Zone'
 import type { AnyWaveDef } from '../entities/Wave'
 import { FLARE, RINGS } from '../content/field'
@@ -114,6 +115,24 @@ export interface SimulationState {
   platforms: PlatformInstance[]
   arrays: ArrayInstance[]
   contact: ContactInstance[]
+
+  /**
+   * The live boss encounter, or null.
+   *
+   * At most one at a time: a boss stage is one encounter, not a denser wave
+   * (economy-spec.md §5). The boss's body lives in `contact` like anything
+   * else; this only carries the phase state.
+   */
+  boss: BossRuntime | null
+
+  /**
+   * Wave index whose boss has already been placed, or -1.
+   *
+   * A defeated boss clears `boss` itself, so that field cannot double as the
+   * "already spawned" marker — the encounter would respawn on the next tick and
+   * the wave would never complete.
+   */
+  bossSpawnedFor: number
   /** Pooled and mostly inactive; always filter on `active`. */
   projectiles: Projectile[]
 

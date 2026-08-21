@@ -1,6 +1,8 @@
 import { SALVAGE, CLEARANCE, RECOLLECTION } from '../content/economy'
 import { isBossStage } from '../systems/scaling'
 import { zoneById } from '../content/zones'
+import { bossById } from '../content/bosses'
+import { isBossWave } from '../entities/Wave'
 import { parseStageAddress, type StageAddress } from '../entities/Zone'
 import type { SaveData } from '../core/saveSchema'
 
@@ -140,6 +142,21 @@ export interface ClearReward {
   firstClear: boolean
   /** True when this clear completed every stage in its zone. */
   zoneCompleted: boolean
+  /**
+   * A boss's one-off Salvage bounty, or 0.
+   *
+   * Salvage rather than Clearance because the two currencies answer different
+   * questions (economy-spec.md §1): Clearance measures content *seen* and is
+   * already paid at 5 for any boss stage, while a bounty is a reward for the
+   * fight itself and belongs to the run it was won in. Paying a boss in
+   * Clearance instead would make roster breadth depend on beating bosses rather
+   * than on reaching them, which is a harder gate than the curve is authored
+   * for.
+   *
+   * First clear only, like everything else here — a farmable boss would make
+   * the whole Salvage economy a function of one repeatable encounter.
+   */
+  bossSalvage: number
 }
 
 /**
@@ -151,7 +168,12 @@ export interface ClearReward {
  * Pure: it reports what *would* be awarded. `applyStageClear` is what mutates.
  */
 export function clearReward(save: SaveData, address: StageAddress): ClearReward {
-  const none: ClearReward = { clearance: CLEARANCE.reclear, firstClear: false, zoneCompleted: false }
+  const none: ClearReward = {
+    clearance: CLEARANCE.reclear,
+    firstClear: false,
+    zoneCompleted: false,
+    bossSalvage: 0,
+  }
   if (save.meta.clearedStages.includes(address)) return none
 
   const { zoneId } = parseStageAddress(address)
@@ -170,10 +192,19 @@ export function clearReward(save: SaveData, address: StageAddress): ClearReward 
   cleared.add(address)
   const zoneCompleted = zone.stages.every((s) => cleared.has(`${zone.id}:${s.id}` as StageAddress))
 
+  // Every boss the stage fields, summed — a stage with two would pay for both,
+  // though nothing authors one and stageLoader would have to allow it first.
+  let bossSalvage = 0
+  for (const wave of stage.waves) {
+    if (!isBossWave(wave)) continue
+    bossSalvage += bossById(wave.bossId)?.firstClearSalvage ?? 0
+  }
+
   return {
     clearance: clearance + (zoneCompleted ? CLEARANCE.zoneComplete : 0),
     firstClear: true,
     zoneCompleted,
+    bossSalvage,
   }
 }
 
@@ -190,6 +221,9 @@ export function applyStageClear(save: SaveData, address: StageAddress): ClearRew
 
   save.meta.clearedStages.push(address)
   save.meta.clearance += reward.clearance
+  // Into the run's balance, not into meta: a bounty is won in a run and a
+  // Rewind takes it with everything else.
+  save.run.salvage += reward.bossSalvage
   return reward
 }
 

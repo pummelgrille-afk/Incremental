@@ -2,6 +2,7 @@ import { createSun } from '../entities/Sun'
 import { isBossWave } from '../entities/Wave'
 import { parseStageAddress, type StageAddress, type StageDef, type ZoneDef } from '../entities/Zone'
 import { contactById } from '../content/contacts'
+import { bossById } from '../content/bosses'
 import { isBossStage } from '../systems/scaling'
 import { zoneById } from '../content/zones'
 import { createFlareState, createRingStates, type SimulationState } from './simulation'
@@ -79,7 +80,13 @@ export function validateStage(stage: StageDef): string[] {
 
   stage.waves.forEach((wave, index) => {
     if (isBossWave(wave)) {
-      // Phase 32 adds content/bosses.ts; until then boss ids cannot be checked.
+      // Checkable since Phase 32. A zone naming a boss that does not exist
+      // would otherwise load fine and then run a boss stage with no boss in it.
+      if (!bossById(wave.bossId)) {
+        problems.push(
+          `Stage "${stage.id}" wave ${index} references unknown boss "${wave.bossId}"`,
+        )
+      }
       return
     }
     if (wave.groups.length === 0) {
@@ -149,6 +156,8 @@ export function loadStage(
     platforms: [],
     arrays: [],
     contact: [],
+    boss: null,
+    bossSpawnedFor: -1,
     projectiles: [],
 
     salvageEarned: 0,

@@ -130,7 +130,7 @@ describe('boss milestones', () => {
       scalingIndex: SCALING.bossInterval,
       baseOutput: 1000,
       clearanceReward: 1,
-      waves: [{ bossId: 'whatever', gapAfter: 4 }],
+      waves: [{ bossId: 'the-backlog', gapAfter: 4 }],
     })
     expect(problems).toEqual([])
   })
