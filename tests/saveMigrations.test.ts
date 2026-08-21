@@ -120,11 +120,11 @@ describe('1 → 2: presets', () => {
     const run = save.run as Record<string, unknown>
 
     expect(meta.recollection).toBe(5)
-    expect(meta.keys).toBe(3)
-    expect(meta.movements).toEqual({ hammer: 2 })
-    expect(meta.purchasedNodes).toEqual(['winding-tension-of-the-stroke'])
-    expect(run.filings).toBe(12)
-    expect(run.formation).toEqual({ '2:0': 'hammer' })
+    expect(meta.clearance).toBe(3)
+    expect(meta.platforms).toEqual({ bolt: 2 })
+    expect(meta.purchasedNodes).toEqual(['aperture-force-of-the-pulse'])
+    expect(run.salvage).toBe(12)
+    expect(run.formation).toEqual({ '2:0': 'bolt' })
   })
 
   it('does not clobber presets a newer build already wrote', () => {
@@ -150,8 +150,8 @@ describe('1 → 2: presets', () => {
   })
 })
 
-describe('2 → 3: chime upgrade tracks', () => {
-  /** A save exactly as schema 2 wrote it, with no `chimeUpgrades` field. */
+describe('2 → 3: array upgrade tracks', () => {
+  /** A save exactly as schema 2 wrote it, with no `arrayUpgrades` field. */
   const schemaTwo = (): RawSave => ({
     schemaVersion: 2,
     savedAt: 0,
@@ -176,7 +176,7 @@ describe('2 → 3: chime upgrade tracks', () => {
 
     expect(applied).toContain(2)
     expect(save.schemaVersion).toBe(SCHEMA_VERSION)
-    expect(meta.chimeUpgrades).toEqual({})
+    expect(meta.arrayUpgrades).toEqual({})
   })
 
   it('keeps the presets schema 2 introduced', () => {
@@ -185,16 +185,18 @@ describe('2 → 3: chime upgrade tracks', () => {
     const { save } = migrate(schemaTwo())
     const meta = save.meta as Record<string, unknown>
     expect(meta.presets).toEqual([{ name: 'wide', formation: {}, mounts: {} }])
-    expect(meta.chimes).toEqual({ 'quarter-bell': 1 })
+    expect(meta.arrays).toEqual({ 'long-baseline': 1 })
   })
 
   it('does not clobber tracks a newer build already wrote', () => {
+    // At schema 2 the field a newer build would have written is the one schema
+    // 3 introduced, under its original name.
     const save = schemaTwo()
     ;(save.meta as Record<string, unknown>).chimeUpgrades = { 'quarter-bell': { capacity: 2 } }
 
     const migrated = migrate(save).save
-    expect((migrated.meta as Record<string, unknown>).chimeUpgrades).toEqual({
-      'quarter-bell': { capacity: 2 },
+    expect((migrated.meta as Record<string, unknown>).arrayUpgrades).toEqual({
+      'long-baseline': { capacity: 2 },
     })
   })
 
@@ -211,10 +213,10 @@ describe('2 → 3: chime upgrade tracks', () => {
       Array.from({ length: SCHEMA_VERSION - 1 }, (_, i) => i + 1),
     )
     expect(save.schemaVersion).toBe(SCHEMA_VERSION)
-    expect(meta.keys).toBe(7)
+    expect(meta.clearance).toBe(7)
     expect(meta.presets).toEqual([])
-    expect(meta.chimeUpgrades).toEqual({})
-    expect(run.filingsPerSecond).toBe(0)
+    expect(meta.arrayUpgrades).toEqual({})
+    expect(run.salvagePerSecond).toBe(0)
   })
 })
 
@@ -234,19 +236,19 @@ describe('3 → 4: the offline earning rate', () => {
      */
     const { save, applied } = migrate(schemaThree())
     expect(applied).toContain(3)
-    expect((save.run as Record<string, unknown>).filingsPerSecond).toBe(0)
+    expect((save.run as Record<string, unknown>).salvagePerSecond).toBe(0)
   })
 
   it('leaves the rest of the run alone', () => {
     const run = migrate(schemaThree()).save.run as Record<string, unknown>
-    expect(run.filings).toBe(90)
-    expect(run.formation).toEqual({ '1:0': 'hammer' })
+    expect(run.salvage).toBe(90)
+    expect(run.formation).toEqual({ '1:0': 'bolt' })
     expect(run.startedAt).toBe(5)
   })
 
   it('survives a save with no run at all', () => {
     const { save } = migrate({ schemaVersion: 3 })
-    expect((save.run as Record<string, unknown>).filingsPerSecond).toBe(0)
+    expect((save.run as Record<string, unknown>).salvagePerSecond).toBe(0)
   })
 
   it('does not clobber a rate a newer build already wrote', () => {
@@ -254,11 +256,11 @@ describe('3 → 4: the offline earning rate', () => {
     ;(save.run as Record<string, unknown>).filingsPerSecond = 4.5
 
     const migrated = migrate(save).save
-    expect((migrated.run as Record<string, unknown>).filingsPerSecond).toBe(4.5)
+    expect((migrated.run as Record<string, unknown>).salvagePerSecond).toBe(4.5)
   })
 })
 
-describe('4 → 5: the Chime-usage flag', () => {
+describe('4 → 5: the Array-usage flag', () => {
   const schemaFour = (): RawSave => ({
     schemaVersion: 4,
     savedAt: 0,
@@ -269,19 +271,19 @@ describe('4 → 5: the Chime-usage flag', () => {
   it('defaults to false, which is the generous side', () => {
     /*
      * A save carried across the upgrade counts as never having mounted a
-     * Chime, so an in-flight run can still earn "Documented Procedure". The
+     * Array, so an in-flight run can still earn "Documented Procedure". The
      * old build never recorded it either way, and for a cosmetic award the
      * player is the right side to err toward.
      */
     const { save, applied } = migrate(schemaFour())
     expect(applied).toContain(4)
-    expect((save.run as Record<string, unknown>).chimesEverMounted).toBe(false)
+    expect((save.run as Record<string, unknown>).arraysEverMounted).toBe(false)
   })
 
   it('keeps a flag a newer build already set', () => {
     const save = schemaFour()
     ;(save.run as Record<string, unknown>).chimesEverMounted = true
-    expect((migrate(save).save.run as Record<string, unknown>).chimesEverMounted).toBe(true)
+    expect((migrate(save).save.run as Record<string, unknown>).arraysEverMounted).toBe(true)
   })
 
   it('keeps everything schemas 2 to 4 introduced', () => {
@@ -290,8 +292,169 @@ describe('4 → 5: the Chime-usage flag', () => {
     const run = save.run as Record<string, unknown>
 
     expect(meta.presets).toEqual([])
-    expect(meta.chimeUpgrades).toEqual({})
+    expect(meta.arrayUpgrades).toEqual({})
     expect(meta.achievements).toEqual(['wound-it-back'])
-    expect(run.filingsPerSecond).toBe(1.5)
+    expect(run.salvagePerSecond).toBe(1.5)
+  })
+})
+
+describe('5 → 6: the solar reskin', () => {
+  /**
+   * A save exactly as schema 5 wrote it: every field and every content id in
+   * the pre-reskin vocabulary.
+   */
+  const schemaFive = (): RawSave => ({
+    schemaVersion: 5,
+    savedAt: 0,
+    run: {
+      filings: 340,
+      filingsPerSecond: 2.5,
+      chimesEverMounted: true,
+      currentStage: 'escapement-floor:noted-in-the-log',
+      formation: { '1:0': 'hammer', '2:3': 'detent', '3:7': 'pallet' },
+      mounts: { '0': 'quarter-bell' },
+      deepestScalingIndex: 3,
+      repairsThisStage: 1,
+      reinforcements: 2,
+      startedAt: 11,
+    },
+    meta: {
+      recollection: 14,
+      keys: 6,
+      purchasedNodes: [
+        'winding-tension-of-the-stroke',
+        'bracing-hardened-pallets',
+        'salvage-the-night-shift',
+        'regulation-second-beat',
+      ],
+      movements: { hammer: 4, detent: 2, pallet: 1 },
+      chimes: { 'quarter-bell': 1 },
+      chimeUpgrades: { 'quarter-bell': { capacity: 2, winding: 1, resonance: 3 } },
+      presets: [
+        { name: 'wide', formation: { '2:0': 'pallet' }, mounts: { '1': 'quarter-bell' } },
+      ],
+      unlockedZones: ['escapement-floor'],
+      clearedStages: ['escapement-floor:first-shift', 'escapement-floor:routine-maintenance'],
+      achievements: ['signed-for-the-shift'],
+      rewindCount: 2,
+    },
+    statistics: {
+      totalFilingsEarned: 9000,
+      totalSlackDestroyed: 1200,
+      conjunctionsFired: 40,
+      playtimeSeconds: 3600,
+    },
+  })
+
+  it('renames every persisted field without changing a value', () => {
+    // The whole migration is a rename. A player who upgrades must find the same
+    // save under different names, to the last Filing.
+    const { save, applied } = migrate(schemaFive())
+    const run = save.run as Record<string, unknown>
+    const meta = save.meta as Record<string, unknown>
+    const stats = save.statistics as Record<string, unknown>
+
+    expect(applied).toContain(5)
+    expect(save.schemaVersion).toBe(SCHEMA_VERSION)
+
+    expect(run.salvage).toBe(340)
+    expect(run.salvagePerSecond).toBe(2.5)
+    expect(run.arraysEverMounted).toBe(true)
+    expect(meta.clearance).toBe(6)
+    expect(meta.recollection).toBe(14)
+    expect(meta.rewindCount).toBe(2)
+    expect(stats.totalSalvageEarned).toBe(9000)
+    expect(stats.totalContactsDestroyed).toBe(1200)
+  })
+
+  it('leaves no field under its old name', () => {
+    // A leftover `filings` alongside a new `salvage` would be invisible: the
+    // validator ignores unknown keys, so the save would look fine and quietly
+    // carry dead weight forward for the life of the file.
+    const { save } = migrate(schemaFive())
+    const run = save.run as Record<string, unknown>
+    const meta = save.meta as Record<string, unknown>
+    const stats = save.statistics as Record<string, unknown>
+
+    for (const gone of ['filings', 'filingsPerSecond', 'chimesEverMounted']) {
+      expect(run, gone).not.toHaveProperty(gone)
+    }
+    for (const gone of ['keys', 'movements', 'chimes', 'chimeUpgrades']) {
+      expect(meta, gone).not.toHaveProperty(gone)
+    }
+    for (const gone of ['totalFilingsEarned', 'totalSlackDestroyed']) {
+      expect(stats, gone).not.toHaveProperty(gone)
+    }
+  })
+
+  it('carries content ids across, so nothing vanishes from its slot', () => {
+    /*
+     * The half of this migration that is easy to forget. Renaming only the
+     * fields would leave a formation full of ids like `detent` that resolve to
+     * nothing, and those units would disappear from their slots on the next
+     * load with no error anywhere.
+     */
+    const { save } = migrate(schemaFive())
+    const run = save.run as Record<string, unknown>
+    const meta = save.meta as Record<string, unknown>
+
+    expect(run.formation).toEqual({ '1:0': 'bolt', '2:3': 'anchor', '3:7': 'rake' })
+    expect(run.mounts).toEqual({ '0': 'long-baseline' })
+    expect(meta.platforms).toEqual({ bolt: 4, anchor: 2, rake: 1 })
+    expect(meta.arrays).toEqual({ 'long-baseline': 1 })
+  })
+
+  it('carries the tree, the tracks, the zones and the presets', () => {
+    const { save } = migrate(schemaFive())
+    const meta = save.meta as Record<string, unknown>
+
+    expect(meta.purchasedNodes).toEqual([
+      'aperture-force-of-the-pulse',
+      'shielding-hardened-plating',
+      'recovery-the-night-shift',
+      'regulation-second-flare',
+    ])
+    // The track named "winding" became "recharge"; the other two did not move.
+    expect(meta.arrayUpgrades).toEqual({
+      'long-baseline': { capacity: 2, recharge: 1, resonance: 3 },
+    })
+    expect(meta.unlockedZones).toEqual(['service-floor'])
+    expect(meta.clearedStages).toEqual([
+      'service-floor:first-shift',
+      'service-floor:routine-maintenance',
+    ])
+    expect(meta.presets).toEqual([
+      { name: 'wide', formation: { '2:0': 'rake' }, mounts: { '1': 'long-baseline' } },
+    ])
+  })
+
+  it('rewrites the zone half of a stage address and leaves the stage half alone', () => {
+    const { save } = migrate(schemaFive())
+    expect((save.run as Record<string, unknown>).currentStage).toBe(
+      'service-floor:noted-in-the-log',
+    )
+  })
+
+  it('passes unknown ids through rather than dropping them', () => {
+    // Content drift is the validator's problem and it already tolerates it. A
+    // migration that silently deleted an unrecognised id would turn a
+    // recoverable mismatch into lost progress.
+    const save = schemaFive()
+    ;(save.meta as Record<string, unknown>).movements = { hammer: 1, 'from-a-mod': 3 }
+
+    const meta = migrate(save).save.meta as Record<string, unknown>
+    expect(meta.platforms).toEqual({ bolt: 1, 'from-a-mod': 3 })
+  })
+
+  it('survives a save with nothing in it', () => {
+    // Runs on raw parsed JSON, before validation.
+    expect(() => migrate({ schemaVersion: 5 })).not.toThrow()
+  })
+
+  it('leaves the original save untouched', () => {
+    const original = schemaFive()
+    const snapshot = JSON.stringify(original)
+    migrate(original)
+    expect(JSON.stringify(original)).toBe(snapshot)
   })
 })

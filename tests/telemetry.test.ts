@@ -2,17 +2,17 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Simulation, TICK_SECONDS } from '../src/lib/core/loop'
 import { loadStage } from '../src/lib/core/stageLoader'
 import { createRng } from '../src/lib/core/rng'
-import { mountChime, placeMovement } from '../src/lib/core/formation'
-import { movementById } from '../src/lib/content/allies'
-import { chimeById } from '../src/lib/content/supportUnits'
-import { slackById } from '../src/lib/content/enemies'
-import { createSlack } from '../src/lib/systems/spawn'
-import { damageMovement } from '../src/lib/systems/combat'
+import { mountArray, placePlatform } from '../src/lib/core/formation'
+import { platformById } from '../src/lib/content/platforms'
+import { arrayById } from '../src/lib/content/arrays'
+import { contactById } from '../src/lib/content/contacts'
+import { createContact } from '../src/lib/systems/spawn'
+import { damagePlatform } from '../src/lib/systems/combat'
 import { Telemetry, TELEMETRY_SOURCES, createTelemetry } from '../src/lib/systems/telemetry'
 import type { SimulationState } from '../src/lib/core/simulation'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
-const STAGE: StageAddress = 'escapement-floor:first-shift'
+const STAGE: StageAddress = 'service-floor:first-shift'
 
 let sim: Simulation
 
@@ -21,14 +21,14 @@ beforeEach(() => {
 })
 
 function referenceFormation(state: SimulationState, level = 1) {
-  placeMovement(state, movementById('detent')!, 1, 0, level)
-  placeMovement(state, movementById('detent')!, 1, 3, level)
-  placeMovement(state, movementById('hammer')!, 2, 0, level)
-  placeMovement(state, movementById('hammer')!, 2, 5, level)
-  placeMovement(state, movementById('pallet')!, 3, 0, level)
-  placeMovement(state, movementById('pallet')!, 3, 7, level)
-  mountChime(state, chimeById('quarter-bell')!, 0, level)
-  mountChime(state, chimeById('quarter-bell')!, 4, level)
+  placePlatform(state, platformById('anchor')!, 1, 0, level)
+  placePlatform(state, platformById('anchor')!, 1, 3, level)
+  placePlatform(state, platformById('bolt')!, 2, 0, level)
+  placePlatform(state, platformById('bolt')!, 2, 5, level)
+  placePlatform(state, platformById('rake')!, 3, 0, level)
+  placePlatform(state, platformById('rake')!, 3, 7, level)
+  mountArray(state, arrayById('long-baseline')!, 0, level)
+  mountArray(state, arrayById('long-baseline')!, 4, level)
 }
 
 function playStage(seed: number) {
@@ -51,21 +51,21 @@ describe('the collector', () => {
   })
 
   it('attributes by definition, not by instance', () => {
-    // Two Hammers are one row. "Is a Hammer worth its cost" is a content
+    // Two Hammers are one row. "Is a Bolt worth its cost" is a content
     // question; per-instance numbers only measure which slot got lucky.
     const t = new Telemetry()
-    t.damage('hammer', 10)
-    t.damage('hammer', 15)
+    t.damage('bolt', 10)
+    t.damage('bolt', 15)
 
     expect(t.sources.size).toBe(1)
-    expect(t.sources.get('hammer')!.damageDealt).toBe(25)
+    expect(t.sources.get('bolt')!.damageDealt).toBe(25)
   })
 
   it('counts kills only when told one happened', () => {
     const t = new Telemetry()
-    t.damage('hammer', 10, false)
-    t.damage('hammer', 10, true)
-    expect(t.sources.get('hammer')!.kills).toBe(1)
+    t.damage('bolt', 10, false)
+    t.damage('bolt', 10, true)
+    expect(t.sources.get('bolt')!.kills).toBe(1)
   })
 
   it('divides DPS by unit-seconds, not wall clock', () => {
@@ -73,22 +73,22 @@ describe('the collector', () => {
     // an identical one present throughout. That would say nothing about the
     // unit, which is the only thing this measures.
     const t = new Telemetry()
-    t.damage('hammer', 100)
-    t.present(['hammer'], 10)
-    expect(t.dps('hammer')).toBeCloseTo(10, 6)
+    t.damage('bolt', 100)
+    t.present(['bolt'], 10)
+    expect(t.dps('bolt')).toBeCloseTo(10, 6)
 
     // Same damage, twice the presence: half the DPS.
     const u = new Telemetry()
-    u.damage('hammer', 100)
-    u.present(['hammer'], 20)
-    expect(u.dps('hammer')).toBeCloseTo(5, 6)
+    u.damage('bolt', 100)
+    u.present(['bolt'], 20)
+    expect(u.dps('bolt')).toBeCloseTo(5, 6)
   })
 
   it('counts two units of a type as twice the presence', () => {
     const t = new Telemetry()
-    t.damage('hammer', 100)
-    t.present(['hammer', 'hammer'], 10)
-    expect(t.dps('hammer')).toBeCloseTo(5, 6)
+    t.damage('bolt', 100)
+    t.present(['bolt', 'bolt'], 10)
+    expect(t.dps('bolt')).toBeCloseTo(5, 6)
   })
 
   it('reports zero DPS for a source that never fought', () => {
@@ -97,25 +97,25 @@ describe('the collector', () => {
 
   it('ranks by contribution and reports each share', () => {
     const t = new Telemetry()
-    t.damage('pallet', 300)
-    t.damage('hammer', 100)
+    t.damage('rake', 300)
+    t.damage('bolt', 100)
 
     const ranked = t.ranked()
-    expect(ranked[0].id).toBe('pallet')
+    expect(ranked[0].id).toBe('rake')
     expect(ranked[0].share).toBeCloseTo(0.75, 6)
     expect(ranked[1].share).toBeCloseTo(0.25, 6)
   })
 
   it('clears everything on reset', () => {
     const t = new Telemetry()
-    t.damage('hammer', 5)
-    t.wave({ index: 0, seconds: 1, spawned: 1, killed: 1, tensionLost: 0 })
-    t.beatsStruck = 3
+    t.damage('bolt', 5)
+    t.wave({ index: 0, seconds: 1, spawned: 1, killed: 1, outputLost: 0 })
+    t.flaresStruck = 3
     t.reset()
 
     expect(t.sources.size).toBe(0)
     expect(t.waves).toHaveLength(0)
-    expect(t.beatsStruck).toBe(0)
+    expect(t.flaresStruck).toBe(0)
     expect(t.outcome).toBe('running')
   })
 })
@@ -125,44 +125,44 @@ describe('recording a real stage', () => {
     const s = playStage(4)
     const t = s.state.telemetry!
 
-    for (const id of ['hammer', 'pallet', 'quarter-bell']) {
+    for (const id of ['bolt', 'rake', 'long-baseline']) {
       expect(t.sources.get(id)?.damageDealt, id).toBeGreaterThan(0)
     }
   })
 
   it('gives a faster attacker a higher DPS than a tank', () => {
-    // Ground truth from balancing.csv: Pallet is the damage unit, Detent holds.
+    // Ground truth from balancing.csv: Rake is the damage unit, Anchor holds.
     // If this inverts, either the roster or the telemetry is wrong.
     const s = playStage(4)
     const t = s.state.telemetry!
-    expect(t.dps('pallet')).toBeGreaterThan(t.dps('detent'))
+    expect(t.dps('rake')).toBeGreaterThan(t.dps('anchor'))
   })
 
-  it('records the Beat separately from the formation', () => {
+  it('records the Flare separately from the formation', () => {
     const s = new Simulation(loadStage(STAGE), createRng(4))
     referenceFormation(s.state)
     for (let i = 0; i < 200; i++) {
       s.tick(TICK_SECONDS)
-      if (s.state.slack.length > 0 && s.state.beat.charge >= 1) {
-        s.strike(s.state.slack[0].position.x, s.state.slack[0].position.y)
+      if (s.state.contact.length > 0 && s.state.flare.charge >= 1) {
+        s.strike(s.state.contact[0].position.x, s.state.contact[0].position.y)
       }
     }
     const t = s.state.telemetry!
-    expect(t.beatsStruck).toBeGreaterThan(0)
-    expect(t.sources.get(TELEMETRY_SOURCES.beat)?.damageDealt).toBeGreaterThan(0)
+    expect(t.flaresStruck).toBeGreaterThan(0)
+    expect(t.sources.get(TELEMETRY_SOURCES.flare)?.damageDealt).toBeGreaterThan(0)
   })
 
-  it('records what the Mainspring took', () => {
+  it('records what the Sun took', () => {
     const s = playStage(4)
     const t = s.state.telemetry!
-    expect(t.sources.get('mainspring')?.damageTaken).toBeGreaterThan(0)
+    expect(t.sources.get('sun')?.damageTaken).toBeGreaterThan(0)
   })
 
   it('records a disable against the unit type that went down', () => {
-    const unit = placeMovement(sim.state, movementById('pallet')!, 3, 0)
-    damageMovement(unit, 10_000, sim.state.telemetry)
+    const unit = placePlatform(sim.state, platformById('rake')!, 3, 0)
+    damagePlatform(unit, 10_000, sim.state.telemetry)
 
-    expect(sim.state.telemetry!.sources.get('pallet')!.disables).toBe(1)
+    expect(sim.state.telemetry!.sources.get('rake')!.disables).toBe(1)
   })
 
   it('closes a wave record when the wave clears', () => {
@@ -185,11 +185,11 @@ describe('recording a real stage', () => {
     expect(t.elapsed).toBeCloseTo(s.state.elapsed, 6)
   })
 
-  it('attributes a Chime shot even when the Chime outlives its projectile', () => {
+  it('attributes a Array shot even when the Array outlives its projectile', () => {
     // sourceDefId rides on the projectile precisely so attribution does not
     // need a lookup at impact time.
     const s = playStage(7)
-    expect(s.state.telemetry!.sources.get('quarter-bell')?.damageDealt).toBeGreaterThan(0)
+    expect(s.state.telemetry!.sources.get('long-baseline')?.damageDealt).toBeGreaterThan(0)
   })
 })
 
@@ -207,8 +207,8 @@ describe('telemetry is a sink, never a source', () => {
       if (e.stageCleared || e.stageLost) break
     }
 
-    expect(without.state.mainspring.hp).toBe(withTelemetry.state.mainspring.hp)
-    expect(without.totalSlackKilled).toBe(withTelemetry.totalSlackKilled)
+    expect(without.state.sun.hp).toBe(withTelemetry.state.sun.hp)
+    expect(without.totalContactKilled).toBe(withTelemetry.totalContactKilled)
     expect(without.state.elapsed).toBeCloseTo(withTelemetry.state.elapsed, 10)
   })
 
@@ -233,20 +233,20 @@ describe('damage attribution adds up', () => {
     const t = s.state.telemetry!
 
     const dealt = [...t.sources.values()].reduce((sum, x) => sum + x.damageDealt, 0)
-    const enemyHp = s.totalSlackKilled * slackById('burr')!.maxHp * 4
+    const enemyHp = s.totalContactKilled * contactById('skiff')!.maxHp * 4
 
     expect(dealt).toBeGreaterThan(0)
     expect(dealt).toBeLessThan(enemyHp)
   })
 
-  it('does not credit damage to a Slack that spawned after the shot', () => {
+  it('does not credit damage to a Contact that spawned after the shot', () => {
     const state = sim.state
-    state.slack.length = 0
+    state.contact.length = 0
     const t = state.telemetry!
-    const before = t.sources.get('burr')?.damageDealt ?? 0
+    const before = t.sources.get('skiff')?.damageDealt ?? 0
 
-    createSlack(state, slackById('burr')!, { x: 300, y: 0 })
-    expect(t.sources.get('burr')?.damageDealt ?? 0).toBe(before)
+    createContact(state, contactById('skiff')!, { x: 300, y: 0 })
+    expect(t.sources.get('skiff')?.damageDealt ?? 0).toBe(before)
   })
 })
 

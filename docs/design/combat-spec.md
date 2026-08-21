@@ -16,7 +16,7 @@ cartesian coordinates exist only at render time.
         │        ╭───── Ring 3 ─────╮           │
         │      ╭──── Ring 2 ────╮   │           │
         │    ╭─── Ring 1 ───╮   │   │           │
-        │    │   [Mainspring]│   │   │           │
+        │    │   [Sun]│   │   │           │
         │    ╰──────────────╯   │   │           │
         │      ╰────────────────╯   │           │
         │        ╰──────────────────╯           │
@@ -25,11 +25,11 @@ cartesian coordinates exist only at render time.
 
 | Ring | Radius | Slots | Base period | Role |
 |------|--------|-------|-------------|------|
-| 0 | 0 | — | — | The Mainspring. The objective. |
+| 0 | 0 | — | — | The Sun. The objective. |
 | 1 | 90 px | 6 | 8 s / rev | Fast inner line. Last defence. |
 | 2 | 160 px | 10 | 14 s / rev | Main line. |
 | 3 | 240 px | 14 | 22 s / rev | Outer line. First contact. |
-| Rim | 320 px | 8 mounts | static | **Chime** mounts. Do not rotate. |
+| Rim | 320 px | 8 mounts | static | **Array** mounts. Do not rotate. |
 
 Rings turn **clockwise** by default. Slots are evenly spaced; slot *k* on ring *r*
 sits at angle `(k / slots_r) * 2π + ringPhase_r`.
@@ -54,10 +54,10 @@ any point in the progression, and no upgrade grants one.
 > to avoid damage, so using it badly was punished. An input whose failure mode is
 > "you took a hit" generates pressure no amount of tuning removes.
 
-### The Beat — the player's only live input
+### The Flare — the player's only live input
 
-The Wright works the escapement by hand, releasing a measured beat of stored
-tension as a strike anywhere on the floor.
+The Operator works the service by hand, releasing a measured flare of stored
+output as a strike anywhere on the field.
 
 | Property | Value |
 |----------|-------|
@@ -65,26 +65,26 @@ tension as a strike anywhere on the floor.
 | Delivery | **Instant.** No projectile, no travel time, no leading |
 | Area | 44 px radius at the struck point |
 | Damage type | Percussive |
-| Resource | 3 Beats, one regenerating every 3 s |
+| Resource | 3 Flares, one regenerating every 3 s |
 | Cooldown | 0.25 s between strikes, to stop double-click waste |
-| Cost | None beyond the resource. Never spends Tension. |
+| Cost | None beyond the resource. Never spends Output. |
 
 Four properties make this upside rather than pressure, and none of them are
 negotiable in tuning:
 
 1. **Instant delivery removes aiming skill entirely.** Nothing to lead, nothing
    to miss with. The decision is *when* and *where*, never *how precisely*.
-2. **Failure is soft.** A badly spent Beat costs you damage you did not deal. It
-   never costs Tension, never opens a gap, never punishes. Compare the nudge,
+2. **Failure is soft.** A badly spent Flare costs you damage you did not deal. It
+   never costs Output, never opens a gap, never punishes. Compare the nudge,
    where a mistimed input meant taking a hit.
-3. **Doing nothing is viable.** The Beat is a lever for someone who wants one,
+3. **Doing nothing is viable.** The Flare is a lever for someone who wants one,
    not a tax on everyone else. This is P1 held honestly — the machine really does
    run without you.
 
    > **Verified in Phase 20.** Every stage in zone 1 clears with zero strikes,
    > across 24 seeds, with no losses:
    >
-   > | Stage | Formation | With Beat | Without |
+   > | Stage | Formation | With Flare | Without |
    > |---|---|---|---|
    > | First Shift | 5 units | 0.892 | **0.672** |
    > | Routine Maintenance | 7 units | 0.903 | **0.421** |
@@ -96,7 +96,7 @@ negotiable in tuning:
    >
    > It was not *only* a confound. Routine Maintenance still failed the property
    > at a stage-appropriate 7 units, and it was the densest stage in the zone at
-   > 89 Slack — denser than stage 3. Its density came down to 69, as promised:
+   > 89 Contact — denser than stage 3. Its density came down to 69, as promised:
    > the property wins, not the tuning.
    >
    > **Re-verified in Phase 24, and the opening grant grew to hold it.**
@@ -105,21 +105,21 @@ negotiable in tuning:
    > real stage-1 formation was **one unit**, not the five Phase 20 assumed, and
    > the property did not survive that:
    >
-   > | Opening formation | With Beat | Without Beat |
+   > | Opening formation | With Flare | Without Flare |
    > |---|---|---|
    > | 1 unit | cleared 16/16 | **lost 16/16** |
    > | 3 units | cleared 16/16 | lost 8/16 |
    > | **4 units** | cleared 16/16 | **cleared 16/16** |
    >
-   > A new save is therefore granted **four Movements, two on ring 1 and two on
-   > ring 2** — 0.78 Tension without a single strike across 24 seeds, no losses.
+   > A new save is therefore granted **four Platforms, two on ring 1 and two on
+   > ring 2** — 0.78 Output without a single strike across 24 seeds, no losses.
    > The pillar wins over the slot curve's first four purchases, which is the
    > same call Phase 17 made when it said the property wins, not the tuning.
    >
    > Coverage, not count, is what the measurement actually turned on: four
-   > Hammers all on ring 2 lose 24 of 24 without the Beat. Ring 1 is the only
-   > ring that reaches the Mainspring. Stage 1's authored density was never the
-   > variable — two units lose at every density from 42 Slack down to 20.
+   > Hammers all on ring 2 lose 24 of 24 without the Flare. Ring 1 is the only
+   > ring that reaches the Sun. Stage 1's authored density was never the
+   > variable — two units lose at every density from 42 Contact down to 20.
    >
       > **The remaining caveat is the formation ladder itself.** How many units a
    > player actually has at each stage is unknown until the economy exists, and
@@ -136,7 +136,7 @@ negotiable in tuning:
 
 ### Targeting
 
-Each Movement re-evaluates on its own cadence, not every tick. Default policy per
+Each Platform re-evaluates on its own cadence, not every tick. Default policy per
 archetype, overridable per-unit in `content/allies.ts`:
 
 | Policy | Picks | Default for |
@@ -144,12 +144,12 @@ archetype, overridable per-unit in `content/allies.ts`:
 | `nearest` | Smallest angular+radial distance | Strikers |
 | `lowestHp` | Lowest absolute HP in range | Finishers |
 | `highestThreat` | Highest `threat` score in range | Anchors |
-| `deepest` | Closest to the Mainspring | Guards |
+| `deepest` | Closest to the Sun | Guards |
 | `none` | Does not attack; support/aura only | Regulators |
 
-`threat = dps * threatWeight * (1 + 2 * (1 - normalizedDistanceToMainspring))` —
+`threat = dps * threatWeight * (1 + 2 * (1 - normalizedDistanceToSun))` —
 a weak enemy about to reach the centre outranks a strong one at the rim.
-`threatWeight` is a per-Slack multiplier from `content/enemies.ts`, letting
+`threatWeight` is a per-Contact multiplier from `content/enemies.ts`, letting
 content mark a type as disproportionately urgent without touching the formula. Re-target only when
 the current target dies, leaves range, or every `retargetInterval` (default 0.75 s).
 Never re-target on the tick a unit is mid-swing.
@@ -177,10 +177,10 @@ with `RADIAL_MARGIN = 40 px`.
 
 Two rules, and both matter:
 
-1. **The innermost ring defends everything inside it.** Otherwise a Slack that
-   reached the Mainspring would be unreachable by anything at all.
+1. **The innermost ring defends everything inside it.** Otherwise a Contact that
+   reached the Sun would be unreachable by anything at all.
 2. **Every other ring is bounded inward.** Without this, an outer unit could
-   strike a Slack that had already penetrated to the centre, which would make
+   strike a Contact that had already penetrated to the centre, which would make
    ring assignment nearly meaningless and undercut pillar P2. Depth of
    penetration has to cost the defender something.
 
@@ -215,13 +215,13 @@ values were tuned as the reach at and beyond a unit's own ring, and letting them
 shrink at range would rebalance every unit rather than fix one degenerate case.
 
 Without this, the innermost ring's inner-bound exemption was a half-measure. It
-drops the inner bound to zero so ring 1 can defend the Mainspring — but the
+drops the inner bound to zero so ring 1 can defend the Sun — but the
 angular test stayed fixed, and **a bearing at radius zero is arbitrary**. A
 Detent's 22° window covers 6% of the circle, so an enemy parked on the objective
 was hittable roughly one second in eight.
 
 Measured consequence before the fix: on stage 3, a shielded Cant reached the
-centre in over half of all runs, survived up to 28 s and sat on the Mainspring
+centre in over half of all runs, survived up to 28 s and sat on the Sun
 for up to 18 s. Wave 1's duration alone explained the stage's outcome variance
 at r = −0.88. The design compounded it — ring 1 is where the formation bonuses
 push you to put a tank, and the tank is the weakest attacker in the roster.
@@ -233,7 +233,7 @@ recomputed per tick.
 
 | Condition | Bonus |
 |-----------|-------|
-| Ring 1 placement | +15% defence (close support from the Mainspring) |
+| Ring 1 placement | +15% defence (close support from the Sun) |
 | Ring 3 placement | +10% range (nothing blocking the sightline) |
 | Both neighbours on the same ring filled | +10% attack |
 | Slot directly radially outward is filled | +5% defence (screened) |
@@ -241,7 +241,7 @@ recomputed per tick.
 
 ## 3. Conjunction — the signature mechanic
 
-Two or more Movements on **different rings** count as in conjunction when their
+Two or more Platforms on **different rings** count as in conjunction when their
 angles fall within `conjunctionTolerance` (default 6°) of each other.
 
 Because rings turn at different, deliberately non-integer-ratio periods,
@@ -290,7 +290,7 @@ and 4–5 s buffs, letting both scale duration would have meant permanent uptime
 stronger grant wins, and an equal-or-weaker grant only extends what is already
 there. Nothing accumulates.**
 
-This was already the objective's shield rule (§5). Movements were stacking
+This was already the objective's shield rule (§5). Platforms were stacking
 `shield +=` instead, which is the exact "bank conjunctions into an
 invulnerability window" the rule exists to prevent. `systems/buffs.ts` now owns
 it and a test asserts both implementations behave identically.
@@ -305,7 +305,7 @@ Two further consequences:
 
 Debuffs need a sign-aware comparison — "stronger" for a penalty means *more*
 negative — and no content authors one yet, so the rule is not guessed at.
-Phase 31's Slack roster owns designing that half; `grantBonus` throws on a
+Phase 31's Contact roster owns designing that half; `grantBonus` throws on a
 negative magnitude rather than silently doing the wrong thing.
 
 `repair` was removed from `ConjunctionEffect`. It had no ally using it for a
@@ -328,11 +328,11 @@ stale the moment it is written. It is recomputed only when the formation changes
 or the predicted alignment passes, because `timeToNextConjunction` simulates the
 rings forward up to two minutes and must never run per frame.
 
-## 4. Chimes — ranged support
+## 4. Arrays — ranged support
 
-Distinct from Movements in four ways that must survive balancing:
+Distinct from Platforms in four ways that must survive balancing:
 
-| | Movements | Chimes |
+| | Platforms | Arrays |
 |---|-----------|--------|
 | Position | Ring slots, **rotating** | Rim mounts, **static** |
 | Range | Local arc | Whole field, any ring |
@@ -340,38 +340,38 @@ Distinct from Movements in four ways that must survive balancing:
 | Conjunction | Participate | **Do not participate** |
 | Targeting | Reactive | **Predictive** — leads moving targets |
 
-Chimes do not rotate, so they are the player's stable reference frame while
+Arrays do not rotate, so they are the player's stable reference frame while
 everything else turns. They cover the arcs the rotation leaves briefly thin.
 
-**Charge:** each Chime holds `maxCharge` (default 3), regenerating one per
-`chargeInterval` (**6 s**). Firing costs one. A Chime at zero charge is silent.
-This makes Chimes burst-y and positionally strategic rather than a constant
-damage floor — and it is why they cannot simply replace Movements.
+**Charge:** each Array holds `maxCharge` (default 3), regenerating one per
+`chargeInterval` (**6 s**). Firing costs one. A Array at zero charge is silent.
+This makes Arrays burst-y and positionally strategic rather than a constant
+damage floor — and it is why they cannot simply replace Platforms.
 
 `chargeInterval` is **the balance lever between the two unit classes**, tuned in
-Phase 14 by measuring the marginal value of ~120 Filings spent either way:
+Phase 14 by measuring the marginal value of ~120 Salvage spent either way:
 
-| `chargeInterval` | +1 Chime | +2 Movements | |
+| `chargeInterval` | +1 Array | +2 Platforms | |
 |---|---|---|---|
-| 4 s | +0.49 Tension | +0.33 | Chime dominant |
+| 4 s | +0.49 Output | +0.33 | Array dominant |
 | **6 s** | **+0.34** | **+0.33** | **balanced** |
-| 7 s | +0.22 | +0.33 | Movements dominant |
+| 7 s | +0.22 | +0.33 | Platforms dominant |
 
-At 6 s the Chime build clears *faster* while being equally robust — a genuine
-trade rather than a strictly better option. Retune this before touching Chime
+At 6 s the Array build clears *faster* while being equally robust — a genuine
+trade rather than a strictly better option. Retune this before touching Array
 damage; damage barely moves the outcome, because clear time is floored by the
 wave spawn schedule.
 
-**Chimes cannot be damaged.** They sit on the rim, outside the field of fire:
-Slack spawn at that radius and travel inward, and so do their projectiles. A
-Chime's cost is that it contributes **no defence whatsoever** — it has no block
-arc, so nothing it does slows a Slack down — and that its output is gated by
-Charge. Measured consequence: **Chimes alone lose the stage.** Two Chimes and no
-Movements managed 8 kills before Tension hit zero, because nothing was stopping
+**Arrays cannot be damaged.** They sit on the rim, outside the field of fire:
+Contact spawn at that radius and travel inward, and so do their projectiles. A
+Array's cost is that it contributes **no defence whatsoever** — it has no block
+arc, so nothing it does slows a Contact down — and that its output is gated by
+Charge. Measured consequence: **Arrays alone lose the stage.** Two Arrays and no
+Platforms managed 8 kills before Output hit zero, because nothing was stopping
 anything.
 
 **Predictive targeting:** lead the target by `distance / projectileSpeed`, so
-Chime shots connect on drifting enemies. Movements do not lead — they are melee or
+Array shots connect on drifting enemies. Platforms do not lead — they are melee or
 short-range and it would not read.
 
 ## 5. Bullet-hell rules
@@ -386,7 +386,7 @@ descriptors. Never hardcoded in enemy logic.
 | `spread` | *n* projectiles across an arc | Spread the formation; the cone covers one arc |
 | `spiral` | Curving arms from a rotating emitter | Wait out the sweep; the gaps are wide |
 | `aimed` | Direct at the target | Blocked by whatever is in the way |
-| `wall` | Line across an arc with one gap | Put the gap over something that can take it, or break the wall with a Beat |
+| `wall` | Line across an arc with one gap | Put the gap over something that can take it, or break the wall with a Flare |
 | `ring` | Full 360° expanding shell | Absorb with a defended ring |
 | `converge` | Wedge closing from the rim | Ring 1 defence matters |
 
@@ -406,7 +406,7 @@ counterplay.
 - **Speeds sit at 85–155 px/s**, roughly half genre-typical. Rim to centre takes
   2–4 s, leaving time to read and act.
 - **Counts stay in single digits per emission.** Pressure comes from several
-  Slack on staggered cadences, not one wall of forty.
+  Contact on staggered cadences, not one wall of forty.
 - **Telegraphs run 450–750 ms** and scale with how much ground a pattern denies.
   `converge` gets the longest.
 
@@ -424,12 +424,12 @@ Every pattern renders a telegraph for `telegraphMs` before the first projectile
 spawns. Minimum **400 ms**, and boss patterns use 600–900 ms. A pattern that can
 kill without warning is a bug, not a difficulty setting (P4).
 
-### The Mainspring hitbox
+### The Sun hitbox
 
-- Radius **28 px** — visually smaller than the rendered Mainspring, which is
+- Radius **28 px** — visually smaller than the rendered Sun, which is
   generous to the player and standard practice for fairness.
-- Projectiles reaching it deal damage to **Tension** and despawn.
-- No invulnerability frames. Tension is a pool, not a life counter, so
+- Projectiles reaching it deal damage to **Output** and despawn.
+- No invulnerability frames. Output is a pool, not a life counter, so
   chip damage is the intended texture.
 
 ### Objective rules (Phase 12)
@@ -438,22 +438,22 @@ Implemented in `systems/objectiveRules.ts`, deliberately separate from the entit
 so win and loss conditions are readable without reading a tick function.
 
 **Regeneration is paused during a live wave.** It ticks only in `wave-gap`.
-`game-loop.md` says damage carries into the next wave as reduced Tension, and
+`game-loop.md` says damage carries into the next wave as reduced Output, and
 continuous regeneration would erode that — sustained pressure could be out-healed
 rather than survived. Confining recovery to the gap keeps the carry-over
-meaningful and makes the gap a real beat rather than dead time.
+meaningful and makes the gap a real flare rather than dead time.
 
 **Shields replace, they do not stack.** A stronger grant overwrites a weaker one;
 a weaker grant only extends the existing duration. Stacking would let a player
 bank conjunctions into an invulnerability window, which fights the no-wall
 principle in `economy-spec.md` §5.
 
-**Loss is checked before clear.** A Mainspring reaching zero on the same tick the
-last Slack dies is a **loss**. Clearing a stage you did not survive would be
+**Loss is checked before clear.** A Sun reaching zero on the same tick the
+last Contact dies is a **loss**. Clearing a stage you did not survive would be
 incoherent.
 
-**Tension thresholds** at 50% / 25% / 10% fire an event when crossed *downward*
-only. Regenerating back up through one is not an event, or a Mainspring hovering
+**Output thresholds** at 50% / 25% / 10% fire an event when crossed *downward*
+only. Regenerating back up through one is not an event, or a Sun hovering
 at a threshold would spam them. These drive HUD warnings, achievements, and
 later boss phase triggers.
 
@@ -461,22 +461,22 @@ later boss phase triggers.
 steps 6–8, so a check folded into the recovery step would compare a value to
 itself and never fire. This was a real bug, caught by test.
 
-**Emergency repair** restores 25% of maximum Tension at a cost escalating by
-1.5× per use within a stage, and refuses at full Tension so nobody is charged for
+**Emergency repair** restores 25% of maximum Output at a cost escalating by
+1.5× per use within a stage, and refuses at full Output so nobody is charged for
 nothing. The escalation is what keeps it a panic button rather than a strategy
 (`economy-spec.md` invariant 6). The economy transaction itself lands in
 Phase 21; Phase 12 exposes only the hook.
 
 ### Blocking
 
-Movements have a **block arc** — a projectile crossing a Movement's slot within
-`blockArc` degrees is absorbed, dealing damage to that Movement instead. This is
+Platforms have a **block arc** — a projectile crossing a Platform's slot within
+`blockArc` degrees is absorbed, dealing damage to that Platform instead. This is
 how the front line functions defensively without a separate mechanic, and it is
 why a full ring is worth the formation bonus.
 
-Blocked damage is reduced by the Movement's defence; overflow does **not** pass
-through. A Movement at zero HP is disabled for `recoveryTime` (default 12 s), then
-returns at full HP. Movements are never permanently lost — permadeath would fight
+Blocked damage is reduced by the Platform's defence; overflow does **not** pass
+through. A Platform at zero HP is disabled for `recoveryTime` (default 12 s), then
+returns at full HP. Platforms are never permanently lost — permadeath would fight
 P5 and punish idle play.
 
 ## 6. Damage formula
@@ -496,7 +496,7 @@ simulation compounds badly across thousands of small hits.
 
 ## 7. Type interactions
 
-Four ally types against four Slack armour classes.
+Four ally types against four Contact armour classes.
 
 | Ally type ↓ / Armour → | **Massed** | **Rigid** | **Seized** | **Erratic** |
 |---|---|---|---|---|
@@ -518,8 +518,8 @@ and every damage type has exactly one of each. Enforced by
 `tests/damageTypes.test.ts` -- an earlier draft of this table left `Seized` with
 no weakness and gave `Rigid` two, which the test caught.
 
-**Chimes are always Resonant.** This is why they are strong against `Erratic`
-(fast, hard-to-hit Slack) and weak against `Seized` (slow, armoured Slack) --
+**Arrays are always Resonant.** This is why they are strong against `Erratic`
+(fast, hard-to-hit Contact) and weak against `Seized` (slow, armoured Contact) --
 a clean role split, since grinding down armoured targets is the front line's
 job, not the rim's.
 
@@ -528,10 +528,10 @@ job, not the rim's.
 Fixed per tick. Order matters and must not drift:
 
 1. Advance `ringPhase` for each ring.
-2. Advance cooldowns and Chime charge.
+2. Advance cooldowns and Array charge.
 3. Spawn scheduled enemies (`spawn.ts`).
-4. Enemy movement and pattern emission (`patterns.ts`).
-5. Movement + Chime targeting and attacks (`ai.ts`).
+4. Enemy platform and pattern emission (`patterns.ts`).
+5. Platform + Array targeting and attacks (`ai.ts`).
 6. Projectile integration (`Projectile.ts`).
 7. Collision resolution (`collision.ts`).
 8. Damage application and death handling (`combat.ts`).

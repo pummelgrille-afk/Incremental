@@ -17,14 +17,37 @@ import { defaultStorage, StorageQuotaError, type StorageBackend } from './storag
  * ADR-002 stays open. Callers never learn which backend is underneath.
  */
 
-const LIVE_KEY = 'orrery:save'
-const BACKUP_KEY = 'orrery:save:backup'
-const TEMP_KEY = 'orrery:save:temp'
+const LIVE_KEY = 'perihelion:save'
+const BACKUP_KEY = 'perihelion:save:backup'
+const TEMP_KEY = 'perihelion:save:temp'
 
-/** Prefix on exported strings, so a wrong paste is diagnosed not decoded. */
+/**
+ * The keys used before the Phase 29 reskin.
+ *
+ * Read-only, and never written to again. The reskin's blanket rename moved the
+ * storage key along with everything else, which would have made every existing
+ * save **invisible**: the game looks under the new key, finds nothing, reports
+ * a fresh start, and the schema 5 → 6 migration never even runs because there
+ * is nothing to migrate. Total silent data loss, with no error anywhere and
+ * nothing in `notices` to hint at it.
+ *
+ * The first successful load from a legacy key writes to the new one on the next
+ * autosave, so the move happens once and needs no player action.
+ */
+const LEGACY_LIVE_KEY = 'orrery:save'
+const LEGACY_BACKUP_KEY = 'orrery:save:backup'
+
+/**
+ * Prefix on exported strings, so a wrong paste is diagnosed not decoded.
+ *
+ * **Deliberately not renamed.** It is a wire format: every save string a player
+ * has already exported to a file or a forum post begins with it, and changing
+ * it would reject all of them. It survived the reskin by luck — the rename
+ * mapped `Orrery`, not `ORRERY` — and it stays.
+ */
 const EXPORT_PREFIX = 'ORRERY'
 
-export type LoadSource = 'live' | 'backup' | 'fresh'
+export type LoadSource = 'live' | 'backup' | 'legacy' | 'fresh'
 
 export interface LoadResult {
   data: SaveData
@@ -65,6 +88,9 @@ export class SaveManager {
     for (const [key, source] of [
       [LIVE_KEY, 'live'],
       [BACKUP_KEY, 'backup'],
+      // Pre-reskin keys, tried last: a save under the current key always wins.
+      [LEGACY_LIVE_KEY, 'legacy'],
+      [LEGACY_BACKUP_KEY, 'legacy'],
     ] as const) {
       const raw = this.storage.getItem(key)
       if (raw === null) continue
@@ -73,6 +99,9 @@ export class SaveManager {
       if (result) {
         if (source === 'backup') {
           notices.push('Primary save was unreadable; recovered from the backup.')
+        }
+        if (source === 'legacy') {
+          notices.push('Carried your save over from before the system was renamed.')
         }
         return {
           data: result,
@@ -228,7 +257,7 @@ export class SaveManager {
 
     const parts = trimmed.split('-')
     if (parts.length < 4 || parts[0] !== EXPORT_PREFIX) {
-      throw new SaveImportError('That does not look like an Orrery save string.')
+      throw new SaveImportError('That does not look like an Perihelion save string.')
     }
 
     const version = Number(parts[1])
@@ -288,17 +317,34 @@ export class SaveManager {
 
   // -------------------------------------------------------------------------
 
-  /** Wipe every key. The player-facing hard reset. */
+  /**
+   * Wipe every key. The player-facing hard reset.
+   *
+   * Includes the legacy keys, or a reset would appear to work and then the old
+   * save would come back on the next load — which is worse than not resetting.
+   */
   clear(): void {
     this.storage.removeItem(LIVE_KEY)
     this.storage.removeItem(BACKUP_KEY)
     this.storage.removeItem(TEMP_KEY)
+    this.storage.removeItem(LEGACY_LIVE_KEY)
+    this.storage.removeItem(LEGACY_BACKUP_KEY)
   }
 
   /** True when a save exists. Drives "Continue" vs "New game" in the menu. */
   hasSave(): boolean {
-    return this.storage.getItem(LIVE_KEY) !== null
+    return (
+      this.storage.getItem(LIVE_KEY) !== null ||
+      this.storage.getItem(LEGACY_LIVE_KEY) !== null
+    )
   }
 }
 
-export { LIVE_KEY, BACKUP_KEY, TEMP_KEY, EXPORT_PREFIX }
+export {
+  LIVE_KEY,
+  BACKUP_KEY,
+  TEMP_KEY,
+  LEGACY_LIVE_KEY,
+  LEGACY_BACKUP_KEY,
+  EXPORT_PREFIX,
+}

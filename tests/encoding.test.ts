@@ -32,11 +32,11 @@ describe('base64', () => {
 
 describe('fnv1a', () => {
   it('is stable for the same input', () => {
-    expect(fnv1a('orrery')).toBe(fnv1a('orrery'))
+    expect(fnv1a('perihelion')).toBe(fnv1a('perihelion'))
   })
 
   it('differs for different input', () => {
-    expect(fnv1a('orrery')).not.toBe(fnv1a('orrerz'))
+    expect(fnv1a('perihelion')).not.toBe(fnv1a('orrerz'))
   })
 
   it('detects a single-character change', () => {

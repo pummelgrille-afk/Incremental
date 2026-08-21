@@ -1,6 +1,6 @@
 import type { AnyWaveDef, SpawnGroup, WaveDef } from '../entities/Wave'
 import { isBossWave } from '../entities/Wave'
-import { slackById } from '../content/enemies'
+import { contactById } from '../content/contacts'
 import { OVER_LEVEL, SCALING } from '../content/scaling'
 import type { SimulationState } from '../core/simulation'
 
@@ -69,31 +69,31 @@ export function bossDamage(base: number, scalingIndex: number, zoneMultiplier: n
 /**
  * The player's sustained damage per second.
  *
- * Sustained, not burst: a Chime's output is gated by Charge (combat-spec.md §4),
+ * Sustained, not burst: a Array's output is gated by Charge (combat-spec.md §4),
  * so its rate is one shot per `chargeInterval` rather than one per
- * `baseInterval`. Counting its burst rate would read a Chime as several times
+ * `baseInterval`. Counting its burst rate would read a Array as several times
  * stronger than it plays, and the director would punish a build for owning one.
  *
  * Disabled units contribute nothing, which is correct — they are not fighting.
- * The Beat is excluded: it is the player's input, not their formation, and
+ * The Flare is excluded: it is the player's input, not their formation, and
  * scaling the wave against how well someone is playing is exactly the
  * rubber-banding `content/scaling.ts` argues against.
  */
 export function formationPower(sim: SimulationState): number {
   let power = 0
 
-  for (const movement of sim.movements) {
-    if (movement.disabledFor > 0) continue
+  for (const platform of sim.platforms) {
+    if (platform.disabledFor > 0) continue
     const attack =
-      movement.def.attack * movement.levelScale * (1 + movement.bonuses.attack)
-    power += attack / movement.def.baseInterval
+      platform.def.attack * platform.levelScale * (1 + platform.bonuses.attack)
+    power += attack / platform.def.baseInterval
   }
 
-  for (const chime of sim.chimes) {
-    if (chime.disabledFor > 0) continue
-    const attack = chime.def.attack * chime.levelScale * chime.attackScale
+  for (const array of sim.arrays) {
+    if (array.disabledFor > 0) continue
+    const attack = array.def.attack * array.levelScale * array.attackScale
     // One shot per charge, one charge per chargeInterval.
-    power += attack / chime.chargeInterval
+    power += attack / array.chargeInterval
   }
 
   return power
@@ -114,7 +114,7 @@ export function waveHpRate(sim: SimulationState, wave: AnyWaveDef): number {
   let duration = 0
 
   for (const group of wave.groups) {
-    const def = slackById(group.defId)
+    const def = contactById(group.defId)
     if (!def) continue
 
     const count = scaledCount(group.count, sim.stage.scalingIndex)

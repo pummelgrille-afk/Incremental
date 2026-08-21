@@ -2,58 +2,58 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Simulation, TICK_SECONDS } from '../src/lib/core/loop'
 import { loadStage } from '../src/lib/core/stageLoader'
 import { createRng } from '../src/lib/core/rng'
-import { mountChime, placeMovement } from '../src/lib/core/formation'
-import { movementById } from '../src/lib/content/allies'
-import { chimeById } from '../src/lib/content/supportUnits'
-import { slackById } from '../src/lib/content/enemies'
-import { createSlack } from '../src/lib/systems/spawn'
+import { mountArray, placePlatform } from '../src/lib/core/formation'
+import { platformById } from '../src/lib/content/platforms'
+import { arrayById } from '../src/lib/content/arrays'
+import { contactById } from '../src/lib/content/contacts'
+import { createContact } from '../src/lib/systems/spawn'
 import {
   angleDelta,
-  chimePosition,
-  movementPosition,
+  arrayPosition,
+  platformPosition,
   threatOf,
-  updateChimes,
-  updateMovements,
+  updateArrays,
+  updatePlatforms,
 } from '../src/lib/systems/ai'
 import { RINGS } from '../src/lib/content/field'
 import { findConjunctions } from '../src/lib/systems/synergy'
 import { grantBonus } from '../src/lib/systems/buffs'
-import type { MovementDef } from '../src/lib/entities/Movement'
+import type { PlatformDef } from '../src/lib/entities/Platform'
 import type { TargetingPolicy } from '../src/lib/entities/types'
-import type { SlackInstance } from '../src/lib/entities/Slack'
+import type { ContactInstance } from '../src/lib/entities/Contact'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
-const STAGE: StageAddress = 'escapement-floor:first-shift'
+const STAGE: StageAddress = 'service-floor:first-shift'
 
 let sim: Simulation
 
 beforeEach(() => {
   sim = new Simulation(loadStage(STAGE), createRng(1))
   // Rings start at phase 0, so slot 0 on every ring sits at angle 0.
-  sim.state.slack.length = 0
+  sim.state.contact.length = 0
 })
 
-/** Place a stationary Slack at a known polar position. */
-function slackAt(defId: string, radius: number, angle = 0): SlackInstance {
-  const instance = createSlack(sim.state, slackById(defId)!, {
+/** Place a stationary Contact at a known polar position. */
+function contactAt(defId: string, radius: number, angle = 0): ContactInstance {
+  const instance = createContact(sim.state, contactById(defId)!, {
     x: Math.cos(angle) * radius,
     y: Math.sin(angle) * radius,
   })
   instance.velocity = { x: 0, y: 0 }
-  sim.state.slack.push(instance)
+  sim.state.contact.push(instance)
   return instance
 }
 
-/** A Movement with an overridden policy, placed at slot 0 (angle 0). */
-function defender(policy: TargetingPolicy, ring: 1 | 2 | 3 = 2, base = 'hammer') {
-  const def: MovementDef = {
-    ...movementById(base)!,
+/** A Platform with an overridden policy, placed at slot 0 (angle 0). */
+function defender(policy: TargetingPolicy, ring: 1 | 2 | 3 = 2, base = 'bolt') {
+  const def: PlatformDef = {
+    ...platformById(base)!,
     targeting: policy,
     // Wide arc so angular reach never confounds a targeting assertion.
     angularReach: Math.PI / 2,
     radialReach: 1,
   }
-  return placeMovement(sim.state, def, ring, 0)
+  return placePlatform(sim.state, def, ring, 0)
 }
 
 describe('angleDelta', () => {
@@ -72,15 +72,15 @@ describe('angleDelta', () => {
 })
 
 describe('threat', () => {
-  it('rises as a Slack nears the Mainspring', () => {
-    const far = slackAt('burr', 320)
-    const near = slackAt('burr', 40)
+  it('rises as a Contact nears the Sun', () => {
+    const far = contactAt('skiff', 320)
+    const near = contactAt('skiff', 40)
     expect(threatOf(near)).toBeGreaterThan(threatOf(far))
   })
 
-  it('accounts for how dangerous the Slack is, not only where it is', () => {
-    const weak = slackAt('burr', 200)
-    const strong = slackAt('backlash', 200)
+  it('accounts for how dangerous the Contact is, not only where it is', () => {
+    const weak = contactAt('skiff', 200)
+    const strong = contactAt('lance', 200)
     expect(threatOf(strong)).toBeGreaterThan(threatOf(weak))
   })
 })
@@ -88,99 +88,99 @@ describe('threat', () => {
 describe('targeting policies', () => {
   it('nearest picks the closest to the unit, not to the centre', () => {
     const unit = defender('nearest', 2)
-    const origin = movementPosition(sim.state, unit)
+    const origin = platformPosition(sim.state, unit)
     expect(origin.x).toBeCloseTo(RINGS[1].radius, 6)
 
-    const inner = slackAt('burr', 130) // 30 px inside the unit
-    slackAt('burr', 240) // 80 px outside
+    const inner = contactAt('skiff', 130) // 30 px inside the unit
+    contactAt('skiff', 240) // 80 px outside
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(inner.id)
   })
 
   it('lowestHp picks the weakest, regardless of distance', () => {
     const unit = defender('lowestHp', 2)
-    slackAt('burr', 130)
-    const wounded = slackAt('burr', 240)
+    contactAt('skiff', 130)
+    const wounded = contactAt('skiff', 240)
     wounded.hp = 1
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(wounded.id)
   })
 
-  it('deepest picks whatever is closest to the Mainspring', () => {
+  it('deepest picks whatever is closest to the Sun', () => {
     const unit = defender('deepest', 2)
-    const deep = slackAt('burr', 125)
-    slackAt('burr', 200)
+    const deep = contactAt('skiff', 125)
+    contactAt('skiff', 200)
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(deep.id)
   })
 
-  it('highestThreat prefers a dangerous Slack over a merely close one', () => {
+  it('highestThreat prefers a dangerous Contact over a merely close one', () => {
     const unit = defender('highestThreat', 2)
-    const harmless = slackAt('burr', 130)
-    const dangerous = slackAt('backlash', 200)
+    const harmless = contactAt('skiff', 130)
+    const dangerous = contactAt('lance', 200)
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(threatOf(dangerous)).toBeGreaterThan(threatOf(harmless))
     expect(unit.targetId).toBe(dangerous.id)
   })
 
   it('none never attacks and never acquires a target', () => {
     const unit = defender('none', 2)
-    slackAt('burr', 160)
+    contactAt('skiff', 160)
 
-    const attacks = updateMovements(sim.state, TICK_SECONDS)
+    const attacks = updatePlatforms(sim.state, TICK_SECONDS)
     expect(attacks).toHaveLength(0)
     expect(unit.targetId).toBeNull()
   })
 })
 
 describe('annular reach', () => {
-  it('ignores a Slack outside the angular arc', () => {
-    const def: MovementDef = {
-      ...movementById('hammer')!,
+  it('ignores a Contact outside the angular arc', () => {
+    const def: PlatformDef = {
+      ...platformById('bolt')!,
       angularReach: (10 * Math.PI) / 180,
       radialReach: 1,
     }
-    const unit = placeMovement(sim.state, def, 2, 0)
+    const unit = placePlatform(sim.state, def, 2, 0)
 
     // Directly opposite the unit.
-    slackAt('burr', 160, Math.PI)
+    contactAt('skiff', 160, Math.PI)
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBeNull()
   })
 
-  it('ignores a Slack beyond its outward reach', () => {
+  it('ignores a Contact beyond its outward reach', () => {
     const unit = defender('nearest', 1)
     // Ring 1 with radialReach 1 covers out to ring 2 plus margin.
-    slackAt('burr', 320)
+    contactAt('skiff', 320)
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBeNull()
   })
 
   /**
    * The Phase 13 correctness fix. Without an inner bound an outer-ring unit
-   * could strike a Slack that had already penetrated to the centre, which makes
+   * could strike a Contact that had already penetrated to the centre, which makes
    * ring assignment nearly meaningless and undercuts pillar P2.
    */
-  it('does not let an outer ring strike a Slack that reached the centre', () => {
+  it('does not let an outer ring strike a Contact that reached the centre', () => {
     const outer = defender('nearest', 3)
-    slackAt('burr', 35) // essentially on the Mainspring
+    contactAt('skiff', 35) // essentially on the Sun
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(outer.targetId).toBeNull()
   })
 
   it('lets the innermost ring defend everything inside it', () => {
-    // Otherwise a Slack at the Mainspring would be unreachable by anything.
+    // Otherwise a Contact at the Sun would be unreachable by anything.
     const inner = defender('nearest', 1)
-    const arrived = slackAt('burr', 35)
+    const arrived = contactAt('skiff', 35)
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(inner.targetId).toBe(arrived.id)
   })
 
@@ -194,53 +194,53 @@ describe('annular reach', () => {
 describe('attack timing', () => {
   it('fires once, then waits out the cooldown', () => {
     const unit = defender('nearest', 2)
-    const target = slackAt('burr', 160)
+    const target = contactAt('skiff', 160)
     target.hp = 10_000
 
-    const first = updateMovements(sim.state, TICK_SECONDS)
+    const first = updatePlatforms(sim.state, TICK_SECONDS)
     expect(first).toHaveLength(1)
 
-    const second = updateMovements(sim.state, TICK_SECONDS)
+    const second = updatePlatforms(sim.state, TICK_SECONDS)
     expect(second).toHaveLength(0)
   })
 
   it('fires again once the interval elapses', () => {
     const unit = defender('nearest', 2)
-    const target = slackAt('burr', 160)
+    const target = contactAt('skiff', 160)
     target.hp = 10_000
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     const ticks = Math.ceil(unit.def.baseInterval / TICK_SECONDS) + 1
     let fired = 0
     for (let i = 0; i < ticks; i++) {
-      fired += updateMovements(sim.state, TICK_SECONDS).length
+      fired += updatePlatforms(sim.state, TICK_SECONDS).length
     }
     expect(fired).toBeGreaterThanOrEqual(1)
   })
 
   it('attacks faster with haste', () => {
     const slow = defender('nearest', 2)
-    const target = slackAt('burr', 160)
+    const target = contactAt('skiff', 160)
     target.hp = 10_000
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     const withoutHaste = slow.cooldownRemaining
 
     slow.cooldownRemaining = 0
     grantBonus(slow.buffs.haste, 1, 4)
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(slow.cooldownRemaining).toBeLessThan(withoutHaste)
   })
 
   it('does not act while disabled, and recovers at full health', () => {
     const unit = defender('nearest', 2)
-    slackAt('burr', 160)
+    contactAt('skiff', 160)
     unit.disabledFor = 1
     unit.hp = 0
 
-    expect(updateMovements(sim.state, TICK_SECONDS)).toHaveLength(0)
+    expect(updatePlatforms(sim.state, TICK_SECONDS)).toHaveLength(0)
 
-    for (let i = 0; i < 25; i++) updateMovements(sim.state, TICK_SECONDS)
+    for (let i = 0; i < 25; i++) updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.disabledFor).toBe(0)
     expect(unit.hp).toBe(unit.maxHp)
   })
@@ -249,135 +249,135 @@ describe('attack timing', () => {
 describe('re-targeting', () => {
   it('keeps its target while that target remains valid', () => {
     const unit = defender('nearest', 2)
-    const first = slackAt('burr', 160)
+    const first = contactAt('skiff', 160)
     first.hp = 10_000
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(first.id)
 
     // A closer one appears, but the interval has not elapsed.
-    slackAt('burr', 155)
-    updateMovements(sim.state, TICK_SECONDS)
+    contactAt('skiff', 155)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(first.id)
   })
 
   it('switches when the current target leaves reach', () => {
     const unit = defender('nearest', 2)
-    const first = slackAt('burr', 160)
+    const first = contactAt('skiff', 160)
     first.hp = 10_000
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(first.id)
 
     // Move it far outside the band.
     first.position.x = 5000
-    const replacement = slackAt('burr', 160)
+    const replacement = contactAt('skiff', 160)
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(replacement.id)
   })
 
   it('drops its target when nothing is in reach', () => {
     const unit = defender('nearest', 2)
-    const only = slackAt('burr', 160)
-    updateMovements(sim.state, TICK_SECONDS)
+    const only = contactAt('skiff', 160)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(only.id)
 
-    sim.state.slack.length = 0
-    updateMovements(sim.state, TICK_SECONDS)
+    sim.state.contact.length = 0
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBeNull()
   })
 })
 
-describe('Chimes', () => {
-  it('reach the whole field, unlike Movements', () => {
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    const distant = slackAt('burr', 40, Math.PI) // opposite side, near centre
+describe('Arrays', () => {
+  it('reach the whole field, unlike Platforms', () => {
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 0)
+    const distant = contactAt('skiff', 40, Math.PI) // opposite side, near centre
 
-    const shots = updateChimes(sim.state, TICK_SECONDS)
+    const shots = updateArrays(sim.state, TICK_SECONDS)
     expect(shots).toHaveLength(1)
     expect(shots[0].target.id).toBe(distant.id)
-    void chime
+    void array
   })
 
   it('spend a charge per shot and fall silent at zero', () => {
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    const target = slackAt('burr', 200)
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 0)
+    const target = contactAt('skiff', 200)
     target.hp = 10_000
 
-    updateChimes(sim.state, TICK_SECONDS)
-    expect(chime.charge).toBeLessThan(chime.def.maxCharge)
+    updateArrays(sim.state, TICK_SECONDS)
+    expect(array.charge).toBeLessThan(array.def.maxCharge)
 
-    chime.charge = 0
-    chime.cooldownRemaining = 0
-    expect(updateChimes(sim.state, TICK_SECONDS)).toHaveLength(0)
+    array.charge = 0
+    array.cooldownRemaining = 0
+    expect(updateArrays(sim.state, TICK_SECONDS)).toHaveLength(0)
   })
 
   it('regenerate charge over time', () => {
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    chime.charge = 0
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 0)
+    array.charge = 0
 
-    const ticks = Math.ceil(chime.def.chargeInterval / TICK_SECONDS)
-    for (let i = 0; i < ticks; i++) updateChimes(sim.state, TICK_SECONDS)
+    const ticks = Math.ceil(array.def.chargeInterval / TICK_SECONDS)
+    for (let i = 0; i < ticks; i++) updateArrays(sim.state, TICK_SECONDS)
 
     // Accumulating dt/interval across ~80 ticks lands a hair under 1 rather
     // than exactly on it, so the charge becomes spendable one tick later. That
     // is 50 ms and imperceptible; asserting exactness here would be asserting
     // something floating-point arithmetic cannot deliver.
-    expect(chime.charge).toBeCloseTo(1, 6)
+    expect(array.charge).toBeCloseTo(1, 6)
 
-    updateChimes(sim.state, TICK_SECONDS)
-    expect(chime.charge).toBeGreaterThanOrEqual(1)
+    updateArrays(sim.state, TICK_SECONDS)
+    expect(array.charge).toBeGreaterThanOrEqual(1)
   })
 
   it('lead a moving target rather than aiming where it is', () => {
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    const mover = slackAt('burr', 200, Math.PI / 2)
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 0)
+    const mover = contactAt('skiff', 200, Math.PI / 2)
     mover.velocity = { x: 120, y: 0 }
 
-    const shots = updateChimes(sim.state, TICK_SECONDS)
+    const shots = updateArrays(sim.state, TICK_SECONDS)
     expect(shots).toHaveLength(1)
     // The aim point must sit ahead of the target along its velocity.
     expect(shots[0].aimPoint.x).toBeGreaterThan(mover.position.x)
-    void chime
+    void array
   })
 
   it('aim where a stationary target already is', () => {
-    mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    const still = slackAt('burr', 200)
+    mountArray(sim.state, arrayById('long-baseline')!, 0)
+    const still = contactAt('skiff', 200)
 
-    const shots = updateChimes(sim.state, TICK_SECONDS)
+    const shots = updateArrays(sim.state, TICK_SECONDS)
     expect(shots[0].aimPoint.x).toBeCloseTo(still.position.x, 6)
     expect(shots[0].aimPoint.y).toBeCloseTo(still.position.y, 6)
   })
 
   it('sit on the static rim, so their position never changes', () => {
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 3)
-    const before = chimePosition(chime)
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 3)
+    const before = arrayPosition(array)
     for (let i = 0; i < 100; i++) sim.tick(TICK_SECONDS)
-    expect(chimePosition(chime)).toEqual(before)
+    expect(arrayPosition(array)).toEqual(before)
   })
 })
 
 describe('rotation moves reach with the unit', () => {
-  it('brings a Slack into range as the ring turns', () => {
+  it('brings a Contact into range as the ring turns', () => {
     // Position is a function of time (pillar P2) — a fixed arrangement covers
     // different arcs at different moments.
-    const def: MovementDef = {
-      ...movementById('hammer')!,
+    const def: PlatformDef = {
+      ...platformById('bolt')!,
       angularReach: (20 * Math.PI) / 180,
       radialReach: 0,
     }
-    const unit = placeMovement(sim.state, def, 2, 0)
-    // Place a Slack a quarter turn ahead of the unit's start.
-    slackAt('burr', RINGS[1].radius, Math.PI / 2)
+    const unit = placePlatform(sim.state, def, 2, 0)
+    // Place a Contact a quarter turn ahead of the unit's start.
+    contactAt('skiff', RINGS[1].radius, Math.PI / 2)
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBeNull()
 
     // Ring 2 completes a revolution in 14 s; a quarter turn takes ~3.5 s.
     for (let i = 0; i < 80; i++) {
       sim.state.rings[1].phase += sim.state.rings[1].angularVelocity * TICK_SECONDS
-      updateMovements(sim.state, TICK_SECONDS)
+      updatePlatforms(sim.state, TICK_SECONDS)
       if (unit.targetId !== null) break
     }
     expect(unit.targetId).not.toBeNull()
@@ -385,104 +385,104 @@ describe('rotation moves reach with the unit', () => {
 })
 
 /**
- * combat-spec.md §4 lists five axes on which Chimes must differ from Movements.
+ * combat-spec.md §4 lists five axes on which Arrays must differ from Platforms.
  * All five must survive balancing, or one class collapses into the other and
  * the roster loses a dimension. Asserted here so a tuning pass cannot erode
  * them quietly.
  */
-describe('Chimes stay distinct from Movements on all five axes', () => {
-  it('1. position — Chimes are static, Movements rotate', () => {
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 2)
-    const movement = defender('nearest', 2)
+describe('Arrays stay distinct from Platforms on all five axes', () => {
+  it('1. position — Arrays are static, Platforms rotate', () => {
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 2)
+    const platform = defender('nearest', 2)
 
-    const chimeBefore = chimePosition(chime)
-    const movementBefore = movementPosition(sim.state, movement)
+    const arrayBefore = arrayPosition(array)
+    const platformBefore = platformPosition(sim.state, platform)
 
     for (let i = 0; i < 40; i++) sim.tick(TICK_SECONDS)
 
-    expect(chimePosition(chime)).toEqual(chimeBefore)
-    expect(movementPosition(sim.state, movement)).not.toEqual(movementBefore)
+    expect(arrayPosition(array)).toEqual(arrayBefore)
+    expect(platformPosition(sim.state, platform)).not.toEqual(platformBefore)
   })
 
-  it('2. range — a Chime reaches what a Movement cannot', () => {
-    const movement = defender('nearest', 2)
-    mountChime(sim.state, chimeById('quarter-bell')!, 0)
+  it('2. range — a Array reaches what a Platform cannot', () => {
+    const platform = defender('nearest', 2)
+    mountArray(sim.state, arrayById('long-baseline')!, 0)
     // Opposite the units, near the centre: outside any annular band.
-    slackAt('burr', 45, Math.PI)
+    contactAt('skiff', 45, Math.PI)
 
-    updateMovements(sim.state, TICK_SECONDS)
-    const shots = updateChimes(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
+    const shots = updateArrays(sim.state, TICK_SECONDS)
 
-    expect(movement.targetId).toBeNull()
+    expect(platform.targetId).toBeNull()
     expect(shots).toHaveLength(1)
   })
 
-  it('3. resource — only Chimes are gated by a consumable', () => {
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    const movement = defender('nearest', 2)
-    const target = slackAt('burr', 160)
+  it('3. resource — only Arrays are gated by a consumable', () => {
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 0)
+    const platform = defender('nearest', 2)
+    const target = contactAt('skiff', 160)
     target.hp = 1e9
 
-    chime.charge = 0
-    chime.cooldownRemaining = 0
-    expect(updateChimes(sim.state, TICK_SECONDS)).toHaveLength(0)
+    array.charge = 0
+    array.cooldownRemaining = 0
+    expect(updateArrays(sim.state, TICK_SECONDS)).toHaveLength(0)
 
-    // The Movement has no equivalent resource and fires regardless.
-    expect(updateMovements(sim.state, TICK_SECONDS)).toHaveLength(1)
-    void movement
+    // The Platform has no equivalent resource and fires regardless.
+    expect(updatePlatforms(sim.state, TICK_SECONDS)).toHaveLength(1)
+    void platform
   })
 
-  it('4. conjunction — Chimes never participate', () => {
-    // Two Chimes aligned on the rim must not produce a conjunction, and must
-    // not contribute to one formed by Movements.
-    mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    mountChime(sim.state, chimeById('quarter-bell')!, 4)
-    placeMovement(sim.state, movementById('hammer')!, 1, 0)
-    placeMovement(sim.state, movementById('hammer')!, 2, 0)
+  it('4. conjunction — Arrays never participate', () => {
+    // Two Arrays aligned on the rim must not produce a conjunction, and must
+    // not contribute to one formed by Platforms.
+    mountArray(sim.state, arrayById('long-baseline')!, 0)
+    mountArray(sim.state, arrayById('long-baseline')!, 4)
+    placePlatform(sim.state, platformById('bolt')!, 1, 0)
+    placePlatform(sim.state, platformById('bolt')!, 2, 0)
 
     const found = findConjunctions(sim.state)
     expect(found).toHaveLength(1)
-    // Exactly the two Movements — no Chime smuggled in.
+    // Exactly the two Platforms — no Array smuggled in.
     expect(found[0].participants).toHaveLength(2)
     expect(found[0].participants.every((p) => 'slot' in p)).toBe(true)
   })
 
-  it('5. targeting — only Chimes lead a moving target', () => {
-    mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    const movement = defender('nearest', 2)
+  it('5. targeting — only Arrays lead a moving target', () => {
+    mountArray(sim.state, arrayById('long-baseline')!, 0)
+    const platform = defender('nearest', 2)
 
-    const mover = slackAt('burr', 160)
+    const mover = contactAt('skiff', 160)
     mover.velocity = { x: 0, y: 200 }
 
-    const shots = updateChimes(sim.state, TICK_SECONDS)
-    const attacks = updateMovements(sim.state, TICK_SECONDS)
+    const shots = updateArrays(sim.state, TICK_SECONDS)
+    const attacks = updatePlatforms(sim.state, TICK_SECONDS)
 
-    // The Chime aims ahead of the target.
+    // The Array aims ahead of the target.
     expect(shots[0].aimPoint.y).toBeGreaterThan(mover.position.y)
-    // The Movement resolves against the target itself, with no aim point.
+    // The Platform resolves against the target itself, with no aim point.
     expect(attacks[0].target).toBe(mover)
     expect(attacks[0]).not.toHaveProperty('aimPoint')
-    void movement
+    void platform
   })
 })
 
-describe('Chimes cannot defend on their own', () => {
-  it('has no block arc, so nothing it does stops a Slack', () => {
-    // The measured consequence (Phase 14): two Chimes and no Movements lose
+describe('Arrays cannot defend on their own', () => {
+  it('has no block arc, so nothing it does stops a Contact', () => {
+    // The measured consequence (Phase 14): two Arrays and no Platforms lose
     // the stage, because nothing is slowing anything down.
-    const chime = chimeById('quarter-bell')!
-    expect(chime).not.toHaveProperty('blockArc')
+    const array = arrayById('long-baseline')!
+    expect(array).not.toHaveProperty('blockArc')
   })
 
   it('takes no damage, which is the trade for contributing no defence', () => {
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    const before = chime.hp
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 0)
+    const before = array.hp
 
     // Run a full stage's worth of hostile fire past the rim.
     for (let i = 0; i < 600; i++) sim.tick(TICK_SECONDS)
 
-    expect(chime.hp).toBe(before)
-    expect(chime.disabledFor).toBe(0)
+    expect(array.hp).toBe(before)
+    expect(array.disabledFor).toBe(0)
   })
 })
 
@@ -495,38 +495,38 @@ describe('Chimes cannot defend on their own', () => {
  *
  * Before Phase 19 the angular test was fixed at every radius, which made the
  * innermost ring's inner-bound exemption a half-measure: ring 1 could reach the
- * Mainspring radially, but a Detent's 22 degree window still covered only 6% of
+ * Sun radially, but a Anchor's 22 degree window still covered only 6% of
  * the circle, and a bearing at radius zero is arbitrary. A shielded Cant parked
  * on the objective was hittable about one second in eight.
  */
 describe('reach widens as a target closes on the centre', () => {
-  /** Narrow arc, own ring only — a Detent, which is what ring 1 actually holds. */
+  /** Narrow arc, own ring only — a Anchor, which is what ring 1 actually holds. */
   function ringOneUnit() {
-    const def: MovementDef = {
-      ...movementById('detent')!,
+    const def: PlatformDef = {
+      ...platformById('anchor')!,
       targeting: 'deepest',
       angularReach: 10 * (Math.PI / 180),
       radialReach: 0,
     }
-    return placeMovement(sim.state, def, 1, 0)
+    return placePlatform(sim.state, def, 1, 0)
   }
 
-  /** True when this unit picks the Slack as its target. */
+  /** True when this unit picks the Contact as its target. */
   function canHit(radius: number, angle: number): boolean {
-    sim.state.slack.length = 0
-    sim.state.movements.length = 0
+    sim.state.contact.length = 0
+    sim.state.platforms.length = 0
     const unit = ringOneUnit()
-    const target = slackAt('burr', radius, angle)
+    const target = contactAt('skiff', radius, angle)
     target.hp = 1e9
     target.maxHp = 1e9
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     return unit.targetId === target.id
   }
 
   const RING1 = RINGS[0].radius
 
-  it('reaches a Slack sitting on the Mainspring from any bearing', () => {
+  it('reaches a Contact sitting on the Sun from any bearing', () => {
     // The property the inner-bound exemption promised and did not deliver.
     for (const angle of [0, 0.9, Math.PI / 2, 2.4, Math.PI, -1.2]) {
       expect(canHit(2, angle), `bearing ${angle.toFixed(1)}`).toBe(true)
@@ -556,34 +556,34 @@ describe('reach widens as a target closes on the centre', () => {
   })
 
   it('never narrows outward', () => {
-    // A Movement whose reach extends past its own ring keeps the full authored
+    // A Platform whose reach extends past its own ring keeps the full authored
     // arc out there. Letting it shrink at range would rebalance every unit
     // rather than fix the centre.
-    sim.state.slack.length = 0
-    sim.state.movements.length = 0
-    const def: MovementDef = {
-      ...movementById('hammer')!,
+    sim.state.contact.length = 0
+    sim.state.platforms.length = 0
+    const def: PlatformDef = {
+      ...platformById('bolt')!,
       angularReach: 10 * (Math.PI / 180),
       radialReach: 1,
     }
-    const unit = placeMovement(sim.state, def, 2, 0)
-    const target = slackAt('burr', RINGS[2].radius, 9 * (Math.PI / 180))
+    const unit = placePlatform(sim.state, def, 2, 0)
+    const target = contactAt('skiff', RINGS[2].radius, 9 * (Math.PI / 180))
     target.hp = 1e9
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBe(target.id)
   })
 
   it('leaves the inner bound on outer rings intact', () => {
     // Only the innermost ring defends the centre. A ring-3 unit must still not
-    // reach a Slack that has already penetrated, whatever the subtended angle.
-    sim.state.slack.length = 0
-    sim.state.movements.length = 0
-    const unit = placeMovement(sim.state, movementById('pallet')!, 3, 0)
-    const target = slackAt('burr', 5, 0)
+    // reach a Contact that has already penetrated, whatever the subtended angle.
+    sim.state.contact.length = 0
+    sim.state.platforms.length = 0
+    const unit = placePlatform(sim.state, platformById('rake')!, 3, 0)
+    const target = contactAt('skiff', 5, 0)
     target.hp = 1e9
 
-    updateMovements(sim.state, TICK_SECONDS)
+    updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBeNull()
   })
 })

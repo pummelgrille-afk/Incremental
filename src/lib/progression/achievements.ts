@@ -22,8 +22,8 @@ import type { SaveData } from '../core/saveSchema'
 export interface AchievementSnapshot {
   clearedUntouched?: boolean
   largestConjunction?: number
-  distinctMovementsSlotted?: number
-  unlockedMovements?: number
+  distinctPlatformsSlotted?: number
+  unlockedPlatforms?: number
   zoneCompleted?: boolean
 }
 
@@ -48,8 +48,8 @@ export function contextFor(
     event,
     clearedUntouched: snapshot.clearedUntouched ?? false,
     largestConjunction: snapshot.largestConjunction ?? 0,
-    distinctMovementsSlotted: snapshot.distinctMovementsSlotted ?? 0,
-    unlockedMovements: snapshot.unlockedMovements ?? 0,
+    distinctPlatformsSlotted: snapshot.distinctPlatformsSlotted ?? 0,
+    unlockedPlatforms: snapshot.unlockedPlatforms ?? 0,
     zoneCompleted: snapshot.zoneCompleted ?? false,
   }
 }

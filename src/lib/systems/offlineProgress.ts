@@ -6,8 +6,8 @@ import { noUpgradeEffects, type UpgradeEffects } from '../entities/Upgrade'
  *
  * ```
  * effective = min(elapsed, cap)
- * rate      = filingsPerSecond × efficiency
- * filings   = effective × rate × diminishing(effective)
+ * rate      = salvagePerSecond × efficiency
+ * salvage   = effective × rate × diminishing(effective)
  * ```
  *
  * **It never reaches parity with active play**, and three separate things
@@ -15,11 +15,11 @@ import { noUpgradeEffects, type UpgradeEffects } from '../entities/Upgrade'
  *
  *   1. Efficiency is a fraction, capped below 1 forever.
  *   2. The diminishing curve halves the marginal rate every four hours.
- *   3. Only Filings accrue — no conjunctions fire and no stage progress
- *      happens, so **Keys are impossible to earn offline**.
+ *   3. Only Salvage accrue — no conjunctions fire and no stage progress
+ *      happens, so **Clearance is impossible to earn offline**.
  *
- * That third one is the load-bearing gap. Filings buy the size of a formation;
- * Keys buy the roster itself. A player who leaves the game running cannot
+ * That third one is the load-bearing gap. Salvage buy the size of a formation;
+ * Clearance buy the roster itself. A player who leaves the game running cannot
  * unlock anything, which is P1 honoured precisely: the machine runs without
  * you, but not as well.
  *
@@ -31,7 +31,7 @@ export interface OfflineInput {
   /** Seconds since the save was written. */
   elapsedSeconds: number
   /** What the player was earning per second when they stopped. */
-  filingsPerSecond: number
+  salvagePerSecond: number
   effects?: UpgradeEffects
 }
 
@@ -40,7 +40,7 @@ export interface OfflineResult {
   effectiveSeconds: number
   /** Seconds beyond the cap, reported honestly rather than hidden. */
   wastedSeconds: number
-  filings: number
+  salvage: number
   /** The cap in force, so the summary can say what it was. */
   capSeconds: number
   efficiency: number
@@ -59,13 +59,13 @@ export function diminishing(seconds: number): number {
   return 1 / (1 + Math.max(0, seconds) / OFFLINE.diminishingHalflifeSeconds)
 }
 
-/** The offline window, after the Salvage branch. Clamped to its authored max. */
+/** The offline window, after the Recovery branch. Clamped to its authored max. */
 export function offlineCap(effects: UpgradeEffects): number {
   return Math.min(OFFLINE.maxCapSeconds, OFFLINE.capSeconds + Math.max(0, effects.offlineCap))
 }
 
 /**
- * Offline efficiency, after the Salvage branch.
+ * Offline efficiency, after the Recovery branch.
  *
  * Clamped to `maxEfficiency`, which balancing.csv annotates "must stay below
  * 1.0 always". At parity, leaving the game would be the optimal play — the one
@@ -81,7 +81,7 @@ export function offlineEfficiency(effects: UpgradeEffects): number {
 
 export function calculateOffline({
   elapsedSeconds,
-  filingsPerSecond,
+  salvagePerSecond,
   effects = noUpgradeEffects(),
 }: OfflineInput): OfflineResult {
   const capSeconds = offlineCap(effects)
@@ -91,16 +91,16 @@ export function calculateOffline({
   const effectiveSeconds = Math.min(elapsed, capSeconds)
   const wastedSeconds = elapsed - effectiveSeconds
 
-  const rate = Math.max(0, filingsPerSecond) * efficiency
-  const filings = effectiveSeconds * rate * diminishing(effectiveSeconds)
+  const rate = Math.max(0, salvagePerSecond) * efficiency
+  const salvage = effectiveSeconds * rate * diminishing(effectiveSeconds)
 
   return {
     effectiveSeconds,
     wastedSeconds,
-    filings,
+    salvage,
     capSeconds,
     efficiency,
-    activeEquivalent: elapsed * Math.max(0, filingsPerSecond),
+    activeEquivalent: elapsed * Math.max(0, salvagePerSecond),
   }
 }
 
@@ -108,5 +108,5 @@ export function calculateOffline({
 export const MIN_REPORTABLE_SECONDS = 60
 
 export function isWorthReporting(result: OfflineResult): boolean {
-  return result.effectiveSeconds >= MIN_REPORTABLE_SECONDS && result.filings >= 1
+  return result.effectiveSeconds >= MIN_REPORTABLE_SECONDS && result.salvage >= 1
 }

@@ -1,13 +1,13 @@
 import type { Projectile } from '../entities/Projectile'
 import { BUDGETS } from '../content/budgets'
-import { BEAT, CONJUNCTION, RINGS } from '../content/field'
+import { FLARE, CONJUNCTION, RINGS } from '../content/field'
 import { patternById } from '../systems/patterns'
 import { updateProjectiles } from '../systems/collision'
 import {
   computeDamage,
-  damageSlack,
-  reapSlack,
-  resolveMovementAttacks,
+  damageContact,
+  reapContact,
+  resolvePlatformAttacks,
 } from '../systems/combat'
 import { updateBuffs } from '../systems/buffs'
 import {
@@ -16,15 +16,15 @@ import {
   updateObjective,
   updateStageProgress,
 } from '../systems/objectiveRules'
-import { grantShield, repair } from '../entities/Mainspring'
+import { grantShield, repair } from '../entities/Sun'
 import { repairCost } from '../progression/currencies'
 import {
-  chimePosition,
-  updateChimes,
-  updateMovements,
-  type ChimeShot,
+  arrayPosition,
+  updateArrays,
+  updatePlatforms,
+  type ArrayShot,
 } from '../systems/ai'
-import { updateSlackMotion, updateSpawning, waveSpawnDuration } from '../systems/spawn'
+import { updateContactMotion, updateSpawning, waveSpawnDuration } from '../systems/spawn'
 import { createCooldowns, updateSynergy } from '../systems/synergy'
 import { directWave } from '../systems/scaling'
 import { TELEMETRY_SOURCES } from '../systems/telemetry'
@@ -52,9 +52,9 @@ export const MAX_CATCHUP_SECONDS = 0.5
 export const PROJECTILE_BUDGET = BUDGETS.projectiles
 
 export interface TickEvents {
-  slackKilled: number
-  filingsDropped: number
-  mainspringHits: number
+  contactKilled: number
+  salvageDropped: number
+  sunHits: number
   conjunctionsFired: number
   /**
    * Participants in the largest conjunction this tick, or 0 for none.
@@ -68,15 +68,15 @@ export interface TickEvents {
   /** True on the tick a wave finished / a new one began. */
   waveCleared: boolean
   waveStarted: boolean
-  /** Tension thresholds crossed downward, e.g. [0.5]. */
+  /** Output thresholds crossed downward, e.g. [0.5]. */
   thresholdsCrossed: number[]
 }
 
 function noTickEvents(): TickEvents {
   return {
-    slackKilled: 0,
-    filingsDropped: 0,
-    mainspringHits: 0,
+    contactKilled: 0,
+    salvageDropped: 0,
+    sunHits: 0,
     conjunctionsFired: 0,
     largestConjunction: 0,
     stageCleared: false,
@@ -96,27 +96,27 @@ export class Simulation {
   private accumulator = 0
 
   /** Cumulative counters, read by the store projection. */
-  totalSlackKilled = 0
+  totalContactKilled = 0
   totalConjunctions = 0
   tickCount = 0
 
   /** Most recent strike, for the render layer. Cleared after a short age. */
   lastStrike: { x: number; y: number; age: number } | null = null
 
-  /** Filings from a strike, banked into the next tick's events. */
-  private pendingFilings = 0
+  /** Salvage from a strike, banked into the next tick's events. */
+  private pendingSalvage = 0
 
-  /** Peak concurrent Slack this stage. Phase 11 budget instrumentation. */
-  peakSlack = 0
-  /** Ticks spent over the Slack budget. Non-zero means content overruns it. */
-  ticksOverSlackBudget = 0
+  /** Peak concurrent Contact this stage. Phase 11 budget instrumentation. */
+  peakContact = 0
+  /** Ticks spent over the Contact budget. Non-zero means content overruns it. */
+  ticksOverContactBudget = 0
 
   /** Per-wave telemetry accumulators. Dev-only; unread in a production build. */
   private waveSeconds = 0
   private waveSpawned = 0
   private waveKilled = 0
-  private waveStartTension = 0
-  private lastSlackCount = 0
+  private waveStartOutput = 0
+  private lastContactCount = 0
 
   constructor(
     public state: SimulationState,
@@ -126,7 +126,7 @@ export class Simulation {
     this.projectiles = new Pool<Projectile>(budget, (index) => ({
       id: index,
       active: false,
-      faction: 'slack',
+      faction: 'contact',
       position: { x: 0, y: 0 },
       velocity: { x: 0, y: 0 },
       damage: 0,
@@ -138,7 +138,7 @@ export class Simulation {
       sourceDefId: '',
     }))
     state.projectiles = this.projectiles.items
-    this.waveStartTension = state.mainspring.hp
+    this.waveStartOutput = state.sun.hp
     // Wave 0 never fires waveStarted, so seed its bearing here. Its *content*
     // is directed lazily on the first tick instead: the formation is slotted
     // after construction, so measuring power now would read an empty field.
@@ -172,9 +172,9 @@ export class Simulation {
       const events = this.tick(TICK_SECONDS)
       this.accumulator -= TICK_SECONDS
 
-      merged.slackKilled += events.slackKilled
-      merged.filingsDropped += events.filingsDropped
-      merged.mainspringHits += events.mainspringHits
+      merged.contactKilled += events.contactKilled
+      merged.salvageDropped += events.salvageDropped
+      merged.sunHits += events.sunHits
       merged.conjunctionsFired += events.conjunctionsFired
       merged.largestConjunction = Math.max(
         merged.largestConjunction,
@@ -215,14 +215,14 @@ export class Simulation {
     this.advanceRings(dt)
 
     // 2. Cooldowns, charge, buffs, objective recovery.
-    this.advanceBeat(dt)
+    this.advanceFlare(dt)
     sim.feed.update(dt)
     updateBuffs(sim, dt)
     updateObjective(sim, dt)
 
-    if (this.pendingFilings > 0) {
-      events.filingsDropped += this.pendingFilings
-      this.pendingFilings = 0
+    if (this.pendingSalvage > 0) {
+      events.salvageDropped += this.pendingSalvage
+      this.pendingSalvage = 0
     }
 
     // 3. Spawning.
@@ -232,24 +232,24 @@ export class Simulation {
     }
 
     // 4. Enemy motion and pattern emission.
-    updateSlackMotion(sim, dt)
+    updateContactMotion(sim, dt)
     this.emitPatterns(dt)
 
-    // 5. Movement and Chime targeting.
-    const attacks = updateMovements(sim, dt)
-    const shots = updateChimes(sim, dt)
-    this.spawnChimeProjectiles(shots)
+    // 5. Platform and Array targeting.
+    const attacks = updatePlatforms(sim, dt)
+    const shots = updateArrays(sim, dt)
+    this.spawnArrayProjectiles(shots)
 
     // 6 & 7. Projectile integration and collision.
     const collisions = updateProjectiles(sim, this.projectiles, dt)
-    events.mainspringHits += collisions.mainspringHits
-    events.slackKilled += collisions.slackKilled
-    events.filingsDropped += collisions.filingsDropped
+    events.sunHits += collisions.sunHits
+    events.contactKilled += collisions.contactKilled
+    events.salvageDropped += collisions.salvageDropped
 
     // 8. Damage from melee attacks and death handling.
-    const melee = resolveMovementAttacks(sim, attacks)
-    events.slackKilled += melee.slackKilled
-    events.filingsDropped += melee.filingsDropped
+    const melee = resolvePlatformAttacks(sim, attacks)
+    events.contactKilled += melee.contactKilled
+    events.salvageDropped += melee.salvageDropped
 
     // 9. Conjunction, on its own 100 ms cadence.
     sim.synergyAccumulator += dt * 1000
@@ -263,8 +263,8 @@ export class Simulation {
           fired.participants.length,
         )
       }
-      events.slackKilled += synergy.slackKilled
-      events.filingsDropped += synergy.filingsDropped
+      events.contactKilled += synergy.contactKilled
+      events.salvageDropped += synergy.salvageDropped
     }
 
     // 10. Threshold crossings, then win/loss and wave progression.
@@ -282,15 +282,15 @@ export class Simulation {
     events.waveCleared = objective.waveCleared
     events.waveStarted = objective.waveStarted
 
-    this.totalSlackKilled += events.slackKilled
+    this.totalContactKilled += events.contactKilled
     this.totalConjunctions += events.conjunctionsFired
 
     this.recordTelemetry(dt, events)
 
     // Budget instrumentation. Never clamps — an overrun is a content bug to
     // surface, not something to silently truncate (content/budgets.ts).
-    if (sim.slack.length > this.peakSlack) this.peakSlack = sim.slack.length
-    if (sim.slack.length > BUDGETS.slack) this.ticksOverSlackBudget++
+    if (sim.contact.length > this.peakContact) this.peakContact = sim.contact.length
+    if (sim.contact.length > BUDGETS.contact) this.ticksOverContactBudget++
 
     // Step 11 (publishing to stores) is the caller's job — the simulation never
     // reaches into Svelte.
@@ -313,7 +313,7 @@ export class Simulation {
   }
 
   /**
-   * The player's one live input: strike a point on the floor.
+   * The player's one live input: strike a point on the field.
    *
    * Instant and area-based — nothing to lead, nothing to miss with. Returns
    * false when out of charge or still cooling, so the UI can react without
@@ -336,31 +336,31 @@ export class Simulation {
     // Unit-seconds, the denominator that makes DPS comparable between a unit
     // slotted from the start and one added halfway through.
     const present: string[] = []
-    for (const m of sim.movements) if (m.disabledFor <= 0) present.push(m.def.id)
-    for (const c of sim.chimes) if (c.disabledFor <= 0) present.push(c.def.id)
+    for (const m of sim.platforms) if (m.disabledFor <= 0) present.push(m.def.id)
+    for (const c of sim.arrays) if (c.disabledFor <= 0) present.push(c.def.id)
     telemetry.present(present, dt)
 
     this.waveSeconds += dt
-    this.waveSpawned += Math.max(0, sim.slack.length - this.lastSlackCount + events.slackKilled)
-    this.waveKilled += events.slackKilled
-    this.lastSlackCount = sim.slack.length
+    this.waveSpawned += Math.max(0, sim.contact.length - this.lastContactCount + events.contactKilled)
+    this.waveKilled += events.contactKilled
+    this.lastContactCount = sim.contact.length
 
     if (events.waveCleared || events.stageCleared || events.stageLost) {
-      const maxTension = sim.mainspring.maxHp || 1
+      const maxOutput = sim.sun.maxHp || 1
       telemetry.wave({
         index: sim.waveIndex,
         seconds: this.waveSeconds,
         spawned: this.waveSpawned,
         killed: this.waveKilled,
-        tensionLost: (this.waveStartTension - sim.mainspring.hp) / maxTension,
+        outputLost: (this.waveStartOutput - sim.sun.hp) / maxOutput,
       })
       this.waveSeconds = 0
       this.waveSpawned = 0
       this.waveKilled = 0
-      this.waveStartTension = sim.mainspring.hp
+      this.waveStartOutput = sim.sun.hp
     }
 
-    telemetry.tensionLost = sim.mainspring.maxHp - sim.mainspring.hp
+    telemetry.outputLost = sim.sun.maxHp - sim.sun.hp
 
     if (events.stageCleared || events.stageLost) {
       telemetry.stageSeconds = sim.elapsed
@@ -372,46 +372,46 @@ export class Simulation {
     const sim = this.state
     if (sim.phase !== 'wave-active' && sim.phase !== 'wave-gap') return false
 
-    const beat = sim.beat
-    if (beat.charge < 1 || beat.cooldown > 0) return false
+    const flare = sim.flare
+    if (flare.charge < 1 || flare.cooldown > 0) return false
 
-    beat.charge -= 1
-    beat.cooldown = BEAT.cooldown
-    beat.struck++
-    if (sim.telemetry) sim.telemetry.beatsStruck++
+    flare.charge -= 1
+    flare.cooldown = FLARE.cooldown
+    flare.struck++
+    if (sim.telemetry) sim.telemetry.flaresStruck++
 
     const dead = new Set<number>()
-    const radius = BEAT.radius + sim.effects.beatRadius
+    const radius = FLARE.radius + sim.effects.flareRadius
     const radiusSq = radius * radius
 
-    for (const slack of sim.slack) {
-      const dx = slack.position.x - x
-      const dy = slack.position.y - y
+    for (const contact of sim.contact) {
+      const dx = contact.position.x - x
+      const dy = contact.position.y - y
       if (dx * dx + dy * dy > radiusSq) continue
 
       const damage = computeDamage(
-        BEAT.baseDamage,
+        FLARE.baseDamage,
         1,
         'percussive',
-        slack.def.armour,
-        slack.def.defence,
+        contact.def.armour,
+        contact.def.defence,
       )
-      const before = slack.hp
-      const died = damageSlack(slack, damage)
-      sim.telemetry?.damage(TELEMETRY_SOURCES.beat, Math.min(before, damage), died)
+      const before = contact.hp
+      const died = damageContact(contact, damage)
+      sim.telemetry?.damage(TELEMETRY_SOURCES.flare, Math.min(before, damage), died)
       sim.feed.emit(
         died ? 'kill' : 'damage',
-        slack.position.x,
-        slack.position.y,
-        before - slack.hp,
+        contact.position.x,
+        contact.position.y,
+        before - contact.hp,
       )
-      if (died) dead.add(slack.id)
+      if (died) dead.add(contact.id)
     }
 
     if (dead.size > 0) {
-      const reaped = reapSlack(sim, dead)
-      this.totalSlackKilled += reaped.slackKilled
-      this.pendingFilings += reaped.filingsDropped
+      const reaped = reapContact(sim, dead)
+      this.totalContactKilled += reaped.contactKilled
+      this.pendingSalvage += reaped.salvageDropped
     }
 
     // Surfaced to the render layer so the strike is visible even when it hits
@@ -421,26 +421,26 @@ export class Simulation {
   }
 
   /**
-   * Emergency repair the objective. Phase 21 owns the Filings
+   * Emergency repair the objective. Phase 21 owns the Salvage
    * transaction — this returns the cost so the caller can charge for it, and
-   * refuses at full Tension so nobody is charged for nothing.
+   * refuses at full Output so nobody is charged for nothing.
    */
-  repairMainspring(): { repaired: boolean; cost: number } {
-    const cost = repairCost(this.state.mainspring.repairsThisStage, this.state.effects.repairCost)
-    return { repaired: repair(this.state.mainspring), cost }
+  repairSun(): { repaired: boolean; cost: number } {
+    const cost = repairCost(this.state.sun.repairsThisStage, this.state.effects.repairCost)
+    return { repaired: repair(this.state.sun), cost }
   }
 
   /** Grant the objective a temporary shield. Hook for conjunctions and upgrades. */
-  shieldMainspring(amount: number, duration: number): void {
-    grantShield(this.state.mainspring, amount, duration)
+  shieldSun(amount: number, duration: number): void {
+    grantShield(this.state.sun, amount, duration)
   }
 
-  /** Advance Beat charge and cooldown on simulation time. */
-  private advanceBeat(dt: number): void {
-    const beat = this.state.beat
-    if (beat.cooldown > 0) beat.cooldown = Math.max(0, beat.cooldown - dt)
-    if (beat.charge < beat.maxCharge) {
-      beat.charge = Math.min(beat.maxCharge, beat.charge + dt / BEAT.rechargeInterval)
+  /** Advance Flare charge and cooldown on simulation time. */
+  private advanceFlare(dt: number): void {
+    const flare = this.state.flare
+    if (flare.cooldown > 0) flare.cooldown = Math.max(0, flare.cooldown - dt)
+    if (flare.charge < flare.maxCharge) {
+      flare.charge = Math.min(flare.maxCharge, flare.charge + dt / FLARE.rechargeInterval)
     }
     if (this.lastStrike) {
       this.lastStrike.age += dt
@@ -448,22 +448,22 @@ export class Simulation {
     }
   }
 
-  /** Slack telegraph, then emit. A pattern that kills without warning is a bug. */
+  /** Contact telegraph, then emit. A pattern that kills without warning is a bug. */
   private emitPatterns(dt: number): void {
     const sim = this.state
 
-    for (const slack of sim.slack) {
-      if (slack.telegraphRemaining > 0) {
-        slack.telegraphRemaining -= dt
-        if (slack.telegraphRemaining > 0) continue
+    for (const contact of sim.contact) {
+      if (contact.telegraphRemaining > 0) {
+        contact.telegraphRemaining -= dt
+        if (contact.telegraphRemaining > 0) continue
 
-        const pattern = patternById(slack.def.patternId)
+        const pattern = patternById(contact.def.patternId)
         if (!pattern) continue
 
         const spawns = pattern.build({
-          origin: { x: slack.position.x, y: slack.position.y },
+          origin: { x: contact.position.x, y: contact.position.y },
           target: { x: 0, y: 0 },
-          damage: slack.scaledAttack,
+          damage: contact.scaledAttack,
           damageType: 'percussive',
           emitterPhase: sim.elapsed * 1.7,
         })
@@ -474,7 +474,7 @@ export class Simulation {
           // not an error — Phase 11 reads pool.exhausted to validate the budget.
           if (!p) break
 
-          p.faction = 'slack'
+          p.faction = 'contact'
           p.position.x = spawn.position.x
           p.position.y = spawn.position.y
           p.velocity.x = spawn.velocity.x
@@ -484,42 +484,42 @@ export class Simulation {
           p.radius = spawn.radius
           p.lifetime = spawn.lifetime
           p.angularVelocity = spawn.angularVelocity
-          p.sourceId = slack.id
-          p.sourceDefId = slack.def.id
+          p.sourceId = contact.id
+          p.sourceDefId = contact.def.id
         }
         continue
       }
 
-      slack.patternCooldown -= dt
-      if (slack.patternCooldown <= 0) {
-        const pattern = patternById(slack.def.patternId)
-        slack.patternCooldown = slack.def.patternInterval
-        slack.telegraphRemaining = (pattern?.telegraphMs ?? 400) / 1000
+      contact.patternCooldown -= dt
+      if (contact.patternCooldown <= 0) {
+        const pattern = patternById(contact.def.patternId)
+        contact.patternCooldown = contact.def.patternInterval
+        contact.telegraphRemaining = (pattern?.telegraphMs ?? 400) / 1000
       }
     }
   }
 
-  private spawnChimeProjectiles(shots: ChimeShot[]): void {
+  private spawnArrayProjectiles(shots: ArrayShot[]): void {
     for (const shot of shots) {
       const p = this.projectiles.acquire()
       if (!p) break
 
-      const origin = chimePosition(shot.chime)
+      const origin = arrayPosition(shot.array)
       const angle = Math.atan2(shot.aimPoint.y - origin.y, shot.aimPoint.x - origin.x)
-      const speed = shot.chime.def.projectileSpeed
+      const speed = shot.array.def.projectileSpeed
 
-      p.faction = 'chime'
+      p.faction = 'array'
       p.position.x = origin.x
       p.position.y = origin.y
       p.velocity.x = Math.cos(angle) * speed
       p.velocity.y = Math.sin(angle) * speed
-      p.damage = shot.chime.def.attack * shot.chime.levelScale * shot.chime.attackScale
-      p.sourceDefId = shot.chime.def.id
+      p.damage = shot.array.def.attack * shot.array.levelScale * shot.array.attackScale
+      p.sourceDefId = shot.array.def.id
       p.damageType = 'resonant'
       p.radius = 4
       p.lifetime = 4
       p.angularVelocity = 0
-      p.sourceId = shot.chime.id
+      p.sourceId = shot.array.id
     }
   }
 

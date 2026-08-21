@@ -1,4 +1,4 @@
-import { conjunctionScaleOf, type MovementInstance } from '../entities/Movement'
+import { conjunctionScaleOf, type PlatformInstance } from '../entities/Platform'
 import type { ConjunctionScale } from '../entities/types'
 import { CONJUNCTION, RINGS, ringByIndex, slotAngle } from '../content/field'
 import { pairingOf, type TypePairing } from '../content/damageTypes'
@@ -6,12 +6,12 @@ import { grantBonus } from './buffs'
 import { TELEMETRY_SOURCES } from './telemetry'
 import type { SimulationState } from '../core/simulation'
 import { angleDelta } from './ai'
-import { computeDamage, damageSlack, reapSlack } from './combat'
+import { computeDamage, damageContact, reapContact } from './combat'
 
 /**
  * Conjunction — the signature mechanic (combat-spec.md §3).
  *
- * Movements on *different* rings that fall within `tolerance` of each other
+ * Platforms on *different* rings that fall within `tolerance` of each other
  * fire a scaled burst. Because ring periods are pairwise coprime (8 : 14 : 22 =
  * 4 : 7 : 11), alignments never repeat on a short cycle: the player arranges
  * for them in advance and then watches, which is P3 made mechanical.
@@ -22,7 +22,7 @@ import { computeDamage, damageSlack, reapSlack } from './combat'
  */
 
 export interface ConjunctionEvent {
-  participants: MovementInstance[]
+  participants: PlatformInstance[]
   scale: ConjunctionScale
   /** Mean angle of the participants — where the render layer draws the burst. */
   angle: number
@@ -38,21 +38,21 @@ export function createCooldowns(): CooldownMap {
   return new Map()
 }
 
-function slotKey(participants: MovementInstance[]): string {
+function slotKey(participants: PlatformInstance[]): string {
   return participants
     .map((m) => `${m.slot.ring}:${m.slot.slot}`)
     .sort()
     .join('|')
 }
 
-function currentAngle(sim: SimulationState, movement: MovementInstance): number | null {
-  const ring = ringByIndex(movement.slot.ring)
+function currentAngle(sim: SimulationState, platform: PlatformInstance): number | null {
+  const ring = ringByIndex(platform.slot.ring)
   if (!ring) return null
-  return slotAngle(ring, movement.slot.slot, sim.rings[ring.index - 1]?.phase ?? 0)
+  return slotAngle(ring, platform.slot.slot, sim.rings[ring.index - 1]?.phase ?? 0)
 }
 
 /**
- * Find every group of Movements currently in conjunction.
+ * Find every group of Platforms currently in conjunction.
  *
  * Groups are built greedily: each ungrouped unit seeds a group and absorbs any
  * unit on a *different* ring within tolerance. Greedy is right here — an exact
@@ -60,13 +60,13 @@ function currentAngle(sim: SimulationState, movement: MovementInstance): number 
  * tolerance is small relative to slot spacing.
  */
 export function findConjunctions(sim: SimulationState): ConjunctionEvent[] {
-  const active = sim.movements.filter((m) => m.disabledFor <= 0)
+  const active = sim.platforms.filter((m) => m.disabledFor <= 0)
   if (active.length < 2) return []
 
   const angles = new Map<number, number>()
-  for (const movement of active) {
-    const angle = currentAngle(sim, movement)
-    if (angle !== null) angles.set(movement.id, angle)
+  for (const platform of active) {
+    const angle = currentAngle(sim, platform)
+    if (angle !== null) angles.set(platform.id, angle)
   }
 
   // Regulation widens the window a conjunction counts within — the branch buys
@@ -115,8 +115,8 @@ export function findConjunctions(sim: SimulationState): ConjunctionEvent[] {
 
 export interface SynergyResult {
   fired: ConjunctionEvent[]
-  slackKilled: number
-  filingsDropped: number
+  contactKilled: number
+  salvageDropped: number
 }
 
 /**
@@ -126,7 +126,7 @@ export interface SynergyResult {
  * accumulator so the cadence stays visible in the tick order.
  */
 export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): SynergyResult {
-  const result: SynergyResult = { fired: [], slackKilled: 0, filingsDropped: 0 }
+  const result: SynergyResult = { fired: [], contactKilled: 0, salvageDropped: 0 }
 
   // Age existing cooldowns by the evaluation interval.
   const step = CONJUNCTION.evalInterval / 1000
@@ -157,18 +157,18 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
     const arc =
       event.pairing === 'interference' ? CONJUNCTION.interferenceArc : CONJUNCTION.pulseArc
 
-    for (const movement of event.participants) {
-      const effect = movement.def.conjunctionEffect
+    for (const platform of event.participants) {
+      const effect = platform.def.conjunctionEffect
       const magnitude = effect.magnitude * multiplier
       const duration = effect.duration ?? 0
 
       switch (effect.kind) {
         case 'damagePulse': {
-          // Hits Slack near the alignment's angle, not the whole field.
-          for (const slack of sim.slack) {
-            if (dead.has(slack.id)) continue
-            const slackAngle = Math.atan2(slack.position.y, slack.position.x)
-            if (Math.abs(angleDelta(event.angle, slackAngle)) <= arc) {
+          // Hits Contact near the alignment's angle, not the whole field.
+          for (const contact of sim.contact) {
+            if (dead.has(contact.id)) continue
+            const contactAngle = Math.atan2(contact.position.y, contact.position.x)
+            if (Math.abs(angleDelta(event.angle, contactAngle)) <= arc) {
               // Carries the participating unit's damage type, so a conjunction
               // is as type-sensitive as the unit that fired it. Raw damage here
               // would make an off-type build strictly better at conjunctions
@@ -176,32 +176,47 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
               const damage = computeDamage(
                 magnitude,
                 1,
-                movement.def.damageType,
-                slack.def.armour,
-                slack.def.defence,
+                platform.def.damageType,
+                contact.def.armour,
+                contact.def.defence,
               )
-              const before = slack.hp
-              const died = damageSlack(slack, damage)
-              sim.telemetry?.damage(TELEMETRY_SOURCES.conjunction, before - slack.hp, died)
-              if (died) dead.add(slack.id)
+              const before = contact.hp
+              const died = damageContact(contact, damage)
+              sim.telemetry?.damage(TELEMETRY_SOURCES.conjunction, before - contact.hp, died)
+              if (died) dead.add(contact.id)
             }
           }
           break
         }
         case 'shield':
-          grantBonus(movement.buffs.shield, magnitude, duration)
+          grantBonus(platform.buffs.shield, magnitude, duration)
           break
         case 'haste':
-          grantBonus(movement.buffs.haste, magnitude, duration)
+          grantBonus(platform.buffs.haste, magnitude, duration)
+          break
+        case 'repair':
+          /*
+           * The only effect that leaves the unit that brought it. A Tuner deals
+           * no damage at all, so if its conjunction healed only itself it would
+           * contribute nothing to anyone, and "support" would be a label on a
+           * worse damage unit.
+           *
+           * Capped at maxHp rather than allowed to overheal: an uncapped pool
+           * would compound with the 6 s conjunction cooldown into a line that
+           * never meaningfully takes damage.
+           */
+          for (const ally of event.participants) {
+            ally.hp = Math.min(ally.maxHp, ally.hp + magnitude)
+          }
           break
       }
     }
   }
 
   if (dead.size > 0) {
-    const reaped = reapSlack(sim, dead)
-    result.slackKilled = reaped.slackKilled
-    result.filingsDropped = reaped.filingsDropped
+    const reaped = reapContact(sim, dead)
+    result.contactKilled = reaped.contactKilled
+    result.salvageDropped = reaped.salvageDropped
   }
 
   return result
@@ -220,7 +235,7 @@ export function timeToNextConjunction(
   horizonSeconds = 120,
   stepSeconds = 0.1,
 ): number | null {
-  const active = sim.movements.filter((m) => m.disabledFor <= 0)
+  const active = sim.platforms.filter((m) => m.disabledFor <= 0)
   if (active.length < 2) return null
 
   const basePhases = sim.rings.map((r) => r.phase)

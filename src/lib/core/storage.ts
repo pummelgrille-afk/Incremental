@@ -102,7 +102,7 @@ function isQuotaError(error: unknown): boolean {
 export function isLocalStorageAvailable(): boolean {
   try {
     if (typeof localStorage === 'undefined') return false
-    const probe = '__orrery_probe__'
+    const probe = '__perihelion_probe__'
     localStorage.setItem(probe, '1')
     localStorage.removeItem(probe)
     return true

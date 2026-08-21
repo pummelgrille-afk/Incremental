@@ -1,7 +1,7 @@
 import type { ContentDef } from './types'
 
 /**
- * The Escapement Tree — permanent upgrades bought with Recollection.
+ * The Almanac — permanent upgrades bought with Recollection.
  *
  * Rules in docs/design/economy-spec.md §2. The system lives in
  * `progression/upgradeTree.ts`; the nodes are authored in `content/upgrades.ts`
@@ -12,16 +12,16 @@ import type { ContentDef } from './types'
  * The four branches.
  *
  * **Regulation is the one with an identity to protect.** It buys *reach and
- * readability* — Beat charges, blast radius, conjunction tolerance, preview
+ * readability* — Flare charges, blast radius, conjunction tolerance, preview
  * horizon — not numbers. It changes how the game plays rather than how hard it
  * hits, and economy-spec.md §2 asks Phase 34 to keep it that way.
  */
-export type UpgradeBranch = 'winding' | 'bracing' | 'salvage' | 'regulation'
+export type UpgradeBranch = 'aperture' | 'shielding' | 'recovery' | 'regulation'
 
 export const UPGRADE_BRANCHES: readonly UpgradeBranch[] = [
-  'winding',
-  'bracing',
-  'salvage',
+  'aperture',
+  'shielding',
+  'recovery',
   'regulation',
 ] as const
 
@@ -35,22 +35,22 @@ export const UPGRADE_BRANCHES: readonly UpgradeBranch[] = [
  */
 export type UpgradeEffectKind =
   // Winding — offence.
-  /** Multiplier on Movement attack. */
+  /** Multiplier on Platform attack. */
   | 'attack'
   /** Attack-speed bonus, as haste. */
   | 'haste'
   /** Multiplier on conjunction effect magnitude. */
   | 'conjunctionPotency'
   // Bracing — defence.
-  /** Flat Tension added to a stage's base. */
-  | 'tension'
-  /** Multiplier on Movement defence. */
+  /** Flat Output added to a stage's base. */
+  | 'output'
+  /** Multiplier on Platform defence. */
   | 'defence'
-  /** Radians added to every Movement's block arc. */
+  /** Radians added to every Platform's block arc. */
   | 'blockArc'
-  // Salvage — economy.
-  /** Multiplier on Filings dropped. */
-  | 'filings'
+  // Recovery — economy.
+  /** Multiplier on Salvage dropped. */
+  | 'salvage'
   /** Multiplier on Recollection awarded. */
   | 'recollection'
   /** Reduction in emergency repair cost, as a fraction. */
@@ -60,10 +60,10 @@ export type UpgradeEffectKind =
   /** Fraction added to offline efficiency. */
   | 'offlineEfficiency'
   // Regulation — reach and readability.
-  /** Extra whole Beat charges. */
-  | 'beatCharges'
-  /** Pixels added to the Beat's blast radius. */
-  | 'beatRadius'
+  /** Extra whole Flare charges. */
+  | 'flareCharges'
+  /** Pixels added to the Flare's blast radius. */
+  | 'flareRadius'
   /** Radians added to the conjunction tolerance window. */
   | 'conjunctionTolerance'
 
@@ -99,16 +99,16 @@ export interface UpgradeEffects {
   attack: number
   haste: number
   conjunctionPotency: number
-  tension: number
+  output: number
   defence: number
   blockArc: number
-  filings: number
+  salvage: number
   recollection: number
   repairCost: number
   offlineCap: number
   offlineEfficiency: number
-  beatCharges: number
-  beatRadius: number
+  flareCharges: number
+  flareRadius: number
   conjunctionTolerance: number
 }
 
@@ -117,16 +117,16 @@ export function noUpgradeEffects(): UpgradeEffects {
     attack: 0,
     haste: 0,
     conjunctionPotency: 0,
-    tension: 0,
+    output: 0,
     defence: 0,
     blockArc: 0,
-    filings: 0,
+    salvage: 0,
     recollection: 0,
     repairCost: 0,
     offlineCap: 0,
     offlineEfficiency: 0,
-    beatCharges: 0,
-    beatRadius: 0,
+    flareCharges: 0,
+    flareRadius: 0,
     conjunctionTolerance: 0,
   }
 }

@@ -9,7 +9,7 @@
 | Term | Means |
 |------|-------|
 | **Tick** | One simulation step (fixed timestep — see `docs/architecture.md`) |
-| **Wave** | One scripted group of Slack, with a spawn schedule |
+| **Wave** | One scripted group of Contact, with a spawn schedule |
 | **Stage** | A sequence of waves ending in a clear condition |
 | **Zone** | A themed run of stages sharing enemies and visual identity |
 | **Run** | Play from a Rewinding until the next one |
@@ -19,39 +19,39 @@
 
 ```mermaid
 flowchart TD
-    A[Stage loads: Mainspring at full Tension] --> B[Wave spawns from the rim]
-    B --> C[Slack close on the Mainspring and open fire]
-    C --> D{Movements auto-engage}
-    D --> E[Chimes cover uncovered arcs from the rim]
-    E --> F{Player strikes with the Beat?}
+    A[Stage loads: Sun at full Output] --> B[Wave spawns from the rim]
+    B --> C[Contact close on the Sun and open fire]
+    C --> D{Platforms auto-engage}
+    D --> E[Arrays cover uncovered arcs from the rim]
+    E --> F{Player strikes with the Flare?}
     F -->|Yes| G[Instant area damage at the struck point]
     F -->|No| H[Rings turn on; the machine copes]
     G --> I{Conjunction aligned?}
     H --> I
     I -->|Yes| J[Alignment fires: burst effect]
     I -->|No| K[Normal resolution]
-    J --> L[Slack destroyed, drop Filings]
+    J --> L[Contact destroyed, drop Salvage]
     K --> L
     L --> M{Wave cleared?}
     M -->|No| C
     M -->|Yes| N{Last wave of stage?}
     N -->|No| B
-    N -->|Yes| O[Stage clear: Keys awarded, next stage unlocks]
+    N -->|Yes| O[Stage clear: Clearance awarded, next stage unlocks]
     O --> A
 
-    C --> P{Projectiles reach the Mainspring?}
-    P -->|Yes| Q[Tension drops]
-    Q --> R{Tension at zero?}
-    R -->|Yes| S[Orrery stops: run ends]
+    C --> P{Projectiles reach the Sun?}
+    P -->|Yes| Q[Output drops]
+    Q --> R{Output at zero?}
+    R -->|Yes| S[Perihelion stops: run ends]
     R -->|No| C
 ```
 
-**Beat length.** A wave runs 20–40 s. A stage is 5–8 waves, so 3–5 minutes. This
+**Flare length.** A wave runs 20–40 s. A stage is 5–8 waves, so 3–5 minutes. This
 is the unit of attention: a player should be able to put the tab down at any wave
 boundary without losing anything.
 
-**Where the decisions are.** Between waves the player re-slots Movements, re-mounts
-Chimes, and spends Filings. During a wave the only input is the Beat, and it is
+**Where the decisions are.** Between waves the player re-slots Platforms, re-mounts
+Arrays, and spends Salvage. During a wave the only input is the Flare, and it is
 optional — a player who never clicks still clears stages. This is the
 auto-battler's commit-then-watch rhythm with one lever of upside added (P2, P3).
 
@@ -59,15 +59,15 @@ auto-battler's commit-then-watch rhythm with one lever of upside added (P2, P3).
 
 ```mermaid
 flowchart LR
-    A[Start run] --> B[Clear stages, bank Filings]
-    B --> C[Spend Filings in-run:<br/>slot more Movements,<br/>temporary reinforcements]
+    A[Start run] --> B[Clear stages, bank Salvage]
+    B --> C[Spend Salvage in-run:<br/>slot more Platforms,<br/>temporary reinforcements]
     C --> D{Progress stalled?}
     D -->|No| B
-    D -->|Yes| E[Rewind the Mainspring]
-    E --> F[Filings and stage progress reset]
+    D -->|Yes| E[Rewind the Sun]
+    E --> F[Salvage and stage progress reset]
     E --> G[Recollection awarded,<br/>scaled by depth reached]
-    G --> H[Spend Recollection on<br/>the Escapement Tree]
-    F --> I[Roster, Keys and Tree persist]
+    G --> H[Spend Recollection on<br/>the Almanac]
+    F --> I[Roster, Clearance and Tree persist]
     H --> I
     I --> J[Start run: deeper, faster]
     J --> B
@@ -78,25 +78,25 @@ against the wave curve — not on a timer. `systems/scaling.ts` tunes the wave c
 so the first stall lands around 25–40 minutes on a first run, and much sooner
 thereafter as the player learns to rewind early and often.
 
-**The offline branch.** Closing the tab does not end a run. The Orrery keeps turning
+**The offline branch.** Closing the tab does not end a run. The Perihelion keeps turning
 at base rate; see `systems/offlineProgress.ts` and Phase 27. Offline play accrues
-Filings at a capped, diminishing rate and **does not fire conjunctions** — a
+Salvage at a capped, diminishing rate and **does not fire conjunctions** — a
 deliberate gap that keeps active play meaningfully stronger (P1 says the machine
 runs without you; it does not say it runs *as well*).
 
 ## Win and loss conditions
 
 ### Per wave
-- **Clear:** every Slack in the wave destroyed.
+- **Clear:** every Contact in the wave destroyed.
 - **No loss condition.** Waves cannot be failed independently; damage carries into
-  the next wave as reduced Tension.
+  the next wave as reduced Output.
 
 ### Per stage
-- **Clear:** final wave cleared with Tension above zero. Awards Keys and unlocks
+- **Clear:** final wave cleared with Output above zero. Awards Clearance and unlocks
   the next stage.
-- **Loss:** Tension reaches zero. The Orrery stops. The run does not end — the
+- **Loss:** Output reaches zero. The Perihelion stops. The run does not end — the
   player is returned to the stage-select with the stage un-cleared and keeps all
-  Filings banked so far. Failure costs *time*, never *progress*.
+  Salvage banked so far. Failure costs *time*, never *progress*.
 
 ### Per boss stage
 - **Clear:** boss destroyed through all its phases.
@@ -110,8 +110,8 @@ runs without you; it does not say it runs *as well*).
 
 ### Meta goal
 
-Restart the outermost ring. The Orrery has been running down for longer than the
-Escapement has existed, and its furthest spheres have been dark for generations.
+Restart the outermost ring. The Perihelion has been running down for longer than the
+Service has existed, and its furthest spheres have been dark for generations.
 The stated goal — the thing the last zone delivers — is **turning the Unnumbered
 Ring over for the first time in living memory**, which in mechanical terms is the
 final zone's clear condition and the end of the authored content.

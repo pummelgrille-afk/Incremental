@@ -12,11 +12,11 @@ import {
   wall,
   type PatternContext,
 } from '../src/lib/systems/patterns'
-import { SLACK } from '../src/lib/content/enemies'
+import { CONTACT } from '../src/lib/content/contacts'
 import { BUDGETS } from '../src/lib/content/budgets'
 import { SPAWN_RADIUS } from '../src/lib/content/field'
 
-/** Emitter out at the rim, firing at the Mainspring. */
+/** Emitter out at the rim, firing at the Sun. */
 function context(overrides: Partial<PatternContext> = {}): PatternContext {
   return {
     origin: { x: 300, y: 0 },
@@ -195,7 +195,7 @@ describe('converge', () => {
     expect(spawns.every(headingInward)).toBe(true)
   })
 
-  it('centres the wedge on the emitter, so it reads as that Slack doing it', () => {
+  it('centres the wedge on the emitter, so it reads as that Contact doing it', () => {
     // A field-wide version would be unattributable — a legibility failure.
     const spawns = converge(7, Math.PI / 3, 90, SPAWN_RADIUS)(
       context({ origin: { x: 0, y: 300 } }),
@@ -227,7 +227,7 @@ describe('the telegraph floor is non-negotiable', () => {
 describe('tone: readable pressure, not danmaku', () => {
   it('keeps projectile speeds slow enough to read', () => {
     // Rim to centre in roughly 2-4 s. Faster removes the reading window that
-    // makes the Beat a decision rather than a reflex.
+    // makes the Flare a decision rather than a reflex.
     for (const pattern of PATTERNS) {
       for (const spawn of pattern.build(context())) {
         const speed = speedOf(spawn.velocity)
@@ -238,7 +238,7 @@ describe('tone: readable pressure, not danmaku', () => {
   })
 
   it('keeps emissions in single digits', () => {
-    // Pressure comes from several Slack on staggered cadences, not one curtain.
+    // Pressure comes from several Contact on staggered cadences, not one curtain.
     for (const pattern of PATTERNS) {
       expect(pattern.build(context()).length, pattern.id).toBeLessThan(10)
     }
@@ -246,20 +246,20 @@ describe('tone: readable pressure, not danmaku', () => {
 
   it('leaves most of the projectile budget unspent for bosses', () => {
     const worstCase = Math.max(...PATTERNS.map((p) => p.build(context()).length))
-    expect(worstCase * SLACK.length).toBeLessThan(BUDGETS.projectiles / 2)
+    expect(worstCase * CONTACT.length).toBeLessThan(BUDGETS.projectiles / 2)
   })
 })
 
 describe('content wiring', () => {
-  it('gives every Slack a pattern that exists', () => {
-    for (const def of SLACK) {
+  it('gives every Contact a pattern that exists', () => {
+    for (const def of CONTACT) {
       expect(patternById(def.patternId), `${def.id} -> ${def.patternId}`).toBeDefined()
     }
   })
 
   it('gives every pattern at least one user', () => {
     // An unused pattern is untested configuration.
-    const used = new Set(SLACK.map((s) => s.patternId))
+    const used = new Set(CONTACT.map((s) => s.patternId))
     for (const pattern of PATTERNS) {
       expect(used.has(pattern.id), `${pattern.id} has no user`).toBe(true)
     }

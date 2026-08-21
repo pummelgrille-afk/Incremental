@@ -1,16 +1,16 @@
-import type { MovementInstance } from '../entities/Movement'
-import type { SlackInstance } from '../entities/Slack'
-import { slackById } from '../content/enemies'
-import { createSlack } from './spawn'
+import type { PlatformInstance } from '../entities/Platform'
+import type { ContactInstance } from '../entities/Contact'
+import { contactById } from '../content/contacts'
+import { createContact } from './spawn'
 import type { ArmourClass, DamageType } from '../entities/types'
 import { typeMultiplier } from '../content/damageTypes'
-import { FILINGS } from '../content/economy'
+import { SALVAGE } from '../content/economy'
 import type { SimulationState } from '../core/simulation'
 import { absorb, attackScaleOf, clearBuffs } from './buffs'
 import { noUpgradeEffects } from '../entities/Upgrade'
 
 const NO_EFFECTS = noUpgradeEffects()
-import type { MovementAttack } from './ai'
+import type { PlatformAttack } from './ai'
 import type { Telemetry } from './telemetry'
 
 /**
@@ -23,7 +23,7 @@ import type { Telemetry } from './telemetry'
 /** Defence is diminishing, never immunising. 100 halves, 300 quarters. */
 const DEFENCE_CONSTANT = 100
 
-/** Seconds a Movement stays disabled. Movements are never permanently lost. */
+/** Seconds a Platform stays disabled. Platforms are never permanently lost. */
 const RECOVERY_TIME = 12
 
 /** How far children appear from a splitter, and across how wide an arc. */
@@ -46,106 +46,106 @@ export function computeDamage(
 }
 
 /**
- * Apply damage to a Slack. Returns true if it died.
+ * Apply damage to a Contact. Returns true if it died.
  *
  * Damage stays a float — combat-spec.md §6. Rounding here would compound badly
  * across thousands of small hits.
  */
-export function damageSlack(slack: SlackInstance, amount: number): boolean {
-  if (slack.shieldHitsRemaining > 0) {
-    slack.shieldHitsRemaining--
-    slack.hitFlash = 0.12
+export function damageContact(contact: ContactInstance, amount: number): boolean {
+  if (contact.shieldHitsRemaining > 0) {
+    contact.shieldHitsRemaining--
+    contact.hitFlash = 0.12
     return false
   }
 
-  // A telegraphing Slack may be more vulnerable. This rewards a player for
+  // A telegraphing Contact may be more vulnerable. This rewards a player for
   // *acting* on a read telegraph rather than only for dodging it.
-  const vulnerability = slack.def.traits?.vulnerableWhileTelegraphing
+  const vulnerability = contact.def.traits?.vulnerableWhileTelegraphing
   const scaled =
-    vulnerability && slack.telegraphRemaining > 0 ? amount * vulnerability : amount
+    vulnerability && contact.telegraphRemaining > 0 ? amount * vulnerability : amount
 
-  slack.hp -= scaled
-  slack.hitFlash = 0.12
-  return slack.hp <= 0
+  contact.hp -= scaled
+  contact.hitFlash = 0.12
+  return contact.hp <= 0
 }
 
-/** Apply damage to a Movement. Disables rather than destroys. */
-export function damageMovement(
-  movement: MovementInstance,
+/** Apply damage to a Platform. Disables rather than destroys. */
+export function damagePlatform(
+  platform: PlatformInstance,
   amount: number,
   telemetry?: Telemetry | null,
   effects = NO_EFFECTS,
 ): void {
   const effectiveDefence =
-    movement.def.defence * (1 + movement.bonuses.defence) * (1 + effects.defence)
+    platform.def.defence * (1 + platform.bonuses.defence) * (1 + effects.defence)
 
   let remaining = mitigate(amount, effectiveDefence)
 
-  remaining -= absorb(movement.buffs.shield, remaining)
+  remaining -= absorb(platform.buffs.shield, remaining)
 
-  movement.hp -= remaining
-  telemetry?.took(movement.def.id, amount)
+  platform.hp -= remaining
+  telemetry?.took(platform.def.id, amount)
 
-  if (movement.hp <= 0) {
-    movement.hp = 0
-    movement.disabledFor = RECOVERY_TIME
-    movement.targetId = null
+  if (platform.hp <= 0) {
+    platform.hp = 0
+    platform.disabledFor = RECOVERY_TIME
+    platform.targetId = null
     // A disabled unit comes back at full HP after RECOVERY_TIME; letting a
     // shield or haste window survive that would make being disabled partly
     // free.
-    clearBuffs(movement.buffs)
-    telemetry?.disabled(movement.def.id)
+    clearBuffs(platform.buffs)
+    telemetry?.disabled(platform.def.id)
   }
 }
 
-/** Damage the Mainspring. Shield absorbs first, then Tension. */
-export function damageMainspring(sim: SimulationState, amount: number): void {
+/** Damage the Sun. Shield absorbs first, then Output. */
+export function damageSun(sim: SimulationState, amount: number): void {
   let remaining = amount
 
-  if (sim.mainspring.shield > 0) {
-    const absorbed = Math.min(sim.mainspring.shield, remaining)
-    sim.mainspring.shield -= absorbed
+  if (sim.sun.shield > 0) {
+    const absorbed = Math.min(sim.sun.shield, remaining)
+    sim.sun.shield -= absorbed
     remaining -= absorbed
   }
 
-  const applied = Math.min(remaining, sim.mainspring.hp)
-  sim.mainspring.hp = Math.max(0, sim.mainspring.hp - remaining)
-  sim.mainspring.hitFlash = 0.2
-  sim.telemetry?.took('mainspring', applied)
+  const applied = Math.min(remaining, sim.sun.hp)
+  sim.sun.hp = Math.max(0, sim.sun.hp - remaining)
+  sim.sun.hitFlash = 0.2
+  sim.telemetry?.took('sun', applied)
 
-  // The only path by which Tension falls, so the low-water mark belongs here.
-  const fraction = sim.mainspring.maxHp > 0 ? sim.mainspring.hp / sim.mainspring.maxHp : 0
-  if (fraction < sim.mainspring.lowestFraction) sim.mainspring.lowestFraction = fraction
+  // The only path by which Output falls, so the low-water mark belongs here.
+  const fraction = sim.sun.maxHp > 0 ? sim.sun.hp / sim.sun.maxHp : 0
+  if (fraction < sim.sun.lowestFraction) sim.sun.lowestFraction = fraction
 }
 
 export interface CombatResult {
-  slackKilled: number
-  filingsDropped: number
+  contactKilled: number
+  salvageDropped: number
 }
 
 /**
- * Resolve the Movement attacks ai.ts collected, and remove the dead.
+ * Resolve the Platform attacks ai.ts collected, and remove the dead.
  */
-export function resolveMovementAttacks(
+export function resolvePlatformAttacks(
   sim: SimulationState,
-  attacks: MovementAttack[],
+  attacks: PlatformAttack[],
 ): CombatResult {
   const dead = new Set<number>()
 
-  for (const { movement, target } of attacks) {
+  for (const { platform, target } of attacks) {
     if (dead.has(target.id)) continue
 
     const damage = computeDamage(
-      movement.def.attack,
-      attackScaleOf(movement, sim.effects),
-      movement.def.damageType,
+      platform.def.attack,
+      attackScaleOf(platform, sim.effects),
+      platform.def.damageType,
       target.def.armour,
       target.def.defence,
     )
 
     const before = target.hp
-    const died = damageSlack(target, damage)
-    sim.telemetry?.damage(movement.def.id, Math.min(before, damage), died)
+    const died = damageContact(target, damage)
+    sim.telemetry?.damage(platform.def.id, Math.min(before, damage), died)
     sim.feed.emit(
       died ? 'kill' : 'damage',
       target.position.x,
@@ -155,46 +155,46 @@ export function resolveMovementAttacks(
     if (died) dead.add(target.id)
   }
 
-  return reapSlack(sim, dead)
+  return reapContact(sim, dead)
 }
 
 /**
- * Remove dead Slack, award their Filings, and spawn anything they split into.
+ * Remove dead Contact, award their Salvage, and spawn anything they split into.
  *
  * Splitting happens here because this is where death is handled, and because a
- * splitter's children must exist before the next system reads `sim.slack` —
+ * splitter's children must exist before the next system reads `sim.contact` —
  * spawning them a step later would let a wave read as cleared for one tick.
  */
-export function reapSlack(sim: SimulationState, dead: Set<number>): CombatResult {
-  if (dead.size === 0) return { slackKilled: 0, filingsDropped: 0 }
+export function reapContact(sim: SimulationState, dead: Set<number>): CombatResult {
+  if (dead.size === 0) return { contactKilled: 0, salvageDropped: 0 }
 
-  let filings = 0
+  let salvage = 0
   // Zone drop scaling — economy-spec.md §1. The tree bonus is applied in
   // progression/currencies.ts, which owns the save; the simulation only knows
   // about the field.
-  const zoneBonus = 1 + sim.zone.index * FILINGS.zoneScaling
+  const zoneBonus = 1 + sim.zone.index * SALVAGE.zoneScaling
 
-  const offspring: SlackInstance[] = []
+  const offspring: ContactInstance[] = []
 
-  sim.slack = sim.slack.filter((slack) => {
-    if (!dead.has(slack.id)) return true
+  sim.contact = sim.contact.filter((contact) => {
+    if (!dead.has(contact.id)) return true
 
-    filings += slack.def.baseDrop * zoneBonus
+    salvage += contact.def.baseDrop * zoneBonus
 
-    const split = slack.def.traits?.splitsInto
+    const split = contact.def.traits?.splitsInto
     if (split) {
-      const childDef = slackById(split.defId)
+      const childDef = contactById(split.defId)
       if (childDef) {
         // Fan the children out around the parent so they do not stack into a
         // single unhittable point, and inherit its heading.
-        const heading = Math.atan2(slack.velocity.y, slack.velocity.x)
+        const heading = Math.atan2(contact.velocity.y, contact.velocity.x)
         for (let i = 0; i < split.count; i++) {
           const spread = ((i / Math.max(1, split.count - 1)) - 0.5) * SPLIT_ARC
           const angle = heading + (split.count > 1 ? spread : 0)
           offspring.push(
-            createSlack(sim, childDef, {
-              x: slack.position.x + Math.cos(angle) * SPLIT_OFFSET,
-              y: slack.position.y + Math.sin(angle) * SPLIT_OFFSET,
+            createContact(sim, childDef, {
+              x: contact.position.x + Math.cos(angle) * SPLIT_OFFSET,
+              y: contact.position.y + Math.sin(angle) * SPLIT_OFFSET,
             }),
           )
         }
@@ -204,8 +204,8 @@ export function reapSlack(sim: SimulationState, dead: Set<number>): CombatResult
     return false
   })
 
-  if (offspring.length > 0) sim.slack.push(...offspring)
+  if (offspring.length > 0) sim.contact.push(...offspring)
 
-  sim.filingsEarned += filings
-  return { slackKilled: dead.size, filingsDropped: filings }
+  sim.salvageEarned += salvage
+  return { contactKilled: dead.size, salvageDropped: salvage }
 }

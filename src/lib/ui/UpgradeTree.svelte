@@ -1,11 +1,12 @@
 <script lang="ts">
   import { game, type TreeNodeView } from '../stores/game.svelte'
+  import type { UpgradeBranch } from '../entities/Upgrade'
 
   /**
-   * The Escapement Tree.
+   * The Almanac.
    *
    * Node positions are derived in `progression/upgradeTree.ts`, not authored —
-   * radial, because the game is an orrery, and because the layout has to stay
+   * radial, because the game is an perihelion, and because the layout has to stay
    * legible when Phase 34 grows it from twelve nodes to seventy-two.
    *
    * Drawn as SVG rather than Pixi: this is a menu, not the field. It wants
@@ -15,30 +16,30 @@
 
   let { open = false }: { open?: boolean } = $props()
 
-  const BRANCH_LABELS = {
-    winding: 'Winding',
-    bracing: 'Bracing',
-    salvage: 'Salvage',
+  const BRANCH_LABELS: Record<UpgradeBranch, string> = {
+    aperture: 'Aperture',
+    shielding: 'Shielding',
+    recovery: 'Recovery',
     regulation: 'Regulation',
-  } as const
+  }
 
   const EFFECT_LABELS: Record<string, string> = {
     attack: 'attack',
     haste: 'attack speed',
     conjunctionPotency: 'conjunction potency',
-    tension: 'Tension',
+    output: 'Output',
     defence: 'defence',
     blockArc: 'block arc',
-    filings: 'Filings',
+    salvage: 'Salvage',
     recollection: 'Recollection',
     repairCost: 'repair cost',
-    beatCharges: 'Beat charges',
-    beatRadius: 'blast radius',
+    flareCharges: 'Flare charges',
+    flareRadius: 'blast radius',
     conjunctionTolerance: 'conjunction window',
   }
 
   /** Flat counts read as counts; everything else reads as a percentage. */
-  const FLAT = new Set(['tension', 'beatCharges', 'beatRadius'])
+  const FLAT = new Set(['output', 'flareCharges', 'flareRadius'])
   const ANGLE = new Set(['blockArc', 'conjunctionTolerance'])
 
   function effectText(kind: string, magnitude: number): string {
@@ -149,7 +150,7 @@
 {#if open}
   <div class="overlay">
     <header>
-      <h2>The Escapement Tree</h2>
+      <h2>The Almanac</h2>
       <span class="balance">{Math.floor(game.recollection)} Recollection</span>
       <button class="ghost" onclick={reset}>Recentre</button>
       <button
@@ -168,7 +169,7 @@
       class="canvas"
       class:dragging
       role="application"
-      aria-label="Escapement Tree"
+      aria-label="Almanac"
       onwheel={onWheel}
       onpointerdown={onPointerDown}
       onpointermove={onPointerMove}

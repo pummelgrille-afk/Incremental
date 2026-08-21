@@ -1,5 +1,5 @@
-import type { ChimeDef, ChimeInstance } from '../entities/Chime'
-import type { FormationBonuses, MovementDef, MovementInstance } from '../entities/Movement'
+import type { ArrayDef, ArrayInstance } from '../entities/Array'
+import type { FormationBonuses, PlatformDef, PlatformInstance } from '../entities/Platform'
 import { createBuffs } from '../systems/buffs'
 import { levelScale } from '../progression/roster'
 import type { RingIndex } from '../entities/types'
@@ -37,16 +37,16 @@ export function isValidSlot(ring: RingIndex, slot: number): boolean {
 }
 
 export function slotOccupied(sim: SimulationState, ring: RingIndex, slot: number): boolean {
-  return sim.movements.some((m) => m.slot.ring === ring && m.slot.slot === slot)
+  return sim.platforms.some((m) => m.slot.ring === ring && m.slot.slot === slot)
 }
 
-export function createMovement(
+export function createPlatform(
   sim: SimulationState,
-  def: MovementDef,
+  def: PlatformDef,
   ring: RingIndex,
   slot: number,
   level = 1,
-): MovementInstance {
+): PlatformInstance {
   // The curve lives in content/economy.ts with the rest of the roster tuning.
   const scale = levelScale(level)
   const maxHp = def.maxHp * scale
@@ -68,18 +68,18 @@ export function createMovement(
   }
 }
 
-export function createChime(
+export function createArray(
   sim: SimulationState,
-  def: ChimeDef,
+  def: ArrayDef,
   mount: number,
   level = 1,
   stats?: { maxCharge: number; chargeInterval: number; attack: number },
-): ChimeInstance {
+): ArrayInstance {
   const scale = levelScale(level)
   const maxHp = def.maxHp * scale
 
   // Defaults to the def's own numbers, so a caller with no save — a test, or
-  // the loader before progression exists — gets an unupgraded Chime rather
+  // the loader before progression exists — gets an unupgraded Array rather
   // than having to know about tracks.
   const maxCharge = stats?.maxCharge ?? def.maxCharge
   const chargeInterval = stats?.chargeInterval ?? def.chargeInterval
@@ -104,14 +104,14 @@ export function createChime(
   }
 }
 
-/** Place a Movement, then refresh every cached bonus. */
-export function placeMovement(
+/** Place a Platform, then refresh every cached bonus. */
+export function placePlatform(
   sim: SimulationState,
-  def: MovementDef,
+  def: PlatformDef,
   ring: RingIndex,
   slot: number,
   level = 1,
-): MovementInstance {
+): PlatformInstance {
   if (!isValidSlot(ring, slot)) {
     throw new FormationError(`Slot ${slot} does not exist on ring ${ring}`)
   }
@@ -119,49 +119,49 @@ export function placeMovement(
     throw new FormationError(`Slot ${ring}:${slot} is already occupied`)
   }
 
-  const movement = createMovement(sim, def, ring, slot, level)
-  sim.movements.push(movement)
+  const platform = createPlatform(sim, def, ring, slot, level)
+  sim.platforms.push(platform)
   recomputeBonuses(sim)
-  return movement
+  return platform
 }
 
-export function removeMovement(sim: SimulationState, ring: RingIndex, slot: number): boolean {
-  const before = sim.movements.length
-  sim.movements = sim.movements.filter(
+export function removePlatform(sim: SimulationState, ring: RingIndex, slot: number): boolean {
+  const before = sim.platforms.length
+  sim.platforms = sim.platforms.filter(
     (m) => !(m.slot.ring === ring && m.slot.slot === slot),
   )
-  if (sim.movements.length === before) return false
+  if (sim.platforms.length === before) return false
   recomputeBonuses(sim)
   return true
 }
 
-export function mountChime(
+export function mountArray(
   sim: SimulationState,
-  def: ChimeDef,
+  def: ArrayDef,
   mount: number,
   level = 1,
   stats?: { maxCharge: number; chargeInterval: number; attack: number },
-): ChimeInstance {
-  if (sim.chimes.some((c) => c.mount === mount)) {
+): ArrayInstance {
+  if (sim.arrays.some((c) => c.mount === mount)) {
     throw new FormationError(`Mount ${mount} is already occupied`)
   }
-  const chime = createChime(sim, def, mount, level, stats)
-  sim.chimes.push(chime)
-  return chime
+  const array = createArray(sim, def, mount, level, stats)
+  sim.arrays.push(array)
+  return array
 }
 
 /**
- * Recompute every Movement's cached bonuses. Called on any formation change,
+ * Recompute every Platform's cached bonuses. Called on any formation change,
  * and never from the tick loop.
  *
  * Rules are combat-spec.md §2's table, in order.
  */
 export function recomputeBonuses(sim: SimulationState): void {
   sim.formationVersion++
-  const occupied = new Set(sim.movements.map((m) => slotKey(m.slot.ring, m.slot.slot)))
+  const occupied = new Set(sim.platforms.map((m) => slotKey(m.slot.ring, m.slot.slot)))
 
   const perRingCount = new Map<RingIndex, number>()
-  for (const m of sim.movements) {
+  for (const m of sim.platforms) {
     perRingCount.set(m.slot.ring, (perRingCount.get(m.slot.ring) ?? 0) + 1)
   }
 
@@ -170,14 +170,14 @@ export function recomputeBonuses(sim: SimulationState): void {
     if ((perRingCount.get(ring.index) ?? 0) === ring.slots) fullRings.add(ring.index)
   }
 
-  for (const movement of sim.movements) {
-    const { ring, slot } = movement.slot
+  for (const platform of sim.platforms) {
+    const { ring, slot } = platform.slot
     const config = ringByIndex(ring)
     if (!config) continue
 
     const bonuses: FormationBonuses = { attack: 0, defence: 0, range: 0 }
 
-    // Ring 1: close support from the Mainspring.
+    // Ring 1: close support from the Sun.
     if (ring === 1) bonuses.defence += 0.15
     // Outermost ring: nothing blocking the sightline.
     if (ring === OUTERMOST_RING) bonuses.range += 0.1
@@ -199,7 +199,7 @@ export function recomputeBonuses(sim: SimulationState): void {
 
     if (fullRings.has(ring)) bonuses.attack += 0.08
 
-    movement.bonuses = bonuses
+    platform.bonuses = bonuses
   }
 }
 
@@ -207,7 +207,7 @@ export function recomputeBonuses(sim: SimulationState): void {
 export function applyFormation(
   sim: SimulationState,
   formation: Record<string, string>,
-  resolve: (id: string) => MovementDef | undefined,
+  resolve: (id: string) => PlatformDef | undefined,
   levels: Record<string, number> = {},
 ): void {
   for (const [key, defId] of Object.entries(formation)) {
@@ -220,7 +220,7 @@ export function applyFormation(
     // roster change, and refusing to load would be worse than a missing unit.
     if (!def || !isValidSlot(ring, slot) || slotOccupied(sim, ring, slot)) continue
 
-    sim.movements.push(createMovement(sim, def, ring, slot, levels[defId] ?? 1))
+    sim.platforms.push(createPlatform(sim, def, ring, slot, levels[defId] ?? 1))
   }
   recomputeBonuses(sim)
 }

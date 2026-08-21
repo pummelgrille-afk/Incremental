@@ -142,20 +142,20 @@ describe('failure handling', () => {
 describe('snapshot timing', () => {
   it('reads the snapshot at write time, not at construction', () => {
     // Guards against handing the autosaver a stale object reference.
-    let filings = 0
+    let salvage = 0
     const auto = new Autosaver(
       manager,
       () => {
         const s = createDefaultSave(1000)
-        s.run.filings = filings
+        s.run.salvage = salvage
         return s
       },
       { intervalSeconds: 5 },
     )
 
-    filings = 777
+    salvage = 777
     run(auto, 6)
 
-    expect(new SaveManager(storage).load().data.run.filings).toBe(777)
+    expect(new SaveManager(storage).load().data.run.salvage).toBe(777)
   })
 })

@@ -1,4 +1,4 @@
-import type { MovementInstance, UnitBuffs } from '../entities/Movement'
+import type { PlatformInstance, UnitBuffs } from '../entities/Platform'
 import type { TimedBonus } from '../entities/types'
 import type { SimulationState } from '../core/simulation'
 import { noUpgradeEffects } from '../entities/Upgrade'
@@ -13,11 +13,11 @@ const NO_EFFECTS = noUpgradeEffects()
  * what is already there.** Nothing accumulates.
  *
  * This is not a new decision — combat-spec.md §5 already states it for the
- * Mainspring's shield, with the reasoning that stacking would let a player bank
+ * Sun's shield, with the reasoning that stacking would let a player bank
  * conjunctions into an invulnerability window and defeat the no-wall principle
- * (economy-spec.md §5). The same argument applies to a Movement, which is why
+ * (economy-spec.md §5). The same argument applies to a Platform, which is why
  * one rule now covers both rather than two similar-looking pieces of code
- * drifting apart. `Mainspring.grantShield` implements it directly for the
+ * drifting apart. `Sun.grantShield` implements it directly for the
  * objective's own fields; a test asserts the two behave identically.
  *
  * Conjunctions fire on a 6 s cooldown and buffs last 4–5 s, so stacking would
@@ -39,7 +39,7 @@ export function createBuffs(): UnitBuffs {
  *
  * Magnitudes are **non-negative by contract**. Debuffs need a sign-aware
  * comparison — "stronger" for a penalty means *more* negative — and no content
- * authors one yet, so the rule is not guessed at here. Phase 31's Slack roster
+ * authors one yet, so the rule is not guessed at here. Phase 31's Contact roster
  * is where a debuff would first appear; it owns designing that half.
  */
 export function grantBonus(bonus: TimedBonus, magnitude: number, duration: number): void {
@@ -94,7 +94,7 @@ export function clearBuffs(buffs: UnitBuffs): void {
 }
 
 /**
- * Age every Movement's buffs.
+ * Age every Platform's buffs.
  *
  * Replaces a placeholder that decayed magnitudes at fixed rates unrelated to
  * anything authored — and which, because level scaling shared the
@@ -103,10 +103,10 @@ export function clearBuffs(buffs: UnitBuffs): void {
  * `levelScale` field, which nothing decays.
  */
 export function updateBuffs(sim: SimulationState, dt: number): void {
-  for (const movement of sim.movements) {
-    tickBonus(movement.buffs.haste, dt)
-    tickBonus(movement.buffs.attack, dt)
-    tickBonus(movement.buffs.shield, dt)
+  for (const platform of sim.platforms) {
+    tickBonus(platform.buffs.haste, dt)
+    tickBonus(platform.buffs.attack, dt)
+    tickBonus(platform.buffs.shield, dt)
   }
 }
 
@@ -118,16 +118,16 @@ export function updateBuffs(sim: SimulationState, dt: number): void {
  * buffed right now. Summing them would let a formation bonus substitute for a
  * level, which is not the trade any of them is offering.
  */
-export function attackScaleOf(movement: MovementInstance, effects = NO_EFFECTS): number {
+export function attackScaleOf(platform: PlatformInstance, effects = NO_EFFECTS): number {
   return (
-    movement.levelScale *
-    (1 + movement.bonuses.attack) *
+    platform.levelScale *
+    (1 + platform.bonuses.attack) *
     (1 + effects.attack) *
-    (1 + movement.buffs.attack.magnitude)
+    (1 + platform.buffs.attack.magnitude)
   )
 }
 
 /** Seconds between attacks after haste, from the tree and from buffs alike. */
-export function attackIntervalOf(movement: MovementInstance, effects = NO_EFFECTS): number {
-  return movement.def.baseInterval / (1 + effects.haste + movement.buffs.haste.magnitude)
+export function attackIntervalOf(platform: PlatformInstance, effects = NO_EFFECTS): number {
+  return platform.def.baseInterval / (1 + effects.haste + platform.buffs.haste.magnitude)
 }

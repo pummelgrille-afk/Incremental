@@ -1,7 +1,7 @@
-import type { SlackDef } from '../entities/Slack'
+import type { ContactDef } from '../entities/Contact'
 
 /**
- * Slack roster.
+ * Contact roster.
  *
  * PLACEHOLDER — Phase 31 produces the real tiered roster (basic, elite,
  * specialist) with a unique pattern each. What is here exists so the stage
@@ -10,23 +10,25 @@ import type { SlackDef } from '../entities/Slack'
  * Phase 15 added the variety archetypes PLAN.md asks for, one per behavioural
  * hook, so each hook has a live user rather than being dead configuration:
  *
- *   burr      swarm      the baseline
- *   backlash  charge     fast; accelerates inside the outer ring
- *   drift     drift      tanky; the anvil
- *   cant      shielded   shrugs off N hits regardless of size
- *   wear      splitter   divides on death
- *   fret      orbiter    settles and circles; vulnerable while telegraphing
+ *   skiff   swarm      the baseline
+ *   lance   charge     fast; accelerates inside the outer orbit
+ *   hulk    drift      tanky; the anvil
+ *   shell   shielded   shrugs off N hits regardless of size
+ *   brood   splitter   divides on death
+ *   picket  orbiter    settles and circles; vulnerable while telegraphing
  *
- * Names follow narrative.md: Slack are named for modes of mechanical decay.
+ * Names follow narrative.md: a Contact is classed the way a watch officer
+ * classes one — by silhouette, never by intent. Nothing out there has been
+ * asked what it wants and nothing has volunteered.
  */
 
-export const SLACK: readonly SlackDef[] = [
+export const CONTACT: readonly ContactDef[] = [
   {
-    id: 'burr',
-    name: 'Burr',
+    id: 'skiff',
+    name: 'Skiff',
     description:
-      'A rough edge that came loose and kept going. Individually trivial; ' +
-      'they have never once arrived individually.',
+      'Small, and under power the whole way in. Individually trivial; they ' +
+      'have never once arrived individually.',
     armour: 'massed',
     motion: 'swarm',
     maxHp: 12,
@@ -40,11 +42,11 @@ export const SLACK: readonly SlackDef[] = [
     threatWeight: 1,
   },
   {
-    id: 'backlash',
-    name: 'Backlash',
+    id: 'lance',
+    name: 'Lance',
     description:
-      'Slack in the gear train, arriving all at once. Accelerates as it nears ' +
-      'the centre, in the manner of everything the Manual warns about.',
+      'Comes down the well nose-first and does not correct. Accelerates as it ' +
+      'nears the centre, in the manner of everything the Manual warns about.',
     armour: 'erratic',
     motion: 'charge',
     maxHp: 20,
@@ -58,11 +60,11 @@ export const SLACK: readonly SlackDef[] = [
     threatWeight: 2.5,
   },
   {
-    id: 'drift',
-    name: 'Drift',
+    id: 'hulk',
+    name: 'Hulk',
     description:
-      'Slow, heavy, and entirely indifferent to being shot. Wright Ock records ' +
-      'having watched one cross the Hour Ring across a full shift.',
+      'Slow, heavy, and entirely indifferent to being shot. Operator Ock ' +
+      'records having watched one cross Earth orbit across a full shift.',
     armour: 'seized',
     motion: 'drift',
     maxHp: 70,
@@ -78,11 +80,11 @@ export const SLACK: readonly SlackDef[] = [
     threatWeight: 1.8,
   },
   {
-    id: 'cant',
-    name: 'Cant',
+    id: 'shell',
+    name: 'Shell',
     description:
-      'Sitting at an angle it was never meant to sit at, and protected by the ' +
-      'fact. Strike it square or do not bother.',
+      'Presents an angled face to whatever it is approaching, and is protected ' +
+      'by the fact. Strike it square or do not bother.',
     armour: 'rigid',
     motion: 'drift',
     maxHp: 34,
@@ -103,11 +105,11 @@ export const SLACK: readonly SlackDef[] = [
     },
   },
   {
-    id: 'wear',
-    name: 'Wear',
+    id: 'brood',
+    name: 'Brood',
     description:
       'Does not break so much as divide. The Manual notes that this was ' +
-      'observed in 1104 and recommends no change in procedure.',
+      'observed on the eleventh pass and recommends no change in procedure.',
     armour: 'massed',
     motion: 'drift',
     maxHp: 48,
@@ -122,15 +124,15 @@ export const SLACK: readonly SlackDef[] = [
     traits: {
       // Splitter: killing it far out is better than killing it late, because
       // the children still have to cross the same distance.
-      splitsInto: { defId: 'burr', count: 3 },
+      splitsInto: { defId: 'skiff', count: 3 },
     },
   },
   {
-    id: 'fret',
-    name: 'Fret',
+    id: 'picket',
+    name: 'Picket',
     description:
-      'Settles at a distance and works away at the same spot indefinitely. ' +
-      'Cannot be waited out; it has more time than the shift does.',
+      'Takes a station at a distance and works away at the same spot ' +
+      'indefinitely. Cannot be waited out; it has more time than the shift does.',
     armour: 'erratic',
     motion: 'orbit',
     maxHp: 40,
@@ -152,8 +154,8 @@ export const SLACK: readonly SlackDef[] = [
   },
 ] as const
 
-const BY_ID = new Map(SLACK.map((s) => [s.id, s]))
+const BY_ID = new Map(CONTACT.map((s) => [s.id, s]))
 
-export function slackById(id: string): SlackDef | undefined {
+export function contactById(id: string): ContactDef | undefined {
   return BY_ID.get(id)
 }

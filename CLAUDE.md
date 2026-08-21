@@ -41,15 +41,26 @@ generic terms:
 
 | PLAN.md | This codebase | Is |
 |---------|---------------|-----|
-| Ally | `Movement` | Front-line automaton in a rotating ring slot |
-| SupportUnit | `Chime` | Ranged support on a static rim mount |
-| Enemy | `Slack` | Creature of the Unwinding |
-| Objective | `Mainspring` | The defended centre; its health is Tension |
+| Ally | `Platform` | Front-line unit in a rotating orbital slot |
+| SupportUnit | `Array` | Ranged support on a static rim mount |
+| Enemy | `Contact` | A craft of the Approach |
+| Objective | `Sun` | The defended centre; its health is Output |
 | Projectile | `Projectile` | Unchanged |
 
-**The noun "Movement" always means the entity, never positional change.** For
-motion use `motion`, `velocity`, `advance` or `position`. This collision is the
-one real cost of the domain vocabulary; keep it contained.
+Currencies are `salvage` (per run), `recollection` (prestige) and `clearance`
+(roster tokens, first-clear only). The manual strike is the `Flare`; the upgrade
+tree is the Almanac. See `docs/design/pillars.md` §3 for the full name table.
+
+**`Array` collides with the JavaScript builtin.** It is safe in practice — the
+pattern is always `ArrayDef` / `ArrayInstance` / `arrays`, never a bare `Array`
+— but never introduce a type or value named exactly `Array`, and reach for
+`Array.isArray` / `Array.from` knowing a reader has to disambiguate. This
+replaced the older `Movement`-means-the-entity collision, which is gone.
+
+> Renamed wholesale in Phase 29 by the solar reskin (`Movement`→`Platform`,
+> `Chime`→`Array`, `Slack`→`Contact`, `Mainspring`→`Sun`, `Filings`→`Salvage`,
+> `Keys`→`Clearance`, `Beat`→`Flare`). Saves are carried across by the schema
+> 5→6 migration. `docs/design/theme-revision.md` records what the pass took.
 
 ### Definitions vs. instances
 

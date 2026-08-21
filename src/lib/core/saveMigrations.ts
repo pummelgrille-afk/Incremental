@@ -11,6 +11,15 @@ import { SCHEMA_VERSION } from './saveSchema'
  * A migration takes a save at version N and returns it at version N+1. It runs
  * on **raw parsed JSON**, before validation, because a save written by an older
  * build will not satisfy the current schema until it has been migrated.
+ *
+ * **Each migration speaks the vocabulary of the version it produces, not the
+ * vocabulary of the current build.** Steps 1→5 were written before the solar
+ * reskin and still say `filings`, `chimeUpgrades`, `chimesEverMounted`; that is
+ * correct, because a save at version 4 genuinely has a field called
+ * `filingsPerSecond`. Step 5→6 is where the whole vocabulary changes at once.
+ * Renaming the earlier steps to match today's field names would make them lie
+ * about what they produce, and the next migration to read one of those fields
+ * would find nothing there.
  */
 
 export type RawSave = Record<string, unknown>
@@ -26,7 +35,178 @@ export type Migration = (save: RawSave) => RawSave
  * Migrations must be pure and must not throw on unexpected input — a save that
  * cannot be migrated should degrade to defaults during validation, not crash.
  */
+/**
+ * Content ids the solar reskin renamed. Saves store ids, so every one of these
+ * has to be carried across or the referenced content silently disappears —
+ * a Detent in a saved formation would resolve to nothing and the slot would
+ * come back empty.
+ */
+const PLATFORM_IDS: Readonly<Record<string, string>> = {
+  hammer: 'bolt',
+  detent: 'anchor',
+  pallet: 'rake',
+}
+
+const ARRAY_IDS: Readonly<Record<string, string>> = {
+  'quarter-bell': 'long-baseline',
+}
+
+const ZONE_IDS: Readonly<Record<string, string>> = {
+  'escapement-floor': 'service-floor',
+}
+
+const NODE_IDS: Readonly<Record<string, string>> = {
+  'winding-tension-of-the-stroke': 'aperture-force-of-the-pulse',
+  'winding-shortened-escape': 'aperture-shortened-dwell',
+  'winding-sympathetic-stroke': 'aperture-sympathetic-pulse',
+  'bracing-deeper-winding': 'shielding-deeper-reserves',
+  'bracing-hardened-pallets': 'shielding-hardened-plating',
+  'bracing-broadened-guard': 'shielding-broadened-guard',
+  'salvage-swarf-discipline': 'recovery-debris-discipline',
+  'salvage-honest-accounting': 'recovery-honest-accounting',
+  'salvage-the-long-view': 'recovery-the-long-view',
+  'salvage-the-night-shift': 'recovery-the-night-shift',
+  'salvage-standing-orders': 'recovery-standing-orders',
+  'regulation-second-beat': 'regulation-second-flare',
+}
+
+/** The Array upgrade track "winding" became "recharge". */
+const TRACK_IDS: Readonly<Record<string, string>> = { winding: 'recharge' }
+
+/** Unknown ids pass through unchanged — content drift is tolerated elsewhere. */
+const remap = (id: string, table: Readonly<Record<string, string>>): string =>
+  table[id] ?? id
+
+/** `"escapement-floor:first-shift"` → `"service-floor:first-shift"`. */
+function remapStage(address: string): string {
+  const colon = address.indexOf(':')
+  if (colon < 0) return remap(address, ZONE_IDS)
+  return remap(address.slice(0, colon), ZONE_IDS) + address.slice(colon)
+}
+
+function remapKeys(
+  value: unknown,
+  table: Readonly<Record<string, string>>,
+): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[remap(k, table)] = v
+  }
+  return out
+}
+
+function remapValues(
+  value: unknown,
+  table: Readonly<Record<string, string>>,
+): Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = typeof v === 'string' ? remap(v, table) : v
+  }
+  return out
+}
+
+const strings = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
+  /**
+   * 5 → 6: the solar reskin renames every persisted field and every content id.
+   *
+   * By far the largest migration, and the only one that is a *rename* rather
+   * than an addition. Nothing here changes a value: `filings` becomes
+   * `salvage`, `keys` becomes `clearance`, `hammer` becomes `bolt`, and the
+   * player's balances, roster and tree are carried across untouched. A save
+   * that survives this step is the same save under different names.
+   *
+   * Both halves matter and the second is easy to forget. Renaming only the
+   * *fields* would leave a formation full of ids like `detent` that no longer
+   * resolve to anything, and the units would quietly vanish from their slots on
+   * the next load with no error anywhere — the same failure mode as a save
+   * referencing deleted content, except self-inflicted.
+   *
+   * Unknown ids pass through rather than being dropped. A save carrying content
+   * from a build this one does not know about is the validator's problem, and
+   * it already tolerates it.
+   */
+  5: (save) => {
+    const run = (save.run ?? {}) as Record<string, unknown>
+    const meta = (save.meta ?? {}) as Record<string, unknown>
+    const stats = (save.statistics ?? {}) as Record<string, unknown>
+
+    const {
+      filings,
+      filingsPerSecond,
+      chimesEverMounted,
+      formation,
+      currentStage,
+      ...restRun
+    } = run
+    const {
+      keys,
+      movements,
+      chimes,
+      chimeUpgrades,
+      purchasedNodes,
+      unlockedZones,
+      clearedStages,
+      presets,
+      ...restMeta
+    } = meta
+    const { totalFilingsEarned, totalSlackDestroyed, ...restStats } = stats
+
+    const trackLedger: Record<string, unknown> = {}
+    for (const [defId, tracks] of Object.entries(remapKeys(chimeUpgrades, ARRAY_IDS))) {
+      trackLedger[defId] = remapKeys(tracks, TRACK_IDS)
+    }
+
+    return {
+      ...save,
+      schemaVersion: 6,
+      run: {
+        ...restRun,
+        salvage: filings,
+        salvagePerSecond: filingsPerSecond,
+        arraysEverMounted: chimesEverMounted,
+        formation: remapValues(formation, PLATFORM_IDS),
+        mounts: remapValues(run.mounts, ARRAY_IDS),
+        currentStage: typeof currentStage === 'string' ? remapStage(currentStage) : null,
+      },
+      meta: {
+        ...restMeta,
+        clearance: keys,
+        platforms: remapKeys(movements, PLATFORM_IDS),
+        arrays: remapKeys(chimes, ARRAY_IDS),
+        arrayUpgrades: trackLedger,
+        purchasedNodes: strings(purchasedNodes).map((id) => remap(id, NODE_IDS)),
+        unlockedZones: strings(unlockedZones).map((id) => remap(id, ZONE_IDS)),
+        clearedStages: strings(clearedStages).map(remapStage),
+        presets: (Array.isArray(presets) ? presets : []).map((entry) => {
+          if (entry === null || typeof entry !== 'object') return entry
+          const preset = entry as Record<string, unknown>
+          const out: Record<string, unknown> = { ...preset }
+          // Only remap what is actually there. Writing `formation: {}` onto a
+          // preset that had no formation would be this migration inventing
+          // fields, which is the validator's job and not a migration's.
+          if (preset.formation !== undefined) {
+            out.formation = remapValues(preset.formation, PLATFORM_IDS)
+          }
+          if (preset.mounts !== undefined) {
+            out.mounts = remapValues(preset.mounts, ARRAY_IDS)
+          }
+          return out
+        }),
+      },
+      statistics: {
+        ...restStats,
+        totalSalvageEarned: totalFilingsEarned,
+        totalContactsDestroyed: totalSlackDestroyed,
+      },
+    }
+  },
+
   /**
    * 1 → 2: Phase 24 added `meta.presets`.
    *

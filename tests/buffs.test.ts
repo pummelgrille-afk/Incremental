@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Simulation, TICK_SECONDS } from '../src/lib/core/loop'
 import { loadStage } from '../src/lib/core/stageLoader'
 import { createRng } from '../src/lib/core/rng'
-import { placeMovement } from '../src/lib/core/formation'
-import { movementById, MOVEMENTS } from '../src/lib/content/allies'
+import { placePlatform } from '../src/lib/core/formation'
+import { platformById, PLATFORMS } from '../src/lib/content/platforms'
 import {
   absorb,
   attackIntervalOf,
@@ -15,19 +15,20 @@ import {
   tickBonus,
   updateBuffs,
 } from '../src/lib/systems/buffs'
-import { damageMovement } from '../src/lib/systems/combat'
-import { createMainspring, grantShield } from '../src/lib/entities/Mainspring'
+import { damagePlatform } from '../src/lib/systems/combat'
+import { createSun, grantShield } from '../src/lib/entities/Sun'
+import type { ConjunctionEffect } from '../src/lib/entities/Platform'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
-const STAGE: StageAddress = 'escapement-floor:first-shift'
+const STAGE: StageAddress = 'service-floor:first-shift'
 
 let sim: Simulation
 
 beforeEach(() => {
   sim = new Simulation(loadStage(STAGE), createRng(1))
-  sim.state.slack.length = 0
-  sim.state.movements.length = 0
-  sim.state.chimes.length = 0
+  sim.state.contact.length = 0
+  sim.state.platforms.length = 0
+  sim.state.arrays.length = 0
 })
 
 describe('the stacking rule', () => {
@@ -69,11 +70,11 @@ describe('the stacking rule', () => {
     expect(() => grantBonus(createBonus(), -1, 5)).toThrow(RangeError)
   })
 
-  it('matches the Mainspring shield rule exactly', () => {
+  it('matches the Sun shield rule exactly', () => {
     // combat-spec.md section 5 states this once; two implementations must not
     // be allowed to drift apart.
     const bonus = createBonus()
-    const mainspring = createMainspring(1000)
+    const sun = createSun(1000)
 
     const grants: [number, number][] = [
       [20, 4],
@@ -83,9 +84,9 @@ describe('the stacking rule', () => {
     ]
     for (const [amount, duration] of grants) {
       grantBonus(bonus, amount, duration)
-      grantShield(mainspring, amount, duration)
-      expect(bonus.magnitude).toBe(mainspring.shield)
-      expect(bonus.remaining).toBe(mainspring.shieldRemaining)
+      grantShield(sun, amount, duration)
+      expect(bonus.magnitude).toBe(sun.shield)
+      expect(bonus.remaining).toBe(sun.shieldRemaining)
     }
   })
 })
@@ -112,8 +113,8 @@ describe('expiry', () => {
     expect(bonus.remaining).toBeCloseTo(1, 6)
   })
 
-  it('ages every Movement through the simulation', () => {
-    const unit = placeMovement(sim.state, movementById('detent')!, 1, 0)
+  it('ages every Platform through the simulation', () => {
+    const unit = placePlatform(sim.state, platformById('anchor')!, 1, 0)
     grantBonus(unit.buffs.haste, 0.5, 1)
 
     updateBuffs(sim.state, 0.5)
@@ -152,24 +153,24 @@ describe('shields deplete through use as well as time', () => {
     expect(bonus.magnitude).toBe(20)
   })
 
-  it('protects a Movement before its HP', () => {
-    const unit = placeMovement(sim.state, movementById('detent')!, 1, 0)
+  it('protects a Platform before its HP', () => {
+    const unit = placePlatform(sim.state, platformById('anchor')!, 1, 0)
     grantBonus(unit.buffs.shield, 1000, 5)
     const before = unit.hp
 
-    damageMovement(unit, 50)
+    damagePlatform(unit, 50)
     expect(unit.hp).toBe(before)
     expect(unit.buffs.shield.magnitude).toBeLessThan(1000)
   })
 })
 
 describe('being disabled drops everything transient', () => {
-  it('clears buffs when a Movement goes down', () => {
-    const unit = placeMovement(sim.state, movementById('pallet')!, 1, 0)
+  it('clears buffs when a Platform goes down', () => {
+    const unit = placePlatform(sim.state, platformById('rake')!, 1, 0)
     grantBonus(unit.buffs.haste, 0.6, 4)
     grantBonus(unit.buffs.shield, 5, 4)
 
-    damageMovement(unit, 10_000)
+    damagePlatform(unit, 10_000)
 
     expect(unit.disabledFor).toBeGreaterThan(0)
     expect(unit.buffs.haste.magnitude).toBe(0)
@@ -198,7 +199,7 @@ describe('level scaling is permanent', () => {
    * it because everything currently runs at level 1, where the scale is 1.
    */
   it('does not decay a levelled unit back to base', () => {
-    const unit = placeMovement(sim.state, movementById('hammer')!, 1, 0, 5)
+    const unit = placePlatform(sim.state, platformById('bolt')!, 1, 0, 5)
     const scale = unit.levelScale
     expect(scale).toBeGreaterThan(1)
 
@@ -209,7 +210,7 @@ describe('level scaling is permanent', () => {
   })
 
   it('multiplies level, formation and buffs together', () => {
-    const unit = placeMovement(sim.state, movementById('hammer')!, 1, 0, 3)
+    const unit = placePlatform(sim.state, platformById('bolt')!, 1, 0, 3)
     unit.bonuses.attack = 0.1
     grantBonus(unit.buffs.attack, 0.5, 5)
 
@@ -217,7 +218,7 @@ describe('level scaling is permanent', () => {
   })
 
   it('divides the attack interval by haste', () => {
-    const unit = placeMovement(sim.state, movementById('hammer')!, 1, 0)
+    const unit = placePlatform(sim.state, platformById('bolt')!, 1, 0)
     expect(attackIntervalOf(unit)).toBe(unit.def.baseInterval)
 
     grantBonus(unit.buffs.haste, 1, 5)
@@ -228,17 +229,27 @@ describe('level scaling is permanent', () => {
 describe('content integrity', () => {
   it('gives every conjunction effect kind at least one live user', () => {
     // A kind with no content using it is untested configuration — which is why
-    // `repair` was removed rather than left as an unreachable branch.
-    const kinds = new Set(MOVEMENTS.map((m) => m.conjunctionEffect.kind))
-    expect(kinds).toContain('damagePulse')
-    expect(kinds).toContain('shield')
-    expect(kinds).toContain('haste')
+    // `repair` was removed in Phase 18 rather than left as an unreachable
+    // branch, and why Phase 29 brought it back with the Tuner instead of on its
+    // own. Asserted against the type's own union so that declaring a fifth kind
+    // and forgetting to author a unit for it fails here.
+    const kinds = new Set(PLATFORMS.map((m) => m.conjunctionEffect.kind))
+    const declared: ConjunctionEffect['kind'][] = [
+      'damagePulse',
+      'shield',
+      'haste',
+      'repair',
+    ]
+    for (const kind of declared) expect(kinds, `${kind} has no user`).toContain(kind)
   })
 
   it('gives every timed effect a duration, and instant effects none', () => {
-    for (const def of MOVEMENTS) {
+    // damagePulse and repair resolve on the spot; shield and haste are carried
+    // as timed bonuses and are meaningless without a duration.
+    const instant = new Set(['damagePulse', 'repair'])
+    for (const def of PLATFORMS) {
       const effect = def.conjunctionEffect
-      if (effect.kind === 'damagePulse') {
+      if (instant.has(effect.kind)) {
         expect(effect.duration, `${def.id} resolves instantly`).toBeUndefined()
       } else {
         expect(effect.duration, `${def.id} needs a duration`).toBeGreaterThan(0)

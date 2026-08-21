@@ -3,29 +3,31 @@
 > Phase 1 output. This file is the source of truth for the game's identity.
 > Later phases read from it rather than re-deciding.
 
-> **A theme revision is pending.** This document describes the clockwork Orrery
-> setting. A decided-but-deferred reskin to a literal solar system supersedes
-> parts of it — see [`theme-revision.md`](./theme-revision.md). Nothing here is
-> implemented differently yet.
+> **The theme revision landed in Phase 29.** This file originally described a
+> clockwork orrery. The setting is now a literal solar system — see
+> [`theme-revision.md`](./theme-revision.md) for the specification and the
+> record of what was traded away. All five pillars in §4 survived the reskin
+> **unchanged**: they are mechanical, not thematic. Only the pitch (§1) and the
+> setting choice (§3) were rewritten.
 
 ## 1. The pitch — mechanics first
 
 A defence-shaped incremental where **the machine fights for you and your craft is
 arrangement, not aim.**
 
-You maintain a great mechanism. Waves of entropy-creatures close on its heart from
-every direction, filling the field with projectiles. You never control a character
-and never fire a shot. Instead you:
+You keep a watch station in the inner system. Waves of alien craft come down the
+Sun's gravity well from every direction, filling the field with fire. You never
+control a character and never take a shot yourself. Instead you:
 
-- **Place** wound automata into slots on concentric rotating rings (deck-building
-  and formation).
-- **Mount** longer-ranged support units on the outer rim, covering the arcs your
+- **Site** defence platforms in slots on four planetary orbits (deck-building and
+  formation).
+- **Mount** longer-ranged arrays on the static outer rim, covering the arcs your
   front line cannot (ranged support).
-- **Strike** with the Beat — the one live input — releasing stored tension
-  instantly at a point on the floor. Optional: it adds damage when used and
+- **Strike** with the Flare — the one live input — releasing stored solar output
+  instantly at a point on the field. Optional: it adds damage when used and
   costs nothing when ignored.
-- **Spend** what the wreckage drops on permanent upgrades, then reset the machine
-  and go again, further (idle progression + permanent upgrades).
+- **Spend** the salvage on permanent upgrades, then rewind the orbits and go
+  again, further (idle progression + permanent upgrades).
 
 The mechanical bet: in a genre where auto-battlers ask you to arrange a *static*
 board, this board **turns**. A formation is a pattern over time, not a layout.
@@ -38,51 +40,86 @@ patterns, and a reset that makes narrative sense.
 
 | # | Setting | Objective | Formation surface | Reset fiction | Verdict |
 |---|---------|-----------|-------------------|---------------|---------|
-| 1 | **The Orrery** — a clockwork cosmos that *drives* the real sky | The Mainspring | Concentric gear-rings that rotate | Rewind the mainspring | **Chosen** |
+| 1 | **The Orrery** — a clockwork cosmos that *drives* the real sky | The Mainspring | Concentric gear-rings that rotate | Rewind the mainspring | **Chosen, then reskinned — see §3.1** |
 | 2 | **The Hollow Bell** — a bell rung to hold back silence | The Bell | Scaffold tiers around the bell | Recast in a hotter fire | Strong; rings-as-sound overlaps #1 |
 | 3 | **The Abyssal Vent** — a thermal vent colony against the cold dark | The Vent | Rock shelves | The vent erupts anew | Best contrast; weakest formation logic |
 | 4 | **The World-Loom** — weavers holding reality's pattern | The Warp Beam | The warp grid | Cut the cloth, re-warp | Elegant but visually abstract |
-| 5 | **The Seed Vault** — last botanical archive against blight | The Vault Heart | Terraced beds | Replant from stored seed | Pleasant, low tension |
+| 5 | **The Seed Vault** — last botanical archive against blight | The Vault Heart | Terraced beds | Replant from stored seed | Pleasant, low output |
 | 6 | **The Salt Line** — a town's warding circle against the moor | The Hearth | The circle's arc | Re-lay the salt | Good tone, thin mechanics |
 | 7 | **The Rookery** — beacon-birds guarding a signal fire | The Fire | Perches and towers | Relight from an ember | Charming, overlaps #6 |
 | 8 | **The Dirigible** — sky-whalers defending an envelope | The Envelope | Gondola rigging | Re-inflate at port | Fun, objective too fragile-feeling |
 
-## 3. The choice: **The Orrery**
+## 3. The choice: **The Perihelion**
 
-The Orrery is a machine the size of a city, built in an age no one now remembers.
-It is not a model of the heavens. It is their **cause**. Its rings turn, and the
-real spheres turn with them. Let it stop and the sky stops.
+> Phase 1 chose candidate 1, the clockwork Orrery. Phase 29 kept every
+> mechanical reason below and replaced the fiction wrapped around them: the
+> machine that modelled the heavens became the heavens. See §3.1.
 
-It won the comparison on four mechanical counts:
+The Perihelion is a watch station in the inner system, holding four orbits
+against craft that fall down the Sun's well. Nobody stationed there is a chosen
+one. They are on shift.
+
+The setting won the comparison on four mechanical counts, and **all four are
+about the rings, not about the clockwork** — which is exactly why the reskin was
+survivable:
 
 1. **The formation surface is already in motion.** Concentric gear-rings rotating
    at different rates give positional dynamism for free — no player micromanagement
    and no artificial "units shuffle around" justification.
 2. **Spiral and orbital bullet patterns are native to the fiction.** The hardest
    patterns to justify elsewhere are the obvious ones here.
-3. **Conjunction is a synergy mechanic no other candidate offered.** When two units
-   on different rings align radially — as planets fall into conjunction — the
-   alignment fires. Power comes from arrangements you set up in advance and then
-   *watch* pay off. See `combat-spec.md`.
-4. **Prestige is diegetic.** Rewinding the mainspring literally resets the
-   machine's time while the Wright keeps their memory. A reset stops reading as
-   punishment, which is the usual failure mode of this genre's reset loop.
+3. **Conjunction is a synergy mechanic no other candidate offered.** When two
+   units on different orbits align radially — as planets fall into conjunction —
+   the alignment fires. Power comes from arrangements you set up in advance and
+   then *watch* pay off. See `combat-spec.md`. The reskin made this one
+   *literal*: it was an astronomy term borrowed for clockwork, and it now simply
+   means what it says.
+4. **Prestige is diegetic.** The Rewind returns the orbits to an earlier filed
+   configuration; the Operator remembers the last cycle and the system does not.
+   A reset stops reading as punishment, which is the usual failure mode of this
+   genre's reset loop.
 
-### Names locked in this phase
+### 3.1 What the reskin cost, recorded honestly
 
-| Thing | Name | Notes |
-|-------|------|-------|
-| The machine | **the Orrery** | |
-| The defended objective | **the Mainspring** | Health stat is **Tension** |
-| The player's order | **the Escapement** | The player is a **Wright** |
-| Front-line allies | **Movements** | Wound automata, named for clock parts |
-| Ranged support units | **Chimes** | Mounted on the outer rim |
-| The enemy force | **the Unwinding** | Its creatures are **Slack** |
-| The prestige act | **the Rewinding** | |
+PLAN.md named the setting as the one thing worth protecting deliberately. "A
+machine that drives the heavens, attacked by entropy, kept by bored technicians"
+is unusual; "aliens attack the sun" is not. That was raised before the decision
+and the decision was made anyway, with the trade understood.
 
-Nomenclature draws on real horological vocabulary — *escapement, detent, fusee,
-remontoire, verge, foliot* — which reads as invented but is public technical
-language, giving the world a specific texture without borrowing from any game.
+What preserves the distinctiveness is the **tone**, which did not change: a
+solar-system defence game written like a maintenance log is still not a common
+thing. narrative.md's three rules — understate the stakes, technical vocabulary
+with plain meaning, no prophecy and no villain with a plan — survived intact.
+
+### Names locked in Phase 29
+
+| Thing | Name | Was | Notes |
+|-------|------|-----|-------|
+| The station | **the Perihelion** | the Orrery | The point of closest approach |
+| The defended objective | **the Sun** | the Mainspring | Health stat is **Output** |
+| The player's order | **the Service** | the Escapement | The player is an **Operator** |
+| Front-line allies | **Platforms** | Movements | Sited in orbital slots |
+| Ranged support units | **Arrays** | Chimes | Mounted on the static rim |
+| The enemy force | **the Approach** | the Unwinding | Its craft are **Contacts** |
+| The manual strike | **the Flare** | the Beat | The only live input |
+| Run currency | **Salvage** | Filings | |
+| Roster tokens | **Clearance** | Keys | First-clear only |
+| Prestige currency | **Recollection** | *(unchanged)* | The Operator remembers |
+| The prestige act | **the Rewind** | *(unchanged)* | The orbits return; you do not |
+| The upgrade tree | **the Almanac** | the Escapement Tree | |
+
+Nomenclature is the register of a **log room** — *contact, picket, clearance,
+station, baseline, aperture* — real radar, observatory and duty-roster
+vocabulary. It reads as specific without being invented, and every term has a
+plain meaning available underneath it, which is narrative.md's second rule.
+
+Two names needed no change at all. **Rewind** and **Recollection** were the
+hardest part of the reskin to solve: theme-revision.md called prestige "the
+weakest part" of it, because a mainspring literally winds back and a solar
+system has no equivalent gesture. Choosing a **time loop** as the prestige
+fiction resolved it. The orbits return to a filed configuration and the operator
+carries the memory forward, so both words kept their literal sense and Phase
+26's code and copy survived the reskin untouched.
 
 ## 4. Design pillars
 
@@ -98,7 +135,7 @@ on a static grid is not pulling its weight.
 
 **P3 — Reward the plan, not the reflex.**
 Conjunction, ring phasing, and pattern timing pay off arrangements made in advance.
-The single live input (the Beat) is instant and area-based, so there is no
+The single live input (the Flare) is instant and area-based, so there is no
 aiming skill and nothing to miss with — never a dexterity test. Its failure mode
 is *damage not dealt*, never *damage taken*, which is what keeps it a lever
 rather than a tax. This keeps the game playable one-handed and accessible.
@@ -130,7 +167,7 @@ paying out while they are elsewhere. Comfortable with numbers going up and with
 reading a tooltip.
 
 **Secondary audience.** Bullet-hell spectators — people who enjoy watching dense
-patterns resolve but bounce off the execution demands of the genre. The Beat is
+patterns resolve but bounce off the execution demands of the genre. The Flare is
 deliberately sized for them: instant, area-based, and entirely optional.
 
 **Session shape.** 10–30 minutes of active arrangement per sitting, with meaningful

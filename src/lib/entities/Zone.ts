@@ -24,11 +24,11 @@ export interface StageDef {
    */
   readonly scalingIndex: number
 
-  /** Starting Tension, before Bracing-branch bonuses. */
-  readonly baseTension: number
+  /** Starting Output, before Bracing-branch bonuses. */
+  readonly baseOutput: number
 
-  /** Awarded on first clear only, so Keys cannot be farmed (economy-spec.md §1). */
-  readonly keyReward: number
+  /** Awarded on first clear only, so Clearance cannot be farmed (economy-spec.md §1). */
+  readonly clearanceReward: number
 }
 
 export interface ZoneDef extends ContentDef {
@@ -42,7 +42,7 @@ export interface ZoneDef extends ContentDef {
   /** Multiplies enemy HP and damage for every stage in this zone. */
   readonly scalingMultiplier: number
 
-  /** SlackDef ids that may appear here. Phase 31 populates. */
+  /** ContactDef ids that may appear here. Phase 31 populates. */
   readonly enemyPool: readonly string[]
 
   readonly stages: readonly StageDef[]

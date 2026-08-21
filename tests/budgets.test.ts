@@ -6,8 +6,8 @@ import { RIM_MOUNTS, TOTAL_SLOTS } from '../src/lib/content/field'
 import { PROJECTILE_BUDGET, Simulation, TICK_SECONDS } from '../src/lib/core/loop'
 import { loadStage } from '../src/lib/core/stageLoader'
 import { createRng } from '../src/lib/core/rng'
-import { createSlack } from '../src/lib/systems/spawn'
-import { slackById } from '../src/lib/content/enemies'
+import { createContact } from '../src/lib/systems/spawn'
+import { contactById } from '../src/lib/content/contacts'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
 /**
@@ -31,12 +31,12 @@ describe('budget definitions', () => {
   })
 
   it('sizes the unit budget to the field that exists', () => {
-    // Nothing can slot more Movements than there are slots.
+    // Nothing can slot more Platforms than there are slots.
     expect(BUDGETS.units).toBe(TOTAL_SLOTS + RIM_MOUNTS)
   })
 })
 
-describe('content stays inside the Slack budget', () => {
+describe('content stays inside the Contact budget', () => {
   /**
    * Worst case for a wave: everything it schedules is alive at once.
    * Conservative by construction — kills only reduce it — so a pass here is a
@@ -46,7 +46,7 @@ describe('content stays inside the Slack budget', () => {
     return waveGroups.reduce((n, g) => n + g.count, 0)
   }
 
-  it('never schedules more concurrent Slack than the budget allows', () => {
+  it('never schedules more concurrent Contact than the budget allows', () => {
     const overruns: string[] = []
 
     for (const zone of ZONES) {
@@ -54,7 +54,7 @@ describe('content stays inside the Slack budget', () => {
         for (const [index, wave] of stage.waves.entries()) {
           if (isBossWave(wave)) continue
           const peak = worstCaseConcurrent(wave.groups)
-          if (peak > BUDGETS.slack) {
+          if (peak > BUDGETS.contact) {
             overruns.push(`${zone.id}:${stage.id} wave ${index} schedules ${peak}`)
           }
         }
@@ -75,20 +75,20 @@ describe('content stays inside the Slack budget', () => {
       }
     }
     // Authored content is nowhere near the budget yet; Phase 33 will close this.
-    expect(worst).toBeLessThan(BUDGETS.slack)
+    expect(worst).toBeLessThan(BUDGETS.contact)
   })
 })
 
 describe('runtime instrumentation', () => {
-  const STAGE: StageAddress = 'escapement-floor:first-shift'
+  const STAGE: StageAddress = 'service-floor:first-shift'
 
-  /** Fill the field with real Slack, bypassing the wave schedule. */
+  /** Fill the field with real Contact, bypassing the wave schedule. */
   function flood(sim: Simulation, count: number): void {
-    const def = slackById('burr')!
-    for (let i = sim.state.slack.length; i < count; i++) {
+    const def = contactById('skiff')!
+    for (let i = sim.state.contact.length; i < count; i++) {
       const angle = (i / count) * Math.PI * 2
-      sim.state.slack.push(
-        createSlack(sim.state, def, {
+      sim.state.contact.push(
+        createContact(sim.state, def, {
           x: Math.cos(angle) * 320,
           y: Math.sin(angle) * 320,
         }),
@@ -96,27 +96,27 @@ describe('runtime instrumentation', () => {
     }
   }
 
-  it('tracks peak Slack without clamping it', () => {
+  it('tracks peak Contact without clamping it', () => {
     const sim = new Simulation(loadStage(STAGE), createRng(1))
     flood(sim, 50)
     sim.tick(TICK_SECONDS)
 
-    expect(sim.peakSlack).toBeGreaterThanOrEqual(50)
+    expect(sim.peakContact).toBeGreaterThanOrEqual(50)
     // The engine must never silently drop scheduled spawns.
-    expect(sim.state.slack.length).toBeGreaterThanOrEqual(50)
+    expect(sim.state.contact.length).toBeGreaterThanOrEqual(50)
   })
 
   it('counts ticks spent over budget rather than truncating', () => {
     const sim = new Simulation(loadStage(STAGE), createRng(1))
-    expect(sim.ticksOverSlackBudget).toBe(0)
+    expect(sim.ticksOverContactBudget).toBe(0)
 
-    flood(sim, BUDGETS.slack + 25)
-    const before = sim.state.slack.length
+    flood(sim, BUDGETS.contact + 25)
+    const before = sim.state.contact.length
     sim.tick(TICK_SECONDS)
 
-    expect(sim.ticksOverSlackBudget).toBeGreaterThan(0)
+    expect(sim.ticksOverContactBudget).toBeGreaterThan(0)
     // Over budget is reported, never enforced by dropping entities.
-    expect(sim.state.slack.length).toBe(before)
+    expect(sim.state.contact.length).toBe(before)
   })
 
   it('caps projectiles at the budget, because patterns cannot be predicted', () => {

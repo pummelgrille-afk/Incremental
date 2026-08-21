@@ -9,7 +9,7 @@ import type { ContentDef } from './types'
 
 /** One group within a wave. A wave is several of these, staggered. */
 export interface SpawnGroup {
-  /** SlackDef id from content/enemies.ts. */
+  /** ContactDef id from content/contacts.ts. */
   readonly defId: string
   readonly count: number
 
@@ -20,7 +20,7 @@ export interface SpawnGroup {
 
   /**
    * Arc of the rim to spawn across, in radians. Omitted means the full circle.
-   * Concentrating a group on one arc creates a cluster worth spending a Beat
+   * Concentrating a group on one arc creates a cluster worth spending a Flare
    * on, and leaves the opposite arc briefly undefended.
    */
   readonly arc?: { centre: number; width: number }
@@ -29,7 +29,7 @@ export interface SpawnGroup {
 export interface WaveDef {
   readonly groups: readonly SpawnGroup[]
   /**
-   * Seconds to wait after the last Slack dies before the next wave.
+   * Seconds to wait after the last Contact dies before the next wave.
    * The player's re-slotting window — see game-loop.md.
    */
   readonly gapAfter: number

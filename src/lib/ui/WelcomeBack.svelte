@@ -4,7 +4,7 @@
   /**
    * The "welcome back" summary.
    *
-   * economy-spec.md §4 asks it to report elapsed time, Filings earned, **and —
+   * economy-spec.md §4 asks it to report elapsed time, Salvage earned, **and —
    * honestly — what was missed**: "telling the player they lost nothing when
    * they did is the kind of thing that erodes trust in an idle game's numbers."
    *
@@ -25,8 +25,8 @@
   }
 
   const shortfall = $derived(
-    summary && summary.activeEquivalent > summary.filings
-      ? summary.activeEquivalent - summary.filings
+    summary && summary.activeEquivalent > summary.salvage
+      ? summary.activeEquivalent - summary.salvage
       : 0,
   )
 
@@ -48,15 +48,15 @@
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => e.stopPropagation()}
     >
-      <h2>The floor kept turning</h2>
+      <h2>The orbits kept turning</h2>
       <p class="voice">
-        {duration(summary.elapsedSeconds)} away. Somebody wound it, after a
-        fashion.
+        {duration(summary.elapsedSeconds)} away. Somebody covered the watch,
+        after a fashion.
       </p>
 
       <div class="earned">
-        <span class="value">+{summary.filings}</span>
-        <span class="label">Filings</span>
+        <span class="value">+{summary.salvage}</span>
+        <span class="label">Salvage</span>
       </div>
 
       <ul class="ledger">
@@ -82,7 +82,7 @@
 
       <p class="note">
         Nothing else accrues while you are away: no conjunctions fire, no stages
-        clear, and so <strong>no Keys are earned</strong>. The machine runs
+        clear, and so <strong>no Clearance is earned</strong>. The station runs
         without you — just not as well.
       </p>
 

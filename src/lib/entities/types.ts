@@ -8,7 +8,7 @@
 /** Dense integer handle. Entities are pooled, so ids are reused. */
 export type EntityId = number
 
-/** Ring 0 is the Mainspring; 1–4 are the rotating rings. Rim mounts are static. */
+/** Ring 0 is the Sun; 1–4 are the rotating rings. Rim mounts are static. */
 export type RingIndex = 0 | 1 | 2 | 3 | 4
 
 /**
@@ -21,16 +21,16 @@ export interface SlotRef {
   slot: number
 }
 
-/** Free-moving entities (Slack, Projectiles) do carry a resolved position. */
+/** Free-moving entities (Contact, Projectiles) do carry a resolved position. */
 export interface Vec2 {
   x: number
   y: number
 }
 
-/** What a Movement or Chime deals. See docs/design/combat-spec.md §7. */
+/** What a Platform or Array deals. See docs/design/combat-spec.md §7. */
 export type DamageType = 'shear' | 'percussive' | 'thermal' | 'resonant'
 
-/** What a Slack resists. Paired against DamageType in content/damageTypes.ts. */
+/** What a Contact resists. Paired against DamageType in content/damageTypes.ts. */
 export type ArmourClass = 'massed' | 'rigid' | 'seized' | 'erratic'
 
 /** Target selection. Defaults per archetype; overridable per unit in content. */

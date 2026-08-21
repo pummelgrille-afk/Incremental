@@ -32,8 +32,8 @@ export interface WaveStats {
   seconds: number
   spawned: number
   killed: number
-  /** Tension lost during this wave, as a fraction of maximum. */
-  tensionLost: number
+  /** Output lost during this wave, as a fraction of maximum. */
+  outputLost: number
 }
 
 function emptySource(): SourceStats {
@@ -41,7 +41,7 @@ function emptySource(): SourceStats {
 }
 
 export class Telemetry {
-  /** Keyed by def id — allies, Chimes, the Beat, and conjunctions alike. */
+  /** Keyed by def id — allies, Arrays, the Flare, and conjunctions alike. */
   readonly sources = new Map<string, SourceStats>()
   readonly waves: WaveStats[] = []
 
@@ -50,9 +50,9 @@ export class Telemetry {
   stageSeconds: number | null = null
   outcome: 'running' | 'cleared' | 'lost' = 'running'
 
-  /** Damage the Mainspring took, in absolute Tension. */
-  tensionLost = 0
-  beatsStruck = 0
+  /** Damage the Sun took, in absolute Output. */
+  outputLost = 0
+  flaresStruck = 0
   conjunctionsFired = 0
 
   private stat(id: string): SourceStats {
@@ -119,8 +119,8 @@ export class Telemetry {
     this.elapsed = 0
     this.stageSeconds = null
     this.outcome = 'running'
-    this.tensionLost = 0
-    this.beatsStruck = 0
+    this.outputLost = 0
+    this.flaresStruck = 0
     this.conjunctionsFired = 0
   }
 }
@@ -141,6 +141,6 @@ export function createTelemetry(): Telemetry | null {
 
 /** Source ids for the things that deal damage but are not slotted units. */
 export const TELEMETRY_SOURCES = {
-  beat: 'the-beat',
+  flare: 'the-flare',
   conjunction: 'conjunction',
 } as const

@@ -14,12 +14,12 @@ import { STARTING_ZONE_ID } from '../content/zones'
  * def object — content changes between versions, saves must not.
  */
 
-export const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 6
 
 /** Discarded on Rewinding. */
 export interface RunState {
   /** Run currency. Resets to zero. */
-  filings: number
+  salvage: number
 
   /** Where the player is. Null before the first stage is entered. */
   currentStage: StageAddress | null
@@ -28,12 +28,12 @@ export interface RunState {
   deepestScalingIndex: number
 
   /**
-   * Formation: which Movement occupies which slot.
-   * Key is `${ring}:${slot}`, value is a MovementDef id.
+   * Formation: which Platform occupies which slot.
+   * Key is `${ring}:${slot}`, value is a PlatformDef id.
    */
   formation: Record<string, string>
 
-  /** Chime mounts. Key is the rim mount index, value is a ChimeDef id. */
+  /** Array mounts. Key is the rim mount index, value is a ArrayDef id. */
   mounts: Record<string, string>
 
   /** Escalating in-run sink counters — see economy-spec.md §1. */
@@ -44,7 +44,7 @@ export interface RunState {
   startedAt: number
 
   /**
-   * Filings per second the player was earning when they last played, which is
+   * Salvage per second the player was earning when they last played, which is
    * what offline progress is scaled from. Added in schema 4.
    *
    * In `run` rather than `meta` because it describes the strength of *this*
@@ -52,17 +52,17 @@ export interface RunState {
    * it. Otherwise the first absence after a Rewind would pay at the old
    * formation's rate.
    */
-  filingsPerSecond: number
+  salvagePerSecond: number
 
   /**
-   * Whether a Chime has been mounted at any point this run. Added in schema 5.
+   * Whether a Array has been mounted at any point this run. Added in schema 5.
    *
    * Exists for the "Documented Procedure" achievement. Checked against the run
    * rather than the zone because a per-zone check is gameable — unmount before
    * the final clear and collect it anyway — and an achievement that rewards a
    * technicality is worse than one that asks for a little more.
    */
-  chimesEverMounted: boolean
+  arraysEverMounted: boolean
 }
 
 /** A named formation, kept across Rewinds. See progression/loadout.ts. */
@@ -77,14 +77,14 @@ export interface MetaState {
   /** Prestige currency. */
   recollection: number
   /** Roster tokens. First-clear only, so unfarmable. */
-  keys: number
+  clearance: number
 
-  /** Purchased Escapement Tree node ids. Respec is free, so this is a set. */
+  /** Purchased Almanac node ids. Respec is free, so this is a set. */
   purchasedNodes: string[]
 
   /** Unlocked roster. Key is a def id, value is its level. */
-  movements: Record<string, number>
-  chimes: Record<string, number>
+  platforms: Record<string, number>
+  arrays: Record<string, number>
 
   /**
    * Saved formations, by name. Added in schema 2.
@@ -96,12 +96,12 @@ export interface MetaState {
   presets: Preset[]
 
   /**
-   * Chime upgrade tracks, keyed by def id then track name. Added in schema 3.
+   * Array upgrade tracks, keyed by def id then track name. Added in schema 3.
    *
-   * Separate from `chimes` (which holds unlock state) because a Chime is
+   * Separate from `arrays` (which holds unlock state) because a Array is
    * *shaped* rather than levelled — see progression/support.ts.
    */
-  chimeUpgrades: Record<string, Record<string, number>>
+  arrayUpgrades: Record<string, Record<string, number>>
 
   /** Zone ids the player may enter. */
   unlockedZones: string[]
@@ -128,8 +128,8 @@ export interface Settings {
 }
 
 export interface Statistics {
-  totalFilingsEarned: number
-  totalSlackDestroyed: number
+  totalSalvageEarned: number
+  totalContactsDestroyed: number
   conjunctionsFired: number
   deepestScalingIndexEver: number
   /** Seconds of active play. Offline time is not counted. */
@@ -153,7 +153,7 @@ export function createDefaultSave(now = Date.now()): SaveData {
     schemaVersion: SCHEMA_VERSION,
     savedAt: now,
     run: {
-      filings: 0,
+      salvage: 0,
       currentStage: null,
       deepestScalingIndex: 0,
       formation: {},
@@ -161,17 +161,17 @@ export function createDefaultSave(now = Date.now()): SaveData {
       repairsThisStage: 0,
       reinforcements: 0,
       startedAt: now,
-      filingsPerSecond: 0,
-      chimesEverMounted: false,
+      salvagePerSecond: 0,
+      arraysEverMounted: false,
     },
     meta: {
       recollection: 0,
-      keys: 0,
+      clearance: 0,
       purchasedNodes: [],
-      movements: {},
-      chimes: {},
+      platforms: {},
+      arrays: {},
       presets: [],
-      chimeUpgrades: {},
+      arrayUpgrades: {},
       unlockedZones: [STARTING_ZONE_ID],
       clearedStages: [],
       achievements: [],
@@ -188,8 +188,8 @@ export function createDefaultSave(now = Date.now()): SaveData {
       showFps: false,
     },
     statistics: {
-      totalFilingsEarned: 0,
-      totalSlackDestroyed: 0,
+      totalSalvageEarned: 0,
+      totalContactsDestroyed: 0,
       conjunctionsFired: 0,
       deepestScalingIndexEver: 0,
       playtimeSeconds: 0,
@@ -332,7 +332,7 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
     schemaVersion: version,
     savedAt: num(raw.savedAt, now, 0),
     run: {
-      filings: num(run.filings, 0, 0),
+      salvage: num(run.salvage, 0, 0),
       currentStage:
         typeof run.currentStage === 'string' ? (run.currentStage as StageAddress) : null,
       deepestScalingIndex: num(run.deepestScalingIndex, 0, 0),
@@ -341,17 +341,17 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
       repairsThisStage: num(run.repairsThisStage, 0, 0),
       reinforcements: num(run.reinforcements, 0, 0),
       startedAt: num(run.startedAt, now, 0),
-      filingsPerSecond: num(run.filingsPerSecond, 0, 0),
-      chimesEverMounted: run.chimesEverMounted === true,
+      salvagePerSecond: num(run.salvagePerSecond, 0, 0),
+      arraysEverMounted: run.arraysEverMounted === true,
     },
     meta: {
       recollection: num(meta.recollection, 0, 0),
-      keys: num(meta.keys, 0, 0),
+      clearance: num(meta.clearance, 0, 0),
       purchasedNodes: strArray(meta.purchasedNodes),
-      movements: numRecord(meta.movements),
-      chimes: numRecord(meta.chimes),
+      platforms: numRecord(meta.platforms),
+      arrays: numRecord(meta.arrays),
       presets: presetArray(meta.presets),
-      chimeUpgrades: nestedNumRecord(meta.chimeUpgrades),
+      arrayUpgrades: nestedNumRecord(meta.arrayUpgrades),
       unlockedZones: strArray(meta.unlockedZones),
       clearedStages: strArray(meta.clearedStages) as StageAddress[],
       achievements: strArray(meta.achievements),
@@ -370,8 +370,8 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
       showFps: bool(settings.showFps, d.settings.showFps),
     },
     statistics: {
-      totalFilingsEarned: num(stats.totalFilingsEarned, 0, 0),
-      totalSlackDestroyed: num(stats.totalSlackDestroyed, 0, 0),
+      totalSalvageEarned: num(stats.totalSalvageEarned, 0, 0),
+      totalContactsDestroyed: num(stats.totalContactsDestroyed, 0, 0),
       conjunctionsFired: num(stats.conjunctionsFired, 0, 0),
       deepestScalingIndexEver: num(stats.deepestScalingIndexEver, 0, 0),
       playtimeSeconds: num(stats.playtimeSeconds, 0, 0),

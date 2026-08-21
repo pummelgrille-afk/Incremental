@@ -26,14 +26,14 @@ export interface AchievementContext {
   /** What prompted this evaluation. */
   event: AchievementEvent
 
-  /** The stage just cleared cost no Tension at all. */
+  /** The stage just cleared cost no Output at all. */
   clearedUntouched: boolean
   /** Participants in the largest conjunction this tick. */
   largestConjunction: number
-  /** How many *different* Movement types are on the field. */
-  distinctMovementsSlotted: number
-  /** How many Movement types the player owns. */
-  unlockedMovements: number
+  /** How many *different* Platform types are on the field. */
+  distinctPlatformsSlotted: number
+  /** How many Platform types the player owns. */
+  unlockedPlatforms: number
   /** This clear finished every stage in its zone. */
   zoneCompleted: boolean
 }

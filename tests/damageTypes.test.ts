@@ -8,7 +8,7 @@ import {
   UNFAVOURABLE,
   typeMultiplier,
 } from '../src/lib/content/damageTypes'
-import { conjunctionScaleOf } from '../src/lib/entities/Movement'
+import { conjunctionScaleOf } from '../src/lib/entities/Platform'
 
 describe('type multipliers', () => {
   it('matches the pairings in combat-spec.md §7', () => {

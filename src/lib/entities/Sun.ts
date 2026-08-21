@@ -1,9 +1,9 @@
 import type { Damageable } from './types'
 
 /**
- * The Mainspring — the defended objective at the centre of the field.
+ * The Sun — the defended objective at the centre of the field.
  *
- * Its health stat is Tension. At zero the Orrery stops and the **stage** is
+ * Its health stat is Output. At zero the Perihelion stops and the **stage** is
  * lost; the *run* is not (docs/design/game-loop.md). Losing costs time, never
  * progress, which is what keeps failure from reading as punishment (P5).
  *
@@ -13,10 +13,10 @@ import type { Damageable } from './types'
  * they depend on the whole simulation rather than on this object alone.
  */
 
-export interface MainspringState extends Damageable {
+export interface SunState extends Damageable {
   /** Alias of hp, in the game's own vocabulary. */
-  readonly tension: number
-  readonly maxTension: number
+  readonly output: number
+  readonly maxOutput: number
 
   /**
    * Collision radius — deliberately smaller than the rendered sprite so near
@@ -24,10 +24,10 @@ export interface MainspringState extends Damageable {
    */
   readonly hitboxRadius: number
 
-  /** Tension per second while recovering. See `REGEN_IN_COMBAT`. */
+  /** Output per second while recovering. See `REGEN_IN_COMBAT`. */
   regenPerSecond: number
 
-  /** Absorbs damage before Tension. Granted by conjunctions and upgrades. */
+  /** Absorbs damage before Output. Granted by conjunctions and upgrades. */
   shield: number
   /** Seconds until the shield lapses. Zero means no active shield. */
   shieldRemaining: number
@@ -38,11 +38,11 @@ export interface MainspringState extends Damageable {
   /** Emergency repairs used this stage. Drives the escalating cost. */
   repairsThisStage: number
 
-  /** Lowest Tension fraction reached. Feeds achievements and telemetry. */
+  /** Lowest Output fraction reached. Feeds achievements and telemetry. */
   lowestFraction: number
 
   /**
-   * Tension fraction at the end of the previous tick.
+   * Output fraction at the end of the previous tick.
    *
    * Threshold crossings are detected against this rather than within a single
    * function, because damage lands at steps 6-8 of the tick while recovery runs
@@ -52,36 +52,36 @@ export interface MainspringState extends Damageable {
   previousFraction: number
 }
 
-export const MAINSPRING_HITBOX_RADIUS = 28
+export const SUN_HITBOX_RADIUS = 28
 
 /**
  * Regeneration is paused while a wave is live.
  *
  * Decided in Phase 12. `game-loop.md` says damage carries into the next wave as
- * reduced Tension — continuous regeneration would erode that, letting sustained
+ * reduced Output — continuous regeneration would erode that, letting sustained
  * pressure be out-healed rather than survived. Confining recovery to the gap
  * between waves keeps the carry-over meaningful and turns the gap into a real
- * beat instead of dead time.
+ * flare instead of dead time.
  */
 export const REGEN_IN_COMBAT = false
 
-/** Fraction of max Tension an emergency repair restores. economy-spec.md §1. */
+/** Fraction of max Output an emergency repair restores. economy-spec.md §1. */
 export const REPAIR_FRACTION = 0.25
 
 /** Thresholds that fire an event when crossed downward. */
-export const TENSION_THRESHOLDS = [0.5, 0.25, 0.1] as const
+export const OUTPUT_THRESHOLDS = [0.5, 0.25, 0.1] as const
 
-export function createMainspring(maxTension: number): MainspringState {
+export function createSun(maxOutput: number): SunState {
   return {
-    hp: maxTension,
-    maxHp: maxTension,
-    get tension() {
+    hp: maxOutput,
+    maxHp: maxOutput,
+    get output() {
       return this.hp
     },
-    get maxTension() {
+    get maxOutput() {
       return this.maxHp
     },
-    hitboxRadius: MAINSPRING_HITBOX_RADIUS,
+    hitboxRadius: SUN_HITBOX_RADIUS,
     regenPerSecond: 0,
     shield: 0,
     shieldRemaining: 0,
@@ -93,11 +93,11 @@ export function createMainspring(maxTension: number): MainspringState {
 }
 
 /** The stage-loss condition. The only thing that ends a stage unsuccessfully. */
-export function isOverwhelmed(m: MainspringState): boolean {
+export function isOverwhelmed(m: SunState): boolean {
   return m.hp <= 0
 }
 
-export function tensionFraction(m: MainspringState): number {
+export function outputFraction(m: SunState): number {
   return m.maxHp > 0 ? m.hp / m.maxHp : 0
 }
 
@@ -106,7 +106,7 @@ export function tensionFraction(m: MainspringState): number {
  * stacking would let a player bank conjunctions into an invulnerability window,
  * which fights the "no wall" principle in economy-spec.md §5.
  */
-export function grantShield(m: MainspringState, amount: number, duration: number): void {
+export function grantShield(m: SunState, amount: number, duration: number): void {
   if (amount >= m.shield) {
     m.shield = amount
     m.shieldRemaining = duration
@@ -118,19 +118,19 @@ export function grantShield(m: MainspringState, amount: number, duration: number
 
 /*
  * The cost of a repair lives in `progression/currencies.ts` with the other
- * three Filings sinks, not here. It had its curve inline as default parameters
+ * three Salvage sinks, not here. It had its curve inline as default parameters
  * — the drift CLAUDE.md's convention exists to prevent — and an entity reaching
  * into `content/` to fix that would have inverted the layering instead.
  */
 
 /**
- * Emergency repair: restore a fixed fraction of maximum Tension.
+ * Emergency repair: restore a fixed fraction of maximum Output.
  *
  * Returns false when already at full, so the caller never charges for nothing.
  * The escalating cost is what keeps this a panic button rather than a strategy
  * (economy-spec.md invariant 6).
  */
-export function repair(m: MainspringState): boolean {
+export function repair(m: SunState): boolean {
   if (m.hp >= m.maxHp) return false
   m.hp = Math.min(m.maxHp, m.hp + m.maxHp * REPAIR_FRACTION)
   m.repairsThisStage++

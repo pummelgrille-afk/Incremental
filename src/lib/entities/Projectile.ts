@@ -10,7 +10,7 @@ import type { DamageType, EntityId, Vec2 } from './types'
  * their shape and timing.
  */
 
-export type ProjectileFaction = 'slack' | 'chime'
+export type ProjectileFaction = 'contact' | 'array'
 
 export interface Projectile {
   readonly id: EntityId
@@ -37,7 +37,7 @@ export interface Projectile {
    */
   angularVelocity: number
 
-  /** Which Chime or Slack fired it, for kill attribution and telemetry. */
+  /** Which Array or Contact fired it, for kill attribution and telemetry. */
   sourceId: EntityId
 
   /**

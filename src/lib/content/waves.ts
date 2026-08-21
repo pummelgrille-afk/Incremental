@@ -38,7 +38,7 @@ export function scattered(defId: string, count: number, interval = 0.5): WaveDef
 /**
  * Concentrated on one arc.
  *
- * Asks whether the formation is evenly spread or clumped — and rewards a Beat,
+ * Asks whether the formation is evenly spread or clumped — and rewards a Flare,
  * since a cluster is exactly what an area strike is for.
  */
 export function massed(

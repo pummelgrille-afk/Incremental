@@ -1,196 +1,224 @@
 # Narrative & World
 
-> Phase 4 output. Original lore, characters and tone. Zone and boss flavour text
-> here is the source copy for `content/zones.ts` and `content/bosses.ts`.
+> Phase 4 output, **rewritten wholesale in Phase 29** for the solar reskin.
+> Original lore, characters and tone. Zone and boss flavour text here is the
+> source copy for `content/zones.ts` and `content/bosses.ts`.
 
-> **A theme revision is pending.** This document describes the clockwork Orrery
-> setting. A decided-but-deferred reskin to a literal solar system supersedes
-> parts of it — see [`theme-revision.md`](./theme-revision.md). Nothing here is
-> implemented differently yet.
+> **The reskin is done.** This file described a clockwork orrery until Phase 29.
+> [`theme-revision.md`](./theme-revision.md) specifies the change and records
+> what it cost. The **tone** below is what survived, and it is deliberately the
+> part that did: the setting became more ordinary, and the voice is what keeps
+> the game from being ordinary with it.
 
 ## Premise
 
-The Orrery is a machine the size of a city. Brass rings, nested one inside the
-next, turning on a floor of black stone. At its centre, under glass, a coiled
-spring the width of a river.
+The Sun is under attack, and somebody has to be on shift for it.
 
-The Orrery is not a model of the heavens. It is their cause.
+Craft come down the gravity well from outside the charted system — not many at
+once, never announced, and never the same shape twice. They make for the Sun and
+nothing else. What they want with it is not known and has never been asked, on
+the grounds that asking is not a procedure.
 
-Nobody remembers building it. The Escapement — the order that keeps it — inherited
-a maintenance manual, a set of keys, and a rule: *the rings must turn.* They have
-turned for eleven hundred years. They are turning more slowly now.
+Four planets hold their orbits. The Service holds the four orbits, from a station
+sitting closer in than anything is supposed to sit. It is called **the
+Perihelion**, which is the point of closest approach, and which is also a date on
+a rota.
 
 ## Tone
 
 Quiet, procedural, faintly melancholy. The register is a **maintenance log**, not
-an epic. Nobody in this world is a chosen one; they are on shift. Humour is dry and
-comes from understatement — a catastrophic failure noted in the same voice as a
+an epic. Nobody in this world is a chosen one; they are on shift. Humour is dry
+and comes from understatement — the sky going out noted in the same voice as a
 sticking hinge.
 
-Three rules for all written content:
+Three rules for all written content. These are the whole reason the reskin was
+survivable, and they did not change:
 
-1. **Understate the stakes.** The sky going out is a scheduling problem.
-2. **Technical vocabulary, plain meaning.** Flavour may say *remontoire*; the
+1. **Understate the stakes.** The Sun going out is a scheduling problem.
+2. **Technical vocabulary, plain meaning.** Flavour may say *long baseline*; the
    tooltip underneath always says what it does. (P4 extends to text.)
-3. **No prophecy, no destiny, no villain with a plan.** The Unwinding is not
-   malicious. It is what happens when tension is lost. That is worse.
+3. **No prophecy, no destiny, no villain with a plan.** The Approach is not
+   malicious. It is only ever *arriving*. That is worse.
 
 ## The player
 
-You are a **Wright** of the Escapement. Not the first, not the last, not special —
-the one who happens to be on shift when the rings slow past the point the manual
-covers.
+You are an **Operator** of the Service. Not the first, not the last, not special
+— the one who happens to be on shift when the Approach thickens past the point
+the Manual covers.
 
 You are never depicted and never speak. The game addresses you the way the manual
-does: imperative, second person, assuming competence. *Wind the inner ring. Do not
-let the Mainspring slack.*
+does: imperative, second person, assuming competence. *Site the inner platforms.
+Do not let the Output fall.*
 
-## The Escapement
+## The Service
 
-The order is small — a few dozen Wrights across a machine that needs thousands.
-They are technicians, not warriors. Institutional voice: procedural, a little
-worn-down, deeply proud in a way nobody says aloud.
+The order is small — a few dozen Operators across a system that would need
+thousands. They are technicians, not soldiers. Institutional voice: procedural, a
+little worn-down, deeply proud in a way nobody says aloud.
 
 **Voices that appear in flavour text:**
 
 - **The Manual.** Not a person. Eleven hundred years of annotation in a dozen
   hands, each correcting the last. Contradicts itself. Sometimes the marginalia
   is the useful part. Source of most upgrade tooltips.
-- **Wright Sabel Ock.** Dead two centuries; kept the most complete logs. Dry to
+- **Operator Sabel Ock.** Dead two centuries; kept the most complete logs. Dry to
   the point of rudeness. Most-quoted, least-liked. Source of most zone epigraphs.
 - **The Undermaster.** Whoever currently holds the post. Never named, because the
   post outlives its holders. Delivers stage-clear and progression text.
 
-## The Unwinding
+## The Approach
 
-Not an invasion. A **condition**.
+Not an invasion. A **condition of the system**.
 
-Every mechanism loses tension. The Orrery loses it faster than it can be wound, and
-where tension escapes, it does not simply vanish — it takes shape. The escaped
-motion organises itself into things that move, and what those things want, insofar
-as anything wants, is more slack.
+There is no fleet, no homeworld, no general. Craft arrive down the well the way
+weather arrives: continuously, at varying pressure, from a direction rather than
+from a place. The Service calls the whole of it **the Approach**, singular,
+because counting it as separate events stopped being useful about nine hundred
+years ago.
 
-Its creatures are **Slack**. They come from inside the machine, condensing out of
-worn bearings and loose gearing. There is no source to destroy, no general to kill.
-You are not fighting an enemy. You are fighting the second law, and you are losing
-slowly, which is the best anyone has ever managed.
+Its craft are logged as **Contacts** — classed by silhouette, never by intent.
+Nothing out there has been asked what it wants, and nothing has volunteered.
 
-**Why they attack the Mainspring:** it holds the most tension in the machine. Slack
-move down the tension gradient the way water moves downhill. The bullet patterns
-are not aimed out of malice — they are pressure finding the shortest path.
+**Why they make for the Sun:** it is the largest thing in the system and the
+bottom of every gradient here. Contacts fall toward it the way water falls
+downhill. The bullet patterns are not aimed out of malice — they are pressure
+finding the shortest path.
+
+> *"I have read the file that argues they are hostile. It is a good file. It
+> rests entirely on the fact that they keep coming, which is also true of the
+> tide."*
+> — Sabel Ock
 
 ## Zones
 
-Six zones, outward from the centre. Each is a real ring of the machine.
+Six zones, outward from the Sun. Each is a stretch of the system the Service is
+expected to hold.
 
-### 1. The Escapement Floor
+### 1. The Service Floor
 
-Where Wrights work. Tool racks, chalked repair notes, tea going cold on a gear
-housing. The only zone that looks lived-in.
+Where Operators work. Tool racks, chalked repair notes, tea going cold on a
+console housing. The only zone that looks lived-in.
 
-> *"Start here. Everything here is documented. Nothing further in is."*
+> *"Start here. Everything this close in is documented. Nothing further out is."*
 > — the Manual
 
-### 2. The Hour Ring
+### 2. The Fast Orbit
 
-The fastest ring, and the one whose failure is noticed first. Grooved smooth by
-eleven centuries of contact.
+Mercury's. The quickest of the four, and the one whose failure is noticed first.
+Scoured smooth by eleven centuries of close work.
 
-> *"The Hour Ring has never once been stopped for maintenance. This is presented in
-> the Manual as an achievement. I file it under reasons for the current state."*
+> *"The Fast Orbit has never once been stood down for maintenance. This is
+> presented in the Manual as an achievement. I file it under reasons for the
+> current state."*
 > — Sabel Ock
 
-### 3. The Wander Rings
+### 3. The Veil
 
-Five nested rings at deliberately irrational ratios, so they never repeat an
-alignment. Loudest part of the machine. Conjunctions here are genuinely rare
-events, and the Escapement records them.
+Venus's orbit, and nothing is seen through it. Alignments here are recorded by
+instrument rather than by eye, which does not make them less rare — only harder
+to be sure of afterwards.
 
 > *"Recorded a triple conjunction at the fourth hour. Second in my service.
 > Sat down for it."*
 > — Sabel Ock
 
-### 4. The Ring of Fixed Lights
+### 4. The Home Orbit
 
-Enormous and almost motionless — one revolution takes a human lifetime. Wrights
-posted here train replacements before their own work is finished.
+Earth's, and the only one with anything on it worth the word. Operators posted
+here are the ones who train the replacements, which is not a promotion and is
+not described as one.
 
-> *"You will not see this ring complete a turn. Neither did the Wright who taught
-> you. Do the work anyway."*
+> *"They will send you home eventually. Nobody has ever told me what for."*
 > — the Undermaster
 
-### 5. The Crystalline Drift
+### 5. The Cold Line
 
-Where the brass gives out and the machine continues in something clearer and much
-older. Nothing here matches the manual. The Escapement's official position is that
-this section is original construction. Nobody believes it.
+Past Mars, where the charts give out and the Service continues anyway. Nothing
+here matches the Manual. The official position is that this stretch was surveyed
+and found unremarkable. Nobody believes it.
 
-> *"The Manual's page for this ring is blank. Not missing. Blank, and bound in with
-> the rest. Someone chose that."*
+> *"The Manual's page for this stretch is blank. Not missing. Blank, and bound
+> in with the rest. Someone chose that."*
 > — Sabel Ock
 
-### 6. The Unnumbered Ring
+### 6. The Unlit Orbit
 
-The outermost. Dark for nine generations. Its gearing is intact; it simply has not
-been driven since before the current numbering system, which is why it has no
-number. Turning it over is the goal.
+The outermost. Dark for nine generations. Its station is intact; it simply has
+not been staffed since before the current numbering, which is why it has no
+number. Bringing it back on watch is the goal.
 
-> *"There is a ring past the Drift. It is not broken. It is only stopped.
+> *"There is a station past the Cold Line. It is not wrecked. It is only unlit.
 > Those are different problems, and only one of them is ours."*
 > — the Manual
 
 ## Bosses
 
-Five milestone encounters. Each is a **failure mode of the machine given form** —
-never a creature, never a person.
+Five milestone encounters. Each is a **failure of the watch given form** — never
+a creature, never a person. This rule survived the reskin unchanged and is the
+main thing keeping the bestiary from becoming somebody else's.
 
 | Boss | Zone | Is | Flavour |
 |------|------|-----|---------|
-| **The Backlash** | Hour Ring | Accumulated play in the gear train, released at once | *"Every tooth that ever failed to mesh cleanly, arriving together."* |
-| **The Sympathetic** | Wander Rings | A resonance that has learned to keep itself going | *"It is not attacking in rhythm. You are defending in its rhythm. Notice the difference."* |
-| **Long Wear** | Fixed Lights | Two centuries of erosion, compressed | *"Slow. Patient. It has already won against everything else here."* |
-| **The Blank Page** | Crystalline Drift | Whatever the Manual declined to describe | *"No entry. Proceed at the Undermaster's discretion."* |
-| **The Stopped Hand** | Unnumbered Ring | The moment the ring stopped, still happening | *"It is not guarding the ring. It is the reason the ring is not turning."* |
+| **The Backlog** | Fast Orbit | Everything that got past, arriving at once | *"Every contact anyone ever waved through, keeping its appointment together."* |
+| **The Sympathetic** | The Veil | A resonance that has learned to keep itself going | *"It is not attacking in rhythm. You are defending in its rhythm. Notice the difference."* |
+| **Long Wear** | Home Orbit | Two centuries of erosion, compressed | *"Slow. Patient. It has already won against everything else here."* |
+| **The Blank Page** | Cold Line | Whatever the Manual declined to describe | *"No entry. Proceed at the Undermaster's discretion."* |
+| **The Dark Watch** | Unlit Orbit | The hour that station went dark, still happening | *"It is not holding the station. It is the reason the station is unlit."* |
 
 ## Achievement names
 
 In the Manual's register — dry, procedural, occasionally rueful.
 
-| Achievement | For |
-|-------------|-----|
-| *Signed for the Shift* | Clear the first stage |
-| *Within Tolerance* | Clear a stage without losing Tension |
-| *Noted in the Log* | Trigger a first conjunction |
-| *Sat Down for It* | Trigger a triple conjunction |
-| *Documented Procedure* | Clear a zone using only Movements from the Manual's roster |
-| *The Undermaster Will Hear of This* | Lose a stage with a full roster slotted |
-| *Wound It Back* | First Rewinding |
-| *Eleven Hundred and One* | Play across a real-world year |
-| *Blank, and Bound In* | Reach the Crystalline Drift |
-| *Off the Manual's Pages* | Clear content past the authored zones |
-| *Somebody's Shift* | Return after seven days away |
-| *It Is Only Stopped* | Turn the Unnumbered Ring |
+The first seven are **implemented** in `content/achievements.ts`, and a test
+asserts these names against that file in order. If they drift, this document has
+stopped being the source of truth it claims to be. None of the seven needed
+changing for the reskin; they were never horological.
+
+| Achievement | For | Status |
+|-------------|-----|--------|
+| *Signed for the Shift* | Clear the first stage | Phase 28 |
+| *Within Tolerance* | Clear a stage without losing Output | Phase 28 |
+| *Noted in the Log* | Trigger a first conjunction | Phase 28 |
+| *Sat Down for It* | Trigger a triple conjunction | Phase 28 |
+| *Documented Procedure* | Clear a zone using only Platforms from the Manual's roster | Phase 28 |
+| *The Undermaster Will Hear of This* | Lose a stage with a full roster sited | Phase 28 |
+| *Wound It Back* | First Rewind | Phase 28 |
+| *Continuous Service* | Play across a real-world year | Phase 36 |
+| *Blank, and Bound In* | Reach the Cold Line | Phase 33 |
+| *Off the Manual's Pages* | Clear content past the authored zones | Phase 36 |
+| *Somebody's Shift* | Return after seven days away | Phase 36 |
+| *It Is Only Unlit* | Bring the Unlit Orbit back on watch | Phase 33 |
 
 ## Originality check
 
 > *Would this stand on its own with no reference game in mind?*
 
-Yes, and the test is that the fiction and the mechanics generate each other rather
-than sitting side by side:
+This is the question the reskin made harder, and it deserves an honest answer
+rather than a confident one.
 
-- The **rotating formation grid** exists because an orrery's rings turn. It was not
-  a mechanic looking for a skin.
-- **Conjunction** is an astronomical event before it is a synergy trigger.
-- **Prestige as rewinding** falls out of the objective being a mainspring.
-- The **antagonist is entropy**, not a faction — which is why there is no villain,
-  no invasion narrative and no final battle in the usual sense.
-- The **tone** is drawn from maintenance logs and technical manuals, a register the
-  genre does not typically use.
+**What got weaker.** "Aliens attack the sun" is a common premise. The clockwork
+orrery was not, and `pillars.md` §3.1 records that trade as deliberate. The
+setting no longer does the work of being unusual on its own.
 
-Vocabulary is real horology (*escapement, detent, fusee, remontoire, verge,
-foliot*) — public technical language, borrowed from clockmaking rather than from
-any game. Names, voices, zones and bosses in this document are original to it.
+**What still holds.**
 
-Ongoing check for Stages 4–5: for every new ally, enemy, zone or boss, ask whether
-it derives from **the machine and its failure modes**. If it does, it belongs. If it
-derives from another game's bestiary, it does not.
+- The **rotating formation grid** exists because orbits move. It was not a
+  mechanic looking for a skin, and it survived the change of skin intact.
+- **Conjunction** is an astronomical event before it is a synergy trigger — and
+  the reskin made it literal rather than metaphorical.
+- The **antagonist is a gradient**, not a faction. No villain, no invasion
+  narrative, no final battle in the usual sense. This was the hardest thing to
+  keep and is the most load-bearing.
+- The **tone** is drawn from maintenance logs and duty rosters, a register the
+  genre does not use. This is now doing most of the work.
+
+Vocabulary is the register of a log room — *contact, picket, clearance, station,
+baseline, aperture* — real radar, observatory and duty-roster language, borrowed
+from working practice rather than from any game. Names, voices, zones and bosses
+in this document are original to it.
+
+Ongoing check for Stages 4–5: for every new platform, contact, zone or boss, ask
+whether it derives from **the watch and its failure modes**. If it does, it
+belongs. If it derives from another game's bestiary, it does not. The reskin
+raised the stakes on this test rather than lowering them — with a more familiar
+setting, a familiar bestiary would be the thing that finished the job.

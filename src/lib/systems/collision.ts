@@ -5,17 +5,17 @@ import type { Pool } from '../utils/pool'
 import { angleDelta } from './ai'
 import {
   computeDamage,
-  damageMainspring,
-  damageMovement,
-  damageSlack,
-  reapSlack,
+  damageSun,
+  damagePlatform,
+  damageContact,
+  reapContact,
 } from './combat'
 
 /**
  * Projectile integration and collision.
  *
  * Hitboxes are decoupled from sprite bounds for fairness (combat-spec.md §5):
- * the Mainspring's collision radius is deliberately smaller than what is drawn,
+ * the Sun's collision radius is deliberately smaller than what is drawn,
  * so near misses read as misses.
  *
  * PLACEHOLDER SCOPE — Phase 17 adds spatial partitioning. At the Phase 10 slice's
@@ -24,19 +24,19 @@ import {
  */
 
 /**
- * How far either side of its ring a Movement can intercept, in pixels.
+ * How far either side of its ring a Platform can intercept, in pixels.
  *
  * A projectile well inside or outside the ring is not passing through the unit,
  * so this bounds the block check radially. Decoupled from any sprite size:
- * changing what a Movement looks like must not change what it blocks.
+ * changing what a Platform looks like must not change what it blocks.
  */
 const BLOCK_BAND = 10
 
 export interface CollisionResult {
-  mainspringHits: number
-  movementHits: number
-  slackKilled: number
-  filingsDropped: number
+  sunHits: number
+  platformHits: number
+  contactKilled: number
+  salvageDropped: number
 }
 
 export function updateProjectiles(
@@ -45,10 +45,10 @@ export function updateProjectiles(
   dt: number,
 ): CollisionResult {
   const result: CollisionResult = {
-    mainspringHits: 0,
-    movementHits: 0,
-    slackKilled: 0,
-    filingsDropped: 0,
+    sunHits: 0,
+    platformHits: 0,
+    contactKilled: 0,
+    salvageDropped: 0,
   }
 
   const dead = new Set<number>()
@@ -85,49 +85,49 @@ export function updateProjectiles(
       continue
     }
 
-    if (p.faction === 'slack') {
-      if (resolveSlackProjectile(sim, p, distanceSq, result)) pool.releaseAt(i)
+    if (p.faction === 'contact') {
+      if (resolveContactProjectile(sim, p, distanceSq, result)) pool.releaseAt(i)
     } else {
-      if (resolveChimeProjectile(sim, p, dead)) pool.releaseAt(i)
+      if (resolveArrayProjectile(sim, p, dead)) pool.releaseAt(i)
     }
   }
 
   if (dead.size > 0) {
-    const reaped = reapSlack(sim, dead)
-    result.slackKilled += reaped.slackKilled
-    result.filingsDropped += reaped.filingsDropped
+    const reaped = reapContact(sim, dead)
+    result.contactKilled += reaped.contactKilled
+    result.salvageDropped += reaped.salvageDropped
   }
 
   return result
 }
 
 /** Returns true if the projectile should despawn. */
-function resolveSlackProjectile(
+function resolveContactProjectile(
   sim: SimulationState,
   p: Projectile,
   distanceSq: number,
   result: CollisionResult,
 ): boolean {
-  // The Mainspring, first — it is the thing being defended.
-  const hitRadius = sim.mainspring.hitboxRadius + p.radius
+  // The Sun, first — it is the thing being defended.
+  const hitRadius = sim.sun.hitboxRadius + p.radius
   if (distanceSq <= hitRadius * hitRadius) {
-    damageMainspring(sim, p.damage)
-    // No popup: the white flash and the HUD Tension bar already say this, and
+    damageSun(sim, p.damage)
+    // No popup: the white flash and the HUD Output bar already say this, and
     // a third channel at the busiest point on the field only adds noise.
-    result.mainspringHits++
+    result.sunHits++
     return true
   }
 
-  // Block arc: a projectile crossing a Movement's slot within blockArc is
-  // absorbed, damaging that Movement instead. This is how the front line
+  // Block arc: a projectile crossing a Platform's slot within blockArc is
+  // absorbed, damaging that Platform instead. This is how the front line
   // defends without a separate mechanic — combat-spec.md §5.
   const projectileRadius = Math.sqrt(distanceSq)
   const projectileAngle = Math.atan2(p.position.y, p.position.x)
 
-  for (const movement of sim.movements) {
-    if (movement.disabledFor > 0) continue
+  for (const platform of sim.platforms) {
+    if (platform.disabledFor > 0) continue
 
-    const ring = ringByIndex(movement.slot.ring)
+    const ring = ringByIndex(platform.slot.ring)
     if (!ring) continue
 
     // Only intercept near the ring's radius — a projectile well inside or
@@ -135,15 +135,15 @@ function resolveSlackProjectile(
     if (Math.abs(projectileRadius - ring.radius) > BLOCK_BAND + p.radius) continue
 
     const ringState = sim.rings[ring.index - 1]
-    const unitAngle = slotAngle(ring, movement.slot.slot, ringState?.phase ?? 0)
+    const unitAngle = slotAngle(ring, platform.slot.slot, ringState?.phase ?? 0)
 
     // The Bracing branch widens every block arc additively — a flat angle,
     // so it is worth proportionally more to a narrow Pallet than a wide Detent.
-    const arc = movement.def.blockArc + sim.effects.blockArc
+    const arc = platform.def.blockArc + sim.effects.blockArc
     if (Math.abs(angleDelta(unitAngle, projectileAngle)) <= arc) {
-      damageMovement(movement, p.damage, sim.telemetry, sim.effects)
+      damagePlatform(platform, p.damage, sim.telemetry, sim.effects)
       sim.feed.emit('block', p.position.x, p.position.y, p.damage)
-      result.movementHits++
+      result.platformHits++
       return true
     }
   }
@@ -152,24 +152,24 @@ function resolveSlackProjectile(
 }
 
 /** Returns true if the projectile should despawn. */
-function resolveChimeProjectile(
+function resolveArrayProjectile(
   sim: SimulationState,
   p: Projectile,
   dead: Set<number>,
 ): boolean {
-  for (const slack of sim.slack) {
-    if (dead.has(slack.id)) continue
+  for (const contact of sim.contact) {
+    if (dead.has(contact.id)) continue
 
-    const dx = slack.position.x - p.position.x
-    const dy = slack.position.y - p.position.y
-    // Authored per Slack, and generous relative to the sprite — the same
-    // fairness principle as the Mainspring's deliberately small hitbox.
-    const radius = p.radius + slack.def.hurtboxRadius
+    const dx = contact.position.x - p.position.x
+    const dy = contact.position.y - p.position.y
+    // Authored per Contact, and generous relative to the sprite — the same
+    // fairness principle as the Sun's deliberately small hitbox.
+    const radius = p.radius + contact.def.hurtboxRadius
 
     if (dx * dx + dy * dy <= radius * radius) {
-      const before = slack.hp
+      const before = contact.hp
       // Friendly projectiles go through the same formula as every other damage
-      // source. Applying raw damage here would make "Chimes are always
+      // source. Applying raw damage here would make "Arrays are always
       // Resonant" (combat-spec.md section 4) meaningless — the whole reason
       // they counter Erratic and struggle against Seized is the type
       // multiplier — and would let them ignore armour entirely.
@@ -177,18 +177,18 @@ function resolveChimeProjectile(
         p.damage,
         1,
         p.damageType,
-        slack.def.armour,
-        slack.def.defence,
+        contact.def.armour,
+        contact.def.defence,
       )
-      const died = damageSlack(slack, damage)
-      sim.telemetry?.damage(p.sourceDefId, before - slack.hp, died)
+      const died = damageContact(contact, damage)
+      sim.telemetry?.damage(p.sourceDefId, before - contact.hp, died)
       sim.feed.emit(
         died ? 'kill' : 'damage',
-        slack.position.x,
-        slack.position.y,
-        before - slack.hp,
+        contact.position.x,
+        contact.position.y,
+        before - contact.hp,
       )
-      if (died) dead.add(slack.id)
+      if (died) dead.add(contact.id)
       return true
     }
   }

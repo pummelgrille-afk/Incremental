@@ -8,7 +8,7 @@ import type { UpgradeBranch } from '../entities/Upgrade'
 import type { UnavailableReason } from '../progression/upgradeTree'
 
 /**
- * The Escapement Tree, projected for the view.
+ * The Almanac, projected for the view.
  *
  * The tree reads the **save**, not the simulation, so it cannot ride on
  * `syncFrom`. `bootstrap.ts` pushes it whenever a purchase changes it, and the
@@ -41,7 +41,7 @@ export interface TreeActions {
 
 /** A unit in the roster panel. */
 export interface RosterView {
-  kind: 'movement' | 'chime'
+  kind: 'platform' | 'array'
   id: string
   name: string
   unlocked: boolean
@@ -62,7 +62,7 @@ export interface SlotView {
   level: number
 }
 
-/** A Chime's upgrade tracks, for the editor. */
+/** A Array's upgrade tracks, for the editor. */
 export interface SupportTrackView {
   track: string
   name: string
@@ -89,8 +89,8 @@ export interface RewindPreviewView {
   threshold: number
   canRewind: boolean
   refusedBecause: string | null
-  resets: { filings: number; movements: number; chimes: number; stagesThisRun: number }
-  keeps: { keys: number; nodes: number; unlockedUnits: number; zones: number }
+  resets: { salvage: number; platforms: number; arrays: number; stagesThisRun: number }
+  keeps: { clearance: number; nodes: number; unlockedUnits: number; zones: number }
 }
 
 export interface PrestigeActions {
@@ -102,9 +102,9 @@ export interface FormationActions {
   remove(ring: number, slot: number): void
   mount(defId: string, mount: number): void
   unmount(mount: number): void
-  unlock(kind: 'movement' | 'chime', id: string): void
+  unlock(kind: 'platform' | 'array', id: string): void
   buyTrack(defId: string, track: string): void
-  levelUp(kind: 'movement' | 'chime', id: string): void
+  levelUp(kind: 'platform' | 'array', id: string): void
   savePreset(name: string): void
   loadPreset(name: string): void
   deletePreset(name: string): void
@@ -143,28 +143,28 @@ export interface FormationSlotView {
  */
 class GameStore {
   // Objective
-  tension = $state(0)
-  maxTension = $state(0)
+  output = $state(0)
+  maxOutput = $state(0)
   shield = $state(0)
-  /** Lowest Tension fraction reached this stage. Drives "cleared untouched". */
-  lowestTensionFraction = $state(1)
+  /** Lowest Output fraction reached this stage. Drives "cleared untouched". */
+  lowestOutputFraction = $state(1)
   repairsThisStage = $state(0)
 
   // Economy
-  filings = $state(0)
+  salvage = $state(0)
   /** Permanent currencies. Unchanged by anything the field does. */
   recollection = $state(0)
-  keys = $state(0)
+  clearance = $state(0)
 
   /**
-   * Recent Filings gain, pooled for the HUD's counter.
+   * Recent Salvage gain, pooled for the HUD's counter.
    *
    * Pooled rather than per-drop: kills arrive dozens a second and an animation
    * each would strobe. Accumulated here rather than in the component because
    * `syncFrom` already runs exactly once a frame — doing it in a `$effect`
    * would mean guessing a frame rate and risking a self-triggering read.
    */
-  filingsGain = $state(0)
+  salvageGain = $state(0)
   private gainExpiresAt = 0
 
   /**
@@ -176,8 +176,8 @@ class GameStore {
    */
   nextStageIn = $state(0)
 
-  /** Set once when a stage clear pays Keys. The HUD clears it after showing. */
-  lastKeyAward = $state<{ keys: number; zoneCompleted: boolean } | null>(null)
+  /** Set once when a stage clear pays Clearance. The HUD clears it after showing. */
+  lastClearanceAward = $state<{ clearance: number; zoneCompleted: boolean } | null>(null)
 
   // Stage progress
   zoneName = $state('')
@@ -187,13 +187,13 @@ class GameStore {
   phase = $state<StagePhase>('loading')
 
   // Field
-  slackCount = $state(0)
+  contactCount = $state(0)
   projectilesLive = $state(0)
-  movementCount = $state(0)
-  chimeCount = $state(0)
+  platformCount = $state(0)
+  arrayCount = $state(0)
 
   // Session counters
-  slackKilled = $state(0)
+  contactKilled = $state(0)
   conjunctions = $state(0)
 
   // Synergy preview — combat-spec.md §3 makes this a hard requirement.
@@ -208,11 +208,11 @@ class GameStore {
   /** Version the preview was last built for. Not reactive; a plain field. */
   private previewVersion = -1
 
-  // The Beat — the only live input
-  beatCharge = $state(0)
-  beatMaxCharge = $state(0)
-  beatCooldown = $state(0)
-  beatsStruck = $state(0)
+  // The Flare — the only live input
+  flareCharge = $state(0)
+  flareMaxCharge = $state(0)
+  flareCooldown = $state(0)
+  flaresStruck = $state(0)
 
   // Performance, shown when settings.showFps is on
   fps = $state(0)
@@ -221,7 +221,7 @@ class GameStore {
   renderMs = $state(0)
   projectilePeak = $state(0)
   projectileExhausted = $state(0)
-  slackPeak = $state(0)
+  contactPeak = $state(0)
   ticksOverBudget = $state(0)
   /** Popups discarded because the feed was full. Legibility signal, not an error. */
   feedDropped = $state(0)
@@ -252,7 +252,7 @@ class GameStore {
     elapsedSeconds: number
     effectiveSeconds: number
     wastedSeconds: number
-    filings: number
+    salvage: number
     capSeconds: number
     efficiency: number
     activeEquivalent: number
@@ -273,14 +273,14 @@ class GameStore {
   rewindPreview = $state<RewindPreviewView | null>(null)
   prestigeActions = $state<PrestigeActions | null>(null)
 
-  /** The Escapement Tree view. Toggled with T, once revealed. */
+  /** The Almanac view. Toggled with T, once revealed. */
   showTree = $state(false)
   /** Hidden entirely until the first boss clear — economy-spec.md §3. */
   treeRevealed = $state(false)
 
   // The roster and the fielded formation. Pushed by bootstrap on change.
-  movementRoster = $state<RosterView[]>([])
-  chimeRoster = $state<RosterView[]>([])
+  platformRoster = $state<RosterView[]>([])
+  arrayRoster = $state<RosterView[]>([])
   fielded = $state<SlotView[]>([])
   mounted = $state<SlotView[]>([])
   nextSlotCost = $state(0)
@@ -297,10 +297,10 @@ class GameStore {
   /** Installed by bootstrap. Null until the session exists. */
   treeActions = $state<TreeActions | null>(null)
 
-  tensionFraction = $derived(this.maxTension > 0 ? this.tension / this.maxTension : 0)
+  outputFraction = $derived(this.maxOutput > 0 ? this.output / this.maxOutput : 0)
 
   /** Cleared without taking a single hit — the "Within Tolerance" condition. */
-  clearedUntouched = $derived(this.phase === 'cleared' && this.lowestTensionFraction >= 1)
+  clearedUntouched = $derived(this.phase === 'cleared' && this.lowestOutputFraction >= 1)
 
   /** True while the player can act — used to gate input and dim the field. */
   running = $derived(this.phase === 'wave-active' || this.phase === 'wave-gap')
@@ -320,11 +320,11 @@ class GameStore {
   )
 
   /** Whole charges available. Fractional regeneration is not spendable. */
-  beatsReady = $derived(Math.floor(this.beatCharge))
-  canStrike = $derived(this.beatsReady >= 1 && this.beatCooldown <= 0 && this.running)
+  flaresReady = $derived(Math.floor(this.flareCharge))
+  canStrike = $derived(this.flaresReady >= 1 && this.flareCooldown <= 0 && this.running)
 
   /**
-   * Progress toward the next moment the Beat can be struck, 0–1.
+   * Progress toward the next moment the Flare can be struck, 0–1.
    *
    * Full whenever a whole charge is banked, otherwise the fraction of the next
    * one that has regenerated.
@@ -339,12 +339,12 @@ class GameStore {
    * during that cooldown when charges remain — otherwise it would dip and
    * recover every single strike.
    */
-  beatProgress = $derived.by(() => {
+  flareProgress = $derived.by(() => {
     // A resolved stage refuses strikes whatever the charge, so a full bar there
     // would advertise an input that does nothing.
     if (!this.running) return 0
-    if (this.beatsReady >= 1) return 1
-    return this.beatCharge - Math.floor(this.beatCharge)
+    if (this.flaresReady >= 1) return 1
+    return this.flareCharge - Math.floor(this.flareCharge)
   })
 
   /**
@@ -357,11 +357,11 @@ class GameStore {
   syncFrom(simulation: Simulation): void {
     const sim = simulation.state
 
-    this.tension = sim.mainspring.hp
-    this.maxTension = sim.mainspring.maxHp
-    this.shield = sim.mainspring.shield
-    this.lowestTensionFraction = sim.mainspring.lowestFraction
-    this.repairsThisStage = sim.mainspring.repairsThisStage
+    this.output = sim.sun.hp
+    this.maxOutput = sim.sun.maxHp
+    this.shield = sim.sun.shield
+    this.lowestOutputFraction = sim.sun.lowestFraction
+    this.repairsThisStage = sim.sun.repairsThisStage
 
     this.zoneName = sim.zone.name
     this.stageName = sim.stage.name
@@ -369,28 +369,28 @@ class GameStore {
     this.waveCount = sim.stage.waves.length
     this.phase = sim.phase
 
-    this.slackCount = sim.slack.length
+    this.contactCount = sim.contact.length
     this.projectilesLive = simulation.projectiles.live
-    this.movementCount = sim.movements.length
-    this.chimeCount = sim.chimes.length
+    this.platformCount = sim.platforms.length
+    this.arrayCount = sim.arrays.length
 
-    this.slackKilled = simulation.totalSlackKilled
+    this.contactKilled = simulation.totalContactKilled
     this.conjunctions = simulation.totalConjunctions
 
     this.projectilePeak = simulation.projectiles.peak
     this.projectileExhausted = simulation.projectiles.exhausted
-    this.slackPeak = simulation.peakSlack
-    this.ticksOverBudget = simulation.ticksOverSlackBudget
+    this.contactPeak = simulation.peakContact
+    this.ticksOverBudget = simulation.ticksOverContactBudget
     this.feedDropped = sim.feed.dropped
 
     this.elapsed = sim.elapsed
     this.syncFormation(simulation)
     this.syncTelemetry(simulation)
 
-    this.beatCharge = sim.beat.charge
-    this.beatMaxCharge = sim.beat.maxCharge
-    this.beatCooldown = sim.beat.cooldown
-    this.beatsStruck = sim.beat.struck
+    this.flareCharge = sim.flare.charge
+    this.flareMaxCharge = sim.flare.maxCharge
+    this.flareCooldown = sim.flare.cooldown
+    this.flaresStruck = sim.flare.struck
   }
 
   /**
@@ -405,7 +405,7 @@ class GameStore {
 
     let shielded = 0
     let hasted = 0
-    for (const m of sim.movements) {
+    for (const m of sim.platforms) {
       if (m.buffs.shield.magnitude > 0) shielded++
       if (m.buffs.haste.magnitude > 0) hasted++
     }
@@ -419,7 +419,7 @@ class GameStore {
     this.previewVersion = sim.formationVersion
 
     if (changed) {
-      this.formation = sim.movements.map((m) => ({
+      this.formation = sim.platforms.map((m) => ({
         id: m.id,
         ring: m.slot.ring,
         slot: m.slot.slot,
@@ -429,7 +429,7 @@ class GameStore {
         defenceBonus: m.bonuses.defence,
         rangeBonus: m.bonuses.range,
       }))
-      this.pairing = pairingOf(sim.movements.map((m) => m.def.damageType))
+      this.pairing = pairingOf(sim.platforms.map((m) => m.def.damageType))
     }
 
     const seconds = timeToNextConjunction(sim)
@@ -440,10 +440,10 @@ class GameStore {
   private static readonly GAIN_WINDOW = 1.1
 
   /**
-   * Publish the spendable Filings balance and age the pooled gain.
+   * Publish the spendable Salvage balance and age the pooled gain.
    *
    * **The balance, not the stage's earnings.** Those were the same number until
-   * Phase 24 gave Filings something to buy; now the HUD must show what can
+   * Phase 24 gave Salvage something to buy; now the HUD must show what can
    * actually be spent, and only `bootstrap` — which owns the save — knows it.
    * Publishing both from two places made the counter flip between them.
    *
@@ -451,15 +451,15 @@ class GameStore {
    * remembered total, so a reload mid-stage shows no phantom gain. A negative
    * delta is a purchase, and must not read as a gain.
    */
-  publishFilings(balance: number, elapsed: number): void {
-    const delta = balance - this.filings
-    this.filings = balance
+  publishSalvage(balance: number, elapsed: number): void {
+    const delta = balance - this.salvage
+    this.salvage = balance
 
     if (delta > 0) {
-      this.filingsGain += delta
+      this.salvageGain += delta
       this.gainExpiresAt = elapsed + GameStore.GAIN_WINDOW
-    } else if (this.filingsGain > 0 && elapsed >= this.gainExpiresAt) {
-      this.filingsGain = 0
+    } else if (this.salvageGain > 0 && elapsed >= this.gainExpiresAt) {
+      this.salvageGain = 0
     }
   }
 
@@ -487,14 +487,14 @@ class GameStore {
   }
 
   reset(): void {
-    this.slackKilled = 0
+    this.contactKilled = 0
     this.conjunctions = 0
     this.phase = 'loading'
     // Both belong to the stage that just ended. Carrying them forward would
     // show the previous stage's Key award on the next stage's clear banner.
-    this.lastKeyAward = null
+    this.lastClearanceAward = null
     this.nextStageIn = 0
-    this.filingsGain = 0
+    this.salvageGain = 0
   }
 }
 

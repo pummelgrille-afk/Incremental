@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Simulation, TICK_SECONDS } from '../src/lib/core/loop'
 import { loadStage, validateStage } from '../src/lib/core/stageLoader'
 import { createRng } from '../src/lib/core/rng'
-import { mountChime, placeMovement } from '../src/lib/core/formation'
-import { movementById } from '../src/lib/content/allies'
-import { chimeById } from '../src/lib/content/supportUnits'
+import { mountArray, placePlatform } from '../src/lib/core/formation'
+import { platformById } from '../src/lib/content/platforms'
+import { arrayById } from '../src/lib/content/arrays'
 import { ZONES } from '../src/lib/content/zones'
 import { OVER_LEVEL, SCALING } from '../src/lib/content/scaling'
 import { BUDGETS } from '../src/lib/content/budgets'
@@ -27,8 +27,8 @@ import { isBossWave, type WaveDef } from '../src/lib/entities/Wave'
 import type { SimulationState } from '../src/lib/core/simulation'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
-const FIRST: StageAddress = 'escapement-floor:first-shift'
-const LAST: StageAddress = 'escapement-floor:noted-in-the-log'
+const FIRST: StageAddress = 'service-floor:first-shift'
+const LAST: StageAddress = 'service-floor:noted-in-the-log'
 
 let sim: Simulation
 
@@ -38,18 +38,18 @@ beforeEach(() => {
 
 /** The build every balance pass since Phase 14 has been measured against. */
 function referenceFormation(state: SimulationState, level = 1) {
-  placeMovement(state, movementById('detent')!, 1, 0, level)
-  placeMovement(state, movementById('detent')!, 1, 3, level)
-  placeMovement(state, movementById('hammer')!, 2, 0, level)
-  placeMovement(state, movementById('hammer')!, 2, 5, level)
-  placeMovement(state, movementById('pallet')!, 3, 0, level)
-  placeMovement(state, movementById('pallet')!, 3, 7, level)
-  mountChime(state, chimeById('quarter-bell')!, 0, level)
-  mountChime(state, chimeById('quarter-bell')!, 4, level)
+  placePlatform(state, platformById('anchor')!, 1, 0, level)
+  placePlatform(state, platformById('anchor')!, 1, 3, level)
+  placePlatform(state, platformById('bolt')!, 2, 0, level)
+  placePlatform(state, platformById('bolt')!, 2, 5, level)
+  placePlatform(state, platformById('rake')!, 3, 0, level)
+  placePlatform(state, platformById('rake')!, 3, 7, level)
+  mountArray(state, arrayById('long-baseline')!, 0, level)
+  mountArray(state, arrayById('long-baseline')!, 4, level)
 }
 
 const simpleWave: WaveDef = {
-  groups: [{ defId: 'burr', count: 10, delay: 0, interval: 0.5 }],
+  groups: [{ defId: 'skiff', count: 10, delay: 0, interval: 0.5 }],
   gapAfter: 4,
 }
 
@@ -116,8 +116,8 @@ describe('boss milestones', () => {
       id: 'milestone',
       name: 'Milestone',
       scalingIndex: SCALING.bossInterval,
-      baseTension: 1000,
-      keyReward: 1,
+      baseOutput: 1000,
+      clearanceReward: 1,
       waves: [simpleWave],
     })
     expect(problems.join(' ')).toContain('boss wave')
@@ -128,8 +128,8 @@ describe('boss milestones', () => {
       id: 'milestone',
       name: 'Milestone',
       scalingIndex: SCALING.bossInterval,
-      baseTension: 1000,
-      keyReward: 1,
+      baseOutput: 1000,
+      clearanceReward: 1,
       waves: [{ bossId: 'whatever', gapAfter: 4 }],
     })
     expect(problems).toEqual([])
@@ -143,42 +143,42 @@ describe('formation power', () => {
 
   it('rises with each unit added', () => {
     const before = formationPower(sim.state)
-    placeMovement(sim.state, movementById('hammer')!, 2, 0)
+    placePlatform(sim.state, platformById('bolt')!, 2, 0)
     expect(formationPower(sim.state)).toBeGreaterThan(before)
   })
 
   it('rises with level', () => {
     const a = new Simulation(loadStage(FIRST), createRng(1))
     const b = new Simulation(loadStage(FIRST), createRng(1))
-    placeMovement(a.state, movementById('hammer')!, 2, 0, 1)
-    placeMovement(b.state, movementById('hammer')!, 2, 0, 5)
+    placePlatform(a.state, platformById('bolt')!, 2, 0, 1)
+    placePlatform(b.state, platformById('bolt')!, 2, 0, 5)
     expect(formationPower(b.state)).toBeGreaterThan(formationPower(a.state))
   })
 
   it('ignores a disabled unit, which is not fighting', () => {
-    const unit = placeMovement(sim.state, movementById('hammer')!, 2, 0)
+    const unit = placePlatform(sim.state, platformById('bolt')!, 2, 0)
     const before = formationPower(sim.state)
     unit.disabledFor = 5
     expect(formationPower(sim.state)).toBeLessThan(before)
   })
 
-  it('rates a Chime by its Charge, not its fire rate', () => {
-    // A Chime is gated by Charge (combat-spec.md §4). Rating it at burst speed
+  it('rates a Array by its Charge, not its fire rate', () => {
+    // A Array is gated by Charge (combat-spec.md §4). Rating it at burst speed
     // would read it as several times stronger than it plays, and the director
     // would punish a build for owning one.
-    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
-    const burst = chime.def.attack / chime.def.baseInterval
+    const array = mountArray(sim.state, arrayById('long-baseline')!, 0)
+    const burst = array.def.attack / array.def.baseInterval
     expect(formationPower(sim.state)).toBeLessThan(burst)
     expect(formationPower(sim.state)).toBeCloseTo(
-      chime.def.attack / chime.def.chargeInterval,
+      array.def.attack / array.def.chargeInterval,
       6,
     )
   })
 
-  it('does not count the Beat', () => {
-    // The Beat is the player's input, not their formation. Scaling waves
+  it('does not count the Flare', () => {
+    // The Flare is the player's input, not their formation. Scaling waves
     // against how well someone plays is the rubber-banding this design rejects.
-    placeMovement(sim.state, movementById('hammer')!, 2, 0)
+    placePlatform(sim.state, platformById('bolt')!, 2, 0)
     const before = formationPower(sim.state)
     sim.strike(200, 0)
     expect(formationPower(sim.state)).toBe(before)
@@ -189,7 +189,7 @@ describe('over-level pressure is one-sided', () => {
   it('does nothing to an under-levelled formation', () => {
     // No mercy scaling: the stall is the signal to Rewind (game-loop.md), and a
     // director that eased off would hide it.
-    placeMovement(sim.state, movementById('detent')!, 1, 0)
+    placePlatform(sim.state, platformById('anchor')!, 1, 0)
     expect(pressure(sim.state, simpleWave)).toBeLessThan(OVER_LEVEL.threshold)
     expect(overLevelBonus(sim.state, simpleWave)).toBe(0)
   })
@@ -303,7 +303,7 @@ describe('directing a wave', () => {
           if (isBossWave(wave)) continue
           const directed = directWave(state, wave) as WaveDef
           const total = directed.groups.reduce((n, g) => n + g.count, 0)
-          expect(total, `${zone.id}:${stage.id}`).toBeLessThanOrEqual(BUDGETS.slack)
+          expect(total, `${zone.id}:${stage.id}`).toBeLessThanOrEqual(BUDGETS.contact)
         }
       }
     }
@@ -350,8 +350,8 @@ describe('a directed stage still finishes', () => {
 
 describe('the wave yardstick', () => {
   it('rates tougher enemies as a higher HP rate', () => {
-    const soft: WaveDef = { groups: [{ defId: 'burr', count: 10, delay: 0, interval: 0.5 }], gapAfter: 4 }
-    const tough: WaveDef = { groups: [{ defId: 'drift', count: 10, delay: 0, interval: 0.5 }], gapAfter: 4 }
+    const soft: WaveDef = { groups: [{ defId: 'skiff', count: 10, delay: 0, interval: 0.5 }], gapAfter: 4 }
+    const tough: WaveDef = { groups: [{ defId: 'hulk', count: 10, delay: 0, interval: 0.5 }], gapAfter: 4 }
     expect(waveHpRate(sim.state, tough)).toBeGreaterThan(waveHpRate(sim.state, soft))
   })
 
@@ -359,17 +359,17 @@ describe('the wave yardstick', () => {
     // Worth stating: 20 enemies at one spacing deliver HP at essentially the
     // same rate as 4, they just do it for longer. The director asks "can this
     // formation keep pace with arrivals", which is a rate question. Attrition
-    // over a long wave is the Mainspring's problem, not the director's.
-    const short: WaveDef = { groups: [{ defId: 'burr', count: 4, delay: 0, interval: 0.5 }], gapAfter: 4 }
-    const long: WaveDef = { groups: [{ defId: 'burr', count: 20, delay: 0, interval: 0.5 }], gapAfter: 4 }
+    // over a long wave is the Sun's problem, not the director's.
+    const short: WaveDef = { groups: [{ defId: 'skiff', count: 4, delay: 0, interval: 0.5 }], gapAfter: 4 }
+    const long: WaveDef = { groups: [{ defId: 'skiff', count: 20, delay: 0, interval: 0.5 }], gapAfter: 4 }
     const ratio = waveHpRate(sim.state, long) / waveHpRate(sim.state, short)
     expect(ratio).toBeGreaterThan(0.5)
     expect(ratio).toBeLessThan(1.5)
   })
 
   it('rates a faster arrival as a higher HP rate', () => {
-    const slow: WaveDef = { groups: [{ defId: 'burr', count: 10, delay: 0, interval: 1 }], gapAfter: 4 }
-    const fast: WaveDef = { groups: [{ defId: 'burr', count: 10, delay: 0, interval: 0.2 }], gapAfter: 4 }
+    const slow: WaveDef = { groups: [{ defId: 'skiff', count: 10, delay: 0, interval: 1 }], gapAfter: 4 }
+    const fast: WaveDef = { groups: [{ defId: 'skiff', count: 10, delay: 0, interval: 0.2 }], gapAfter: 4 }
     expect(waveHpRate(sim.state, fast)).toBeGreaterThan(waveHpRate(sim.state, slow))
   })
 

@@ -1,8 +1,8 @@
-import { movementById, MOVEMENTS } from '../content/allies'
-import { chimeById, CHIMES } from '../content/supportUnits'
+import { platformById, PLATFORMS } from '../content/platforms'
+import { arrayById, ARRAYS } from '../content/arrays'
 import { STARTING_ZONE_ID, ZONES } from '../content/zones'
 import { game } from '../stores/game.svelte'
-import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
+import { applyStageClear, earnSalvage, recordDepth } from '../progression/currencies'
 import { isRewindUnlocked, rewind as rewindRun, rewindPreview } from '../progression/prestige'
 import { calculateOffline, isWorthReporting } from '../systems/offlineProgress'
 import { evaluate as evaluateAchievements } from '../progression/achievements'
@@ -23,13 +23,13 @@ import {
   deletePreset as deletePresetFrom,
   grantStartingLoadout,
   loadPreset as loadPresetFrom,
-  mountChime as mountSaved,
+  mountArray as mountSaved,
   nextMountCost,
   nextSlotCost,
-  placeMovement as placeSaved,
-  removeMovement as removeSaved,
+  placePlatform as placeSaved,
+  removePlatform as removeSaved,
   savePreset as savePresetTo,
-  unmountChime as unmountSaved,
+  unmountArray as unmountSaved,
 } from '../progression/loadout'
 import {
   effectsOf,
@@ -44,10 +44,10 @@ import {
 import { Autosaver } from './autosave'
 import {
   applyFormation,
-  mountChime,
-  placeMovement,
+  mountArray,
+  placePlatform,
   recomputeBonuses,
-  removeMovement,
+  removePlatform,
 } from './formation'
 import { Simulation } from './loop'
 import { createRenderer, type Renderer } from './render'
@@ -97,30 +97,30 @@ export interface GameSession {
  * Field the player's saved formation.
  *
  * Replaces the Phase 10 hardcoded slice. A save with an empty formation gets
- * nothing — which is correct now that Filings buy slots: an empty field is the
+ * nothing — which is correct now that Salvage buy slots: an empty field is the
  * honest starting state, not a bug.
  */
 function fieldFormation(simulation: Simulation, save: SaveData): void {
   applyFormation(
     simulation.state,
     save.run.formation,
-    movementById,
-    levelsOf(save, 'movement'),
+    platformById,
+    levelsOf(save, 'platform'),
   )
 
-  const chimeLevels = levelsOf(save, 'chime')
+  const arrayLevels = levelsOf(save, 'array')
   for (const [mount, defId] of Object.entries(save.run.mounts)) {
-    const def = chimeById(defId)
+    const def = arrayById(defId)
     if (!def) continue
     // Silently skip a mount that no longer exists, for the same reason
-    // `applyFormation` skips a missing Movement: a save must survive content
+    // `applyFormation` skips a missing Platform: a save must survive content
     // changing, and refusing to load would be worse than a missing unit.
     try {
-      mountChime(
+      mountArray(
         simulation.state,
         def,
         Number(mount),
-        chimeLevels[defId] ?? 1,
+        arrayLevels[defId] ?? 1,
         supportStats(save, def),
       )
     } catch {
@@ -157,16 +157,16 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
    */
   const offline = calculateOffline({
     elapsedSeconds: (Date.now() - saveData.savedAt) / 1000,
-    filingsPerSecond: saveData.run.filingsPerSecond,
+    salvagePerSecond: saveData.run.salvagePerSecond,
     effects: effectsOf(saveData),
   })
   if (isWorthReporting(offline)) {
-    earnFilings(saveData, offline.filings)
+    earnSalvage(saveData, offline.salvage)
     game.offlineSummary = {
       elapsedSeconds: offline.effectiveSeconds + offline.wastedSeconds,
       effectiveSeconds: offline.effectiveSeconds,
       wastedSeconds: offline.wastedSeconds,
-      filings: Math.floor(offline.filings),
+      salvage: Math.floor(offline.salvage),
       capSeconds: offline.capSeconds,
       efficiency: offline.efficiency,
       activeEquivalent: Math.floor(offline.activeEquivalent),
@@ -174,14 +174,14 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   }
 
   if (loaded.notices.length > 0) {
-    console.info('[orrery] save notices:', loaded.notices)
+    console.info('[perihelion] save notices:', loaded.notices)
   }
 
   /**
    * The tree's aggregate, recomputed only when a purchase changes it.
    *
    * `effectsOf` walks every purchased node, and the frame loop reads it for the
-   * Salvage multiplier — a per-frame walk of ~72 ids to produce a number that
+   * Recovery multiplier — a per-frame walk of ~72 ids to produce a number that
    * changes a handful of times per run.
    */
   let effects = effectsOf(saveData)
@@ -269,35 +269,35 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
    * second to show numbers that do not move.
    */
   const publishRoster = (): void => {
-    game.movementRoster = rosterOf(saveData, 'movement')
-    game.chimeRoster = rosterOf(saveData, 'chime')
+    game.platformRoster = rosterOf(saveData, 'platform')
+    game.arrayRoster = rosterOf(saveData, 'array')
 
-    const movementLevels = levelsOf(saveData, 'movement')
+    const platformLevels = levelsOf(saveData, 'platform')
     game.fielded = Object.entries(saveData.run.formation).map(([key, defId]) => {
       const [ring, slot] = key.split(':').map(Number)
       return {
         ring,
         slot,
         defId,
-        name: movementById(defId)?.name ?? defId,
-        level: movementLevels[defId] ?? 1,
+        name: platformById(defId)?.name ?? defId,
+        level: platformLevels[defId] ?? 1,
       }
     })
 
-    const chimeLevels = levelsOf(saveData, 'chime')
+    const arrayLevels = levelsOf(saveData, 'array')
     game.mounted = Object.entries(saveData.run.mounts).map(([mount, defId]) => ({
       ring: 0,
       slot: Number(mount),
       defId,
-      name: chimeById(defId)?.name ?? defId,
-      level: chimeLevels[defId] ?? 1,
+      name: arrayById(defId)?.name ?? defId,
+      level: arrayLevels[defId] ?? 1,
     }))
 
     game.nextSlotCost = nextSlotCost(saveData)
     game.nextMountCost = nextMountCost(saveData)
     game.presetNames = saveData.meta.presets.map((p) => p.name)
     game.supportRoster = supportRoster(saveData)
-    game.keys = saveData.meta.keys
+    game.clearance = saveData.meta.clearance
   }
 
   /**
@@ -311,31 +311,31 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   const syncFieldToSave = (): void => {
     const sim = simulation.state
 
-    for (const movement of [...sim.movements]) {
-      const key = `${movement.slot.ring}:${movement.slot.slot}`
-      if (saveData.run.formation[key] !== movement.def.id) {
-        removeMovement(sim, movement.slot.ring, movement.slot.slot)
+    for (const platform of [...sim.platforms]) {
+      const key = `${platform.slot.ring}:${platform.slot.slot}`
+      if (saveData.run.formation[key] !== platform.def.id) {
+        removePlatform(sim, platform.slot.ring, platform.slot.slot)
       }
     }
-    for (const chime of [...sim.chimes]) {
-      if (saveData.run.mounts[String(chime.mount)] !== chime.def.id) {
-        sim.chimes.splice(sim.chimes.indexOf(chime), 1)
+    for (const array of [...sim.arrays]) {
+      if (saveData.run.mounts[String(array.mount)] !== array.def.id) {
+        sim.arrays.splice(sim.arrays.indexOf(array), 1)
       }
     }
 
-    const movementLevels = levelsOf(saveData, 'movement')
+    const platformLevels = levelsOf(saveData, 'platform')
     for (const [key, defId] of Object.entries(saveData.run.formation)) {
       const [ring, slot] = key.split(':').map(Number)
-      if (sim.movements.some((m) => m.slot.ring === ring && m.slot.slot === slot)) continue
-      const def = movementById(defId)
-      if (def) placeMovement(sim, def, ring as RingIndex, slot, movementLevels[defId] ?? 1)
+      if (sim.platforms.some((m) => m.slot.ring === ring && m.slot.slot === slot)) continue
+      const def = platformById(defId)
+      if (def) placePlatform(sim, def, ring as RingIndex, slot, platformLevels[defId] ?? 1)
     }
 
-    const chimeLevels = levelsOf(saveData, 'chime')
+    const arrayLevels = levelsOf(saveData, 'array')
     for (const [mount, defId] of Object.entries(saveData.run.mounts)) {
-      if (sim.chimes.some((c) => c.mount === Number(mount))) continue
-      const def = chimeById(defId)
-      if (def) mountChime(sim, def, Number(mount), chimeLevels[defId] ?? 1, supportStats(saveData, def))
+      if (sim.arrays.some((c) => c.mount === Number(mount))) continue
+      const def = arrayById(defId)
+      if (def) mountArray(sim, def, Number(mount), arrayLevels[defId] ?? 1, supportStats(saveData, def))
     }
 
     recomputeBonuses(sim)
@@ -350,7 +350,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // Publish the balance immediately rather than waiting for the next frame:
     // a price that updates a frame after the click reads as a click that did
     // not register.
-    game.publishFilings(saveData.run.filings, simulation.state.elapsed)
+    game.publishSalvage(saveData.run.salvage, simulation.state.elapsed)
     autosaver.request('purchase')
   }
 
@@ -377,8 +377,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   /** The parts of a moment the triggers read. */
   const achievementSnapshot = () => ({
-    distinctMovementsSlotted: new Set(Object.values(saveData.run.formation)).size,
-    unlockedMovements: Object.keys(saveData.meta.movements).length,
+    distinctPlatformsSlotted: new Set(Object.values(saveData.run.formation)).size,
+    unlockedPlatforms: Object.keys(saveData.meta.platforms).length,
   })
 
   game.prestigeActions = {
@@ -492,7 +492,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     return sim
   }
 
-  // --- Input: the Beat is the entire live control surface. ------------------
+  // --- Input: the Flare is the entire live control surface. ------------------
   //
   // Click anywhere on the field to strike that point. Instant and area-based,
   // so there is nothing to aim and nothing to miss (combat-spec.md §1).
@@ -560,12 +560,12 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // This is the **one** place a tick's events become a currency change.
     // `progression/currencies.ts` holds the rules and the simulation holds the
     // field; neither knows about the other, and this loop is the seam.
-    // The Salvage multiplier is applied here rather than in the simulation:
+    // The Recovery multiplier is applied here rather than in the simulation:
     // `systems/` computes what the field dropped, `progression/` decides what
     // the player banks.
-    earnFilings(saveData, events.filingsDropped * (1 + currentEffects().filings))
-    if (events.slackKilled > 0) {
-      saveData.statistics.totalSlackDestroyed += events.slackKilled
+    earnSalvage(saveData, events.salvageDropped * (1 + currentEffects().salvage))
+    if (events.contactKilled > 0) {
+      saveData.statistics.totalContactsDestroyed += events.contactKilled
     }
     if (events.conjunctionsFired > 0) {
       saveData.statistics.conjunctionsFired += events.conjunctionsFired
@@ -582,11 +582,11 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       const address = stageAddressOf(simulation.state)
       recordDepth(saveData, simulation.state.stage.scalingIndex)
 
-      // Keys are first-clear only, and `applyStageClear` is idempotent — a
+      // Clearance is first-clear only, and `applyStageClear` is idempotent — a
       // clear event that somehow fires twice must not pay twice.
       const reward = applyStageClear(saveData, address)
-      if (reward.keys > 0) {
-        game.lastKeyAward = { keys: reward.keys, zoneCompleted: reward.zoneCompleted }
+      if (reward.clearance > 0) {
+        game.lastClearanceAward = { clearance: reward.clearance, zoneCompleted: reward.zoneCompleted }
       }
 
       // Queue the next stage. Advancing on a timer rather than immediately so
@@ -594,7 +594,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       // ended would read as the bug this replaced.
       checkAchievements('stage-cleared', {
         ...achievementSnapshot(),
-        clearedUntouched: simulation.state.mainspring.lowestFraction >= 1,
+        clearedUntouched: simulation.state.sun.lowestFraction >= 1,
         zoneCompleted: reward.zoneCompleted,
       })
 
@@ -629,10 +629,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
      * enough that a wave gap does not read as a collapse in output.
      */
     if (elapsed > 0 && game.running) {
-      const perSecond = events.filingsDropped / elapsed
+      const perSecond = events.salvageDropped / elapsed
       const smoothing = Math.min(1, elapsed / RATE_WINDOW_SECONDS)
-      saveData.run.filingsPerSecond +=
-        (perSecond - saveData.run.filingsPerSecond) * smoothing
+      saveData.run.salvagePerSecond +=
+        (perSecond - saveData.run.salvagePerSecond) * smoothing
     }
 
     saveData.statistics.playtimeSeconds += elapsed
@@ -647,10 +647,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // The permanent currencies live in the save, not the field, so they are
     // published here rather than by `syncFrom`.
     game.recollection = saveData.meta.recollection
-    game.keys = saveData.meta.keys
+    game.clearance = saveData.meta.clearance
     // The spendable balance lives in the save, not the field. Published here
     // for the same reason as the permanent currencies.
-    game.publishFilings(saveData.run.filings, simulation.state.elapsed)
+    game.publishSalvage(saveData.run.salvage, simulation.state.elapsed)
     game.simMs = simMs
     game.renderMs = renderMs
     game.frameMs = elapsedMs
@@ -696,13 +696,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   if (import.meta.env.DEV) {
     // Dev handle for profiling without requestAnimationFrame, which is
     // throttled in backgrounded and headless tabs. Phase 11 formalises this.
-    ;(window as unknown as Record<string, unknown>).__orrery = {
+    ;(window as unknown as Record<string, unknown>).__perihelion = {
       get simulation() {
         return simulation
       },
       renderer,
       session,
-      content: { MOVEMENTS, CHIMES },
+      content: { PLATFORMS, ARRAYS },
       /** Pump the loop by hand. See `frameStep`. */
       frameStep,
     }

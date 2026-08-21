@@ -10,7 +10,7 @@
    * around it, which is the right place for it: the preview *is* the planning
    * information you want while arranging, not a separate readout.
    *
-   * The slot ring is **HTML, not SVG**, unlike the Escapement Tree. Drag and
+   * The slot ring is **HTML, not SVG**, unlike the Almanac. Drag and
    * drop, focus and keyboard handling all come free on real elements, and the
    * layout is thirty positioned circles rather than a graph — none of the
    * reasons the tree needed SVG apply.
@@ -83,7 +83,7 @@
     if (!held) return
 
     if (held.kind === 'roster') {
-      if (held.unit.kind === 'chime') return
+      if (held.unit.kind === 'array') return
       game.formationActions?.place(held.unit.id, ring, slot)
     } else if (held.kind === 'slot') {
       game.formationActions?.place(held.defId, ring, slot, { ring: held.ring, slot: held.slot })
@@ -96,7 +96,7 @@
     hovered = null
     if (!held) return
 
-    if (held.kind === 'roster' && held.unit.kind === 'chime') {
+    if (held.kind === 'roster' && held.unit.kind === 'array') {
       game.formationActions?.mount(held.unit.id, mount)
     }
   }
@@ -114,7 +114,7 @@
 
   const REFUSAL_TEXT: Record<string, string> = {
     occupied: 'That slot is taken.',
-    'not-unlocked': 'Not unlocked yet — buy it with Keys first.',
+    'not-unlocked': 'Not unlocked yet — buy it with Clearance first.',
     unaffordable: 'Not enough to pay for that.',
     'invalid-slot': 'No such slot.',
     'preset-limit': 'No preset slots left. Delete one first.',
@@ -155,8 +155,8 @@
   >
     <header>
       <h2>Formation</h2>
-      <span class="balance">{Math.floor(game.filings)} Filings</span>
-      <span class="balance">{game.keys} Keys</span>
+      <span class="balance">{Math.floor(game.salvage)} Salvage</span>
+      <span class="balance">{game.clearance} Clearance</span>
       <span class="hint"><kbd>F</kbd> to close · drag a unit onto a slot</span>
     </header>
 
@@ -169,7 +169,7 @@
             style:height="{editorRadius(ring.radius) * 2}px"
           ></div>
         {/each}
-        <div class="mainspring">Mainspring</div>
+        <div class="sun">Sun</div>
 
         {#each slotPositions as pos (pos.ring + ':' + pos.slot)}
           {@const unit = occupied.get(`${pos.ring}:${pos.slot}`)}
@@ -211,20 +211,20 @@
         {/each}
 
         {#each mountPositions as pos (pos.mount)}
-          {@const chime = mounts.get(pos.mount)}
+          {@const array = mounts.get(pos.mount)}
           <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
           <div
             class="slot mount"
-            class:filled={chime !== undefined}
+            class:filled={array !== undefined}
             class:hovered={hovered === `m${pos.mount}`}
             style:left="{pos.x}px"
             style:top="{pos.y}px"
             role="button"
             tabindex="0"
-            draggable={chime !== undefined}
-            title="Rim mount {pos.mount}{chime ? ` — ${chime.name}` : ''}"
+            draggable={array !== undefined}
+            title="Rim mount {pos.mount}{array ? ` — ${array.name}` : ''}"
             ondragstart={() => {
-              if (chime) carried = { kind: 'mount', mount: pos.mount, defId: chime.defId }
+              if (array) carried = { kind: 'mount', mount: pos.mount, defId: array.defId }
             }}
             ondragover={(e) => {
               e.preventDefault()
@@ -242,14 +242,14 @@
               }
             }}
           >
-            {#if chime}<span class="initial">{chime.name.slice(0, 2)}</span>{/if}
+            {#if array}<span class="initial">{array.name.slice(0, 2)}</span>{/if}
           </div>
         {/each}
       </div>
 
       <p class="costs">
-        Next Movement slot <strong>{game.nextSlotCost}</strong> ·
-        next Chime mount <strong>{game.nextMountCost}</strong> Filings.
+        Next Platform slot <strong>{game.nextSlotCost}</strong> ·
+        next Array mount <strong>{game.nextMountCost}</strong> Salvage.
         Moving a unit is free; taking one off refunds in full.
       </p>
       {#if game.lastRefusal}
@@ -264,7 +264,7 @@
         <span class="label">Next conjunction</span>
         {#if countdown === null}
           <span class="value none">none scheduled</span>
-          <p class="note">Needs two Movements on <em>different</em> rings.</p>
+          <p class="note">Needs two Platforms on <em>different</em> rings.</p>
         {:else}
           <span class="value">{countdown}s</span>
           <p class="note">{PAIRING_COPY[game.pairing]}</p>
@@ -273,7 +273,7 @@
 
       <h3>Roster</h3>
       <ul class="roster">
-        {#each [...game.movementRoster, ...game.chimeRoster] as unit (unit.kind + unit.id)}
+        {#each [...game.platformRoster, ...game.arrayRoster] as unit (unit.kind + unit.id)}
           <li
             class:locked={!unit.unlocked}
             draggable={unit.unlocked}
@@ -282,7 +282,7 @@
           >
             <span class="name">
               {unit.name}
-              {#if unit.kind === 'chime'}<span class="kind">chime</span>{/if}
+              {#if unit.kind === 'array'}<span class="kind">array</span>{/if}
             </span>
 
             {#if unit.unlocked}
@@ -292,7 +292,7 @@
               {:else}
                 <button
                   disabled={!unit.canLevel}
-                  title="Level up for {unit.levelCost} Keys"
+                  title="Level up for {unit.levelCost} Clearance"
                   onclick={() => game.formationActions?.levelUp(unit.kind, unit.id)}
                 >
                   +{unit.levelCost}
@@ -301,33 +301,33 @@
             {:else}
               <button
                 disabled={!unit.canUnlock}
-                title="Unlock for {unit.unlockCost} Keys"
+                title="Unlock for {unit.unlockCost} Clearance"
                 onclick={() => game.formationActions?.unlock(unit.kind, unit.id)}
               >
-                {unit.unlockCost} Keys
+                {unit.unlockCost} Clearance
               </button>
             {/if}
           </li>
         {/each}
       </ul>
 
-      <h3>Chimes</h3>
-      <!-- Chimes are *shaped*, not levelled: burst, sustain or punch, pulling
-           against each other for the same Keys. combat-spec.md §4. -->
+      <h3>Arrays</h3>
+      <!-- Arrays are *shaped*, not levelled: burst, sustain or punch, pulling
+           against each other for the same Clearance. combat-spec.md §4. -->
       <ul class="support">
-        {#each game.supportRoster as chime (chime.id)}
-          <li class="unit" class:locked={!chime.unlocked}>
-            <span class="name">{chime.name}</span>
-            {#if chime.unlocked}
+        {#each game.supportRoster as array (array.id)}
+          <li class="unit" class:locked={!array.unlocked}>
+            <span class="name">{array.name}</span>
+            {#if array.unlocked}
               <span class="stats">
-                {chime.stats.maxCharge} charge · {chime.stats.chargeInterval}s
+                {array.stats.maxCharge} charge · {array.stats.chargeInterval}s
               </span>
             {:else}
               <span class="stats">locked</span>
             {/if}
           </li>
-          {#if chime.unlocked}
-            {#each chime.tracks as track (track.track)}
+          {#if array.unlocked}
+            {#each array.tracks as track (track.track)}
               <li class="track">
                 <span class="name">
                   {track.name}
@@ -339,8 +339,8 @@
                 {:else}
                   <button
                     disabled={!track.affordable}
-                    title="{track.cost} Keys"
-                    onclick={() => game.formationActions?.buyTrack(chime.id, track.track)}
+                    title="{track.cost} Clearance"
+                    onclick={() => game.formationActions?.buyTrack(array.id, track.track)}
                   >
                     +{track.cost}
                   </button>
@@ -436,7 +436,7 @@
   }
 
   .ring-guide,
-  .mainspring {
+  .sun {
     position: absolute;
     left: 50%;
     top: 50%;
@@ -448,7 +448,7 @@
     border: 1px dashed #2a2620;
   }
 
-  .mainspring {
+  .sun {
     width: 54px;
     height: 54px;
     display: grid;

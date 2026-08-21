@@ -13,7 +13,7 @@ import type { SaveData } from '../core/saveSchema'
  * module exists to honour: **a Rewind resets your power within a run, not your
  * access to content.** Re-traversing cleared ground is the commonest reason
  * players stop returning to a prestige loop, so zone unlocks, the roster and
- * the whole Escapement Tree survive.
+ * the whole Almanac survive.
  *
  * Everything here is a pure function of the save, like the rest of
  * `progression/`. `core/bootstrap.ts` is what rebuilds the simulation
@@ -35,9 +35,9 @@ export interface RewindPreview {
   refusedBecause: RewindRefusal | null
 
   /** What the Rewind clears. */
-  resets: { filings: number; movements: number; chimes: number; stagesThisRun: number }
+  resets: { salvage: number; platforms: number; arrays: number; stagesThisRun: number }
   /** What it keeps. */
-  keeps: { keys: number; nodes: number; unlockedUnits: number; zones: number }
+  keeps: { clearance: number; nodes: number; unlockedUnits: number; zones: number }
 }
 
 /**
@@ -90,16 +90,16 @@ export function rewindPreview(save: SaveData, unlocked = isRewindUnlocked(save))
     canRewind: refusedBecause === null,
     refusedBecause,
     resets: {
-      filings: Math.floor(save.run.filings),
-      movements: Object.keys(save.run.formation).length,
-      chimes: Object.keys(save.run.mounts).length,
+      salvage: Math.floor(save.run.salvage),
+      platforms: Object.keys(save.run.formation).length,
+      arrays: Object.keys(save.run.mounts).length,
       stagesThisRun: depth,
     },
     keeps: {
-      keys: save.meta.keys,
+      clearance: save.meta.clearance,
       nodes: save.meta.purchasedNodes.length,
       unlockedUnits:
-        Object.keys(save.meta.movements).length + Object.keys(save.meta.chimes).length,
+        Object.keys(save.meta.platforms).length + Object.keys(save.meta.arrays).length,
       zones: save.meta.unlockedZones.length,
     },
   }
@@ -134,7 +134,7 @@ export function rewind(
   save.meta.rewindCount += 1
 
   save.run = {
-    filings: 0,
+    salvage: 0,
     // Null rather than the starting address: `bootstrap` resolves it, and
     // hard-coding it here would put the play order in two places.
     currentStage: null as StageAddress | null,
@@ -145,16 +145,16 @@ export function rewind(
     reinforcements: 0,
     startedAt: now,
     // The rate belonged to the formation that just went away.
-    filingsPerSecond: 0,
-    chimesEverMounted: false,
+    salvagePerSecond: 0,
+    arraysEverMounted: false,
   }
 
   /*
    * Hand back the opening formation.
    *
    * Without this a Rewind lands the player in exactly the deadlock Phase 24
-   * found at a fresh save: no units on the field, no Filings to buy any, and
-   * Filings only come from kills. The roster survives a Rewind, so the usual
+   * found at a fresh save: no units on the field, no Salvage to buy any, and
+   * Salvage only come from kills. The roster survives a Rewind, so the usual
    * first-time grant would decline to fire.
    */
   placeOpeningFormation(save)

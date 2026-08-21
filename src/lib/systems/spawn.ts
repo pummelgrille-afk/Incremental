@@ -1,6 +1,6 @@
-import type { SlackDef, SlackInstance } from '../entities/Slack'
+import type { ContactDef, ContactInstance } from '../entities/Contact'
 import { isBossWave, type SpawnGroup } from '../entities/Wave'
-import { slackById } from '../content/enemies'
+import { contactById } from '../content/contacts'
 import { SPAWN_RADIUS } from '../content/field'
 import { allocateId, type SimulationState } from '../core/simulation'
 import type { Rng } from '../core/rng'
@@ -9,10 +9,10 @@ import { scaleDamage, scaleHp } from './scaling'
 /**
  * Wave spawning and enemy motion.
  *
- * Reads schedules from wave data — never hardcodes a spawn (CLAUDE.md). Slack
- * appear at the rim and move down the tension gradient toward the Mainspring,
+ * Reads schedules from wave data — never hardcodes a spawn (CLAUDE.md). Contact
+ * appear at the rim and move down the output gradient toward the Sun,
  * which is the fiction's explanation for why everything converges on the centre
- * (narrative.md, "The Unwinding").
+ * (narrative.md, "The Approach").
  */
 
 /**
@@ -52,19 +52,19 @@ function spawnPosition(
 }
 
 /**
- * Build a Slack instance.
+ * Build a Contact instance.
  *
  * `rng` is **optional and opting in to jitter**, not the reverse. Omitting it
  * gives a fixed stagger, so a caller can never introduce nondeterminism by
  * forgetting to thread a generator through — which is exactly how a stray
  * `Math.random()` survived here until Phase 12.
  */
-export function createSlack(
+export function createContact(
   sim: SimulationState,
-  def: SlackDef,
+  def: ContactDef,
   position: { x: number; y: number },
   rng?: Rng,
-): SlackInstance {
+): ContactInstance {
   const scalingIndex = sim.stage.scalingIndex
   const zoneMultiplier = sim.zone.scalingMultiplier
 
@@ -113,15 +113,15 @@ export function updateSpawning(sim: SimulationState, rng: Rng, previousElapsed: 
   if (!wave || isBossWave(wave)) return
 
   for (const group of wave.groups) {
-    const def = slackById(group.defId)
+    const def = contactById(group.defId)
     if (!def) continue
 
     for (let i = 0; i < group.count; i++) {
       const due = group.delay + group.interval * i
       // Fire exactly once, on the tick that crosses the due time.
       if (due > previousElapsed && due <= sim.waveElapsed) {
-        sim.slack.push(
-          createSlack(
+        sim.contact.push(
+          createContact(
             sim,
             def,
             spawnPosition(group, i, group.count, rng, sim.waveArcOffset),
@@ -133,7 +133,7 @@ export function updateSpawning(sim: SimulationState, rng: Rng, previousElapsed: 
   }
 }
 
-/** Total Slack a wave will produce. Used to decide when it is cleared. */
+/** Total Contact a wave will produce. Used to decide when it is cleared. */
 export function waveTotal(sim: SimulationState, waveIndex: number): number {
   const wave = currentWave(sim, waveIndex)
   if (!wave || isBossWave(wave)) return 0
@@ -150,11 +150,11 @@ export function waveSpawnDuration(sim: SimulationState, waveIndex: number): numb
   )
 }
 
-/** Where an `orbit` Slack settles if its content does not say. */
+/** Where an `orbit` Contact settles if its content does not say. */
 const DEFAULT_ORBIT_RADIUS = 210
 
 /**
- * Move Slack toward the Mainspring according to their motion archetype.
+ * Move Contact toward the Sun according to their motion archetype.
  *
  * Four archetypes, each meant to demand a different answer from the player:
  *
@@ -162,47 +162,47 @@ const DEFAULT_ORBIT_RADIUS = 210
  * - `drift`   straight and slow; the anvil a front line grinds down
  * - `charge`  accelerates once inside the outer ring; punishes a thin ring 1
  * - `orbit`   settles at a radius and circles, firing — cannot be out-waited,
- *             and is the one archetype a static Chime answers better than a
- *             rotating Movement
+ *             and is the one archetype a static Array answers better than a
+ *             rotating Platform
  */
-export function updateSlackMotion(sim: SimulationState, dt: number): void {
-  for (const slack of sim.slack) {
-    const { x, y } = slack.position
+export function updateContactMotion(sim: SimulationState, dt: number): void {
+  for (const contact of sim.contact) {
+    const { x, y } = contact.position
     const distance = Math.hypot(x, y) || 1
 
     // Unit vector pointing inward.
     const towardCentreX = -x / distance
     const towardCentreY = -y / distance
 
-    let speed = slack.def.speed
+    let speed = contact.def.speed
 
-    switch (slack.def.motion) {
+    switch (contact.def.motion) {
       case 'charge':
         // Accelerates inside the outer ring — the Manual's stated concern.
         if (distance < 240) speed *= 1.9
         break
       case 'swarm': {
         // Slight tangential weave so a group does not collapse into one line.
-        const weave = Math.sin(sim.elapsed * 2.2 + slack.id) * 0.35
-        slack.velocity.x = (towardCentreX - towardCentreY * weave) * speed
-        slack.velocity.y = (towardCentreY + towardCentreX * weave) * speed
-        slack.position.x += slack.velocity.x * dt
-        slack.position.y += slack.velocity.y * dt
-        if (slack.hitFlash > 0) slack.hitFlash = Math.max(0, slack.hitFlash - dt)
+        const weave = Math.sin(sim.elapsed * 2.2 + contact.id) * 0.35
+        contact.velocity.x = (towardCentreX - towardCentreY * weave) * speed
+        contact.velocity.y = (towardCentreY + towardCentreX * weave) * speed
+        contact.position.x += contact.velocity.x * dt
+        contact.position.y += contact.velocity.y * dt
+        if (contact.hitFlash > 0) contact.hitFlash = Math.max(0, contact.hitFlash - dt)
         continue
       }
       case 'orbit': {
-        const target = slack.def.traits?.orbitRadius ?? DEFAULT_ORBIT_RADIUS
+        const target = contact.def.traits?.orbitRadius ?? DEFAULT_ORBIT_RADIUS
 
         if (distance > target + 4) break // still closing; fall through to inward
 
         // Settled: circle instead of closing. Tangential is the inward vector
         // rotated a quarter turn, so this needs no extra trigonometry.
-        const direction = slack.id % 2 === 0 ? 1 : -1
-        slack.velocity.x = -towardCentreY * speed * direction
-        slack.velocity.y = towardCentreX * speed * direction
-        slack.position.x += slack.velocity.x * dt
-        slack.position.y += slack.velocity.y * dt
+        const direction = contact.id % 2 === 0 ? 1 : -1
+        contact.velocity.x = -towardCentreY * speed * direction
+        contact.velocity.y = towardCentreX * speed * direction
+        contact.position.x += contact.velocity.x * dt
+        contact.position.y += contact.velocity.y * dt
 
         /*
          * Pin the radius.
@@ -213,11 +213,11 @@ export function updateSlackMotion(sim: SimulationState, dt: number): void {
          * archetype promises. Renormalising costs one square root and makes
          * "settles at a radius" literally true.
          */
-        const drifted = Math.hypot(slack.position.x, slack.position.y) || 1
-        slack.position.x = (slack.position.x / drifted) * target
-        slack.position.y = (slack.position.y / drifted) * target
+        const drifted = Math.hypot(contact.position.x, contact.position.y) || 1
+        contact.position.x = (contact.position.x / drifted) * target
+        contact.position.y = (contact.position.y / drifted) * target
 
-        if (slack.hitFlash > 0) slack.hitFlash = Math.max(0, slack.hitFlash - dt)
+        if (contact.hitFlash > 0) contact.hitFlash = Math.max(0, contact.hitFlash - dt)
         continue
       }
       case 'drift':
@@ -225,11 +225,11 @@ export function updateSlackMotion(sim: SimulationState, dt: number): void {
         break
     }
 
-    slack.velocity.x = towardCentreX * speed
-    slack.velocity.y = towardCentreY * speed
-    slack.position.x += slack.velocity.x * dt
-    slack.position.y += slack.velocity.y * dt
+    contact.velocity.x = towardCentreX * speed
+    contact.velocity.y = towardCentreY * speed
+    contact.position.x += contact.velocity.x * dt
+    contact.position.y += contact.velocity.y * dt
 
-    if (slack.hitFlash > 0) slack.hitFlash = Math.max(0, slack.hitFlash - dt)
+    if (contact.hitFlash > 0) contact.hitFlash = Math.max(0, contact.hitFlash - dt)
   }
 }

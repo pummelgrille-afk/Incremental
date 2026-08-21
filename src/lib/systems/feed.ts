@@ -21,20 +21,20 @@ import { Pool } from '../utils/pool'
  * Note the absence of an objective-hit event.
  *
  * Phase 17 emitted one and the playtest cut it: a number popping at the point of
- * impact competes with the Mainspring's own white flash and with the densest
- * action on the field, while the HUD's Tension bar is already the authoritative
+ * impact competes with the Sun's own white flash and with the densest
+ * action on the field, while the HUD's Output bar is already the authoritative
  * readout and is *persistent* rather than transient. Two channels for the same
  * information, one of them worse, is noise (P4).
  *
- * Damage to the Mainspring is communicated by the flash and the bar. If Phase 40
- * wants more, `mainspring.hitFlash` is the channel, not a popup.
+ * Damage to the Sun is communicated by the flash and the bar. If Phase 40
+ * wants more, `sun.hitFlash` is the channel, not a popup.
  */
 export type CombatEventKind =
-  /** A Slack took damage. */
+  /** A Contact took damage. */
   | 'damage'
-  /** A Slack died. */
+  /** A Contact died. */
   | 'kill'
-  /** A Movement absorbed a projectile with its block arc. */
+  /** A Platform absorbed a projectile with its block arc. */
   | 'block'
 
 export interface CombatEvent {

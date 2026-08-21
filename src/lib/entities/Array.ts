@@ -1,9 +1,9 @@
 import type { ContentDef, EntityId, TargetingPolicy, UnitRole } from './types'
 
 /**
- * A Chime — ranged support mounted on the static rim.
+ * A Array — ranged support mounted on the static rim.
  *
- * Chimes differ from Movements on five axes, and all five must survive
+ * Arrays differ from Platforms on five axes, and all five must survive
  * balancing or one will collapse into the other (combat-spec.md §4):
  *
  *   1. Position   static rim mount, not a rotating slot
@@ -12,11 +12,11 @@ import type { ContentDef, EntityId, TargetingPolicy, UnitRole } from './types'
  *   4. Conjunction  never participates
  *   5. Targeting  predictive — leads moving targets
  *
- * Because they do not rotate, Chimes are the player's stable reference frame
+ * Because they do not rotate, Arrays are the player's stable reference frame
  * while everything else turns.
  */
 
-export interface ChimeDef extends ContentDef {
+export interface ArrayDef extends ContentDef {
   readonly role: UnitRole
 
   readonly maxHp: number
@@ -24,7 +24,7 @@ export interface ChimeDef extends ContentDef {
   readonly defence: number
   readonly baseInterval: number
 
-  /** Chimes are always Resonant — see combat-spec.md §7. Not configurable. */
+  /** Arrays are always Resonant — see combat-spec.md §7. Not configurable. */
   readonly damageType: 'resonant'
 
   /** Shots held at once. Burst, not sustained damage. */
@@ -42,10 +42,10 @@ export interface ChimeDef extends ContentDef {
 /**
  * Live state.
  *
- * **Chimes cannot currently be damaged.** They are mounted on the rim, outside
- * the field of fire — Slack spawn at that radius and move inward, and Slack
- * projectiles travel inward toward the Mainspring, so nothing ever reaches a
- * mount. That is deliberate: a Chime's cost is contributing *no defence at all*
+ * **Arrays cannot currently be damaged.** They are mounted on the rim, outside
+ * the field of fire — Contact spawn at that radius and move inward, and Contact
+ * projectiles travel inward toward the Sun, so nothing ever reaches a
+ * mount. That is deliberate: a Array's cost is contributing *no defence at all*
  * (it has no block arc) and being gated by Charge, not fragility.
  *
  * `hp`, `maxHp` and `disabledFor` are therefore inert today. They are kept
@@ -53,9 +53,9 @@ export interface ChimeDef extends ContentDef {
  * introduce durability; the recovery path in ai.ts is the mechanism that would
  * carry it. Documented rather than deleted so the state is not silently a lie.
  */
-export interface ChimeInstance {
+export interface ArrayInstance {
   readonly id: EntityId
-  readonly def: ChimeDef
+  readonly def: ArrayDef
 
   /** Index into the rim's mount points. Static — the rim does not rotate. */
   mount: number
@@ -74,15 +74,15 @@ export interface ChimeInstance {
   disabledFor: number
 
   /**
-   * Permanent multiplier from this unit's level. Chimes carry no timed buffs:
+   * Permanent multiplier from this unit's level. Arrays carry no timed buffs:
    * they do not participate in conjunctions (combat-spec.md §4), and nothing
    * else grants one. A `hasteBonus` field sat here unwritten until Phase 18.
-   * Phase 25's support upgrades are where transient Chime modifiers belong.
+   * Phase 25's support upgrades are where transient Array modifiers belong.
    */
   levelScale: number
 
   /**
-   * Stats after the Chime's upgrade tracks (progression/support.ts).
+   * Stats after the Array's upgrade tracks (progression/support.ts).
    *
    * Carried on the instance rather than read from the def, because a def is
    * immutable shared content — a save that has bought upgrades must never be
@@ -94,7 +94,7 @@ export interface ChimeInstance {
   attackScale: number
 }
 
-/** A Chime can fire only with at least one whole charge banked. */
-export function canFire(chime: ChimeInstance): boolean {
-  return chime.charge >= 1 && chime.cooldownRemaining <= 0 && chime.disabledFor <= 0
+/** A Array can fire only with at least one whole charge banked. */
+export function canFire(array: ArrayInstance): boolean {
+  return array.charge >= 1 && array.cooldownRemaining <= 0 && array.disabledFor <= 0
 }

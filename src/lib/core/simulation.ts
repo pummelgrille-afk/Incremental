@@ -1,11 +1,11 @@
-import type { ChimeInstance } from '../entities/Chime'
-import type { MainspringState } from '../entities/Mainspring'
-import type { MovementInstance } from '../entities/Movement'
+import type { ArrayInstance } from '../entities/Array'
+import type { SunState } from '../entities/Sun'
+import type { PlatformInstance } from '../entities/Platform'
 import type { Projectile } from '../entities/Projectile'
-import type { SlackInstance } from '../entities/Slack'
+import type { ContactInstance } from '../entities/Contact'
 import type { StageDef, ZoneDef } from '../entities/Zone'
 import type { AnyWaveDef } from '../entities/Wave'
-import { BEAT, RINGS } from '../content/field'
+import { FLARE, RINGS } from '../content/field'
 import type { CombatFeed } from '../systems/feed'
 import type { Telemetry } from '../systems/telemetry'
 import type { UpgradeEffects } from '../entities/Upgrade'
@@ -27,13 +27,13 @@ export interface RingState {
 }
 
 /**
- * The Wright's manual strike. combat-spec.md §1.
+ * The Operator's manual strike. combat-spec.md §1.
  *
  * Lives on the simulation rather than the UI because charge regenerates on
  * simulation time, so it keeps accruing at the same rate regardless of frame
  * rate and stops accruing when the stage is over.
  */
-export interface BeatState {
+export interface FlareState {
   /** Fractional so regeneration is smooth; floor before spending. */
   charge: number
   maxCharge: number
@@ -94,7 +94,7 @@ export interface SimulationState {
   telemetry: Telemetry | null
 
   /**
-   * The Escapement Tree's aggregate, read once at stage load.
+   * The Almanac's aggregate, read once at stage load.
    *
    * Systems read these rather than the save: `progression/` owns what a player
    * has bought, `systems/` owns what the field does with it, and neither needs
@@ -104,21 +104,21 @@ export interface SimulationState {
   /** Counts down during 'wave-gap'. */
   gapRemaining: number
 
-  mainspring: MainspringState
+  sun: SunState
   rings: RingState[]
-  beat: BeatState
+  flare: FlareState
 
   /** Transient presentation events. Never read by the simulation itself. */
   feed: CombatFeed
 
-  movements: MovementInstance[]
-  chimes: ChimeInstance[]
-  slack: SlackInstance[]
+  platforms: PlatformInstance[]
+  arrays: ArrayInstance[]
+  contact: ContactInstance[]
   /** Pooled and mostly inactive; always filter on `active`. */
   projectiles: Projectile[]
 
-  /** Filings banked this stage. Added to the run total on clear. */
-  filingsEarned: number
+  /** Salvage banked this stage. Added to the run total on clear. */
+  salvageEarned: number
 
   /** Milliseconds owed to the synergy pass, which runs at 100 ms not per tick. */
   synergyAccumulator: number
@@ -134,10 +134,10 @@ export function createRingStates(): RingState[] {
   }))
 }
 
-// Annotated `number` rather than inferred: `BEAT` is `as const`, so the
+// Annotated `number` rather than inferred: `FLARE` is `as const`, so the
 // default narrows the parameter to the literal 3 and the Regulation branch
 // cannot raise it.
-export function createBeatState(maxCharge: number = BEAT.maxCharges): BeatState {
+export function createFlareState(maxCharge: number = FLARE.maxCharges): FlareState {
   return { charge: maxCharge, maxCharge, cooldown: 0, struck: 0 }
 }
 
@@ -145,7 +145,7 @@ export function allocateId(sim: SimulationState): number {
   return sim.nextEntityId++
 }
 
-/** The stage-clear condition: last wave finished with Tension remaining. */
+/** The stage-clear condition: last wave finished with Output remaining. */
 export function isCleared(sim: SimulationState): boolean {
   return sim.phase === 'cleared'
 }

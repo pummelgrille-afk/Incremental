@@ -1,7 +1,7 @@
 import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js'
-import { BEAT, RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
-import type { SlackInstance } from '../entities/Slack'
-import { chimePosition } from '../systems/ai'
+import { FLARE, RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
+import type { ContactInstance } from '../entities/Contact'
+import { arrayPosition } from '../systems/ai'
 import { EVENT_LIFETIME } from '../systems/feed'
 import { TICK_SECONDS, type Simulation } from './loop'
 
@@ -24,23 +24,23 @@ import { TICK_SECONDS, type Simulation } from './loop'
 const PALETTE = {
   background: 0x0b0a08,
   ringTrack: 0x2a2417,
-  mainspring: 0xc9a227,
-  mainspringLow: 0xf87171,
-  movement: 0xc9a227,
-  movementDisabled: 0x4a4335,
+  sun: 0xc9a227,
+  sunLow: 0xf87171,
+  platform: 0xc9a227,
+  platformDisabled: 0x4a4335,
   detent: 0x8fb3c9,
   pallet: 0xc98f4a,
-  chime: 0x5eead4,
-  slack: 0x8a8474,
-  slackFlash: 0xffffff,
-  projectileSlack: 0xe8e2d4,
-  projectileChime: 0x5eead4,
+  array: 0x5eead4,
+  contact: 0x8a8474,
+  contactFlash: 0xffffff,
+  projectileContact: 0xe8e2d4,
+  projectileArray: 0x5eead4,
   telegraph: 0xf87171,
   conjunction: 0xfff1a8,
 } as const
 
-const MOVEMENT_COLOURS: Record<string, number> = {
-  hammer: PALETTE.movement,
+const PLATFORM_COLOURS: Record<string, number> = {
+  hammer: PALETTE.platform,
   detent: PALETTE.detent,
   pallet: PALETTE.pallet,
 }
@@ -67,7 +67,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   })
   host.appendChild(app.canvas)
 
-  // Everything is centred on the Mainspring, so children work in world
+  // Everything is centred on the Sun, so children work in world
   // coordinates and never think about screen space.
   const world = new Container()
   app.stage.addChild(world)
@@ -99,14 +99,14 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     return container
   })
 
-  const slackLayer = new Container()
+  const contactLayer = new Container()
   const projectileLayer = new Container()
   const effectLayer = new Container()
-  const chimeLayer = new Container()
-  world.addChild(slackLayer, chimeLayer, projectileLayer, effectLayer)
+  const arrayLayer = new Container()
+  world.addChild(contactLayer, arrayLayer, projectileLayer, effectLayer)
 
-  const mainspring = new Graphics()
-  world.addChild(mainspring)
+  const sun = new Graphics()
+  world.addChild(sun)
 
   // Strike feedback lives above everything, so it reads even in dense fire.
   const strikeGraphic = new Graphics()
@@ -120,16 +120,16 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     fontFamily: 'system-ui, sans-serif',
     fontSize: 13,
     fontWeight: '600',
-    fill: PALETTE.projectileSlack,
+    fill: PALETTE.projectileContact,
   })
   const popups: Text[] = []
 
   // Sprite registries, keyed by entity id so they survive across frames.
-  const movementSprites = new Map<number, Graphics>()
-  const slackSprites = new Map<number, Graphics>()
-  /** Last-drawn signature per Slack, so unchanged ones skip the rebuild. */
-  const slackSigs = new Map<number, number>()
-  const chimeSprites = new Map<number, Graphics>()
+  const platformSprites = new Map<number, Graphics>()
+  const contactSprites = new Map<number, Graphics>()
+  /** Last-drawn signature per Contact, so unchanged ones skip the rebuild. */
+  const contactSigs = new Map<number, number>()
+  const arraySprites = new Map<number, Graphics>()
   const projectileSprites: Graphics[] = []
 
   const recentre = () => {
@@ -142,31 +142,31 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   recentre()
   app.renderer.on('resize', recentre)
 
-  function drawMovements(simulation: Simulation, alpha: number) {
+  function drawPlatforms(simulation: Simulation, alpha: number) {
     const sim = simulation.state
     const seen = new Set<number>()
 
-    for (const movement of sim.movements) {
-      seen.add(movement.id)
-      const ring = ringByIndex(movement.slot.ring)
+    for (const platform of sim.platforms) {
+      seen.add(platform.id)
+      const ring = ringByIndex(platform.slot.ring)
       if (!ring) continue
 
-      let sprite = movementSprites.get(movement.id)
+      let sprite = platformSprites.get(platform.id)
       if (!sprite) {
         sprite = new Graphics()
-        movementSprites.set(movement.id, sprite)
+        platformSprites.set(platform.id, sprite)
         ringContainers[ring.index - 1].addChild(sprite)
       }
 
       // Local coordinates only — the parent container's rotation carries them.
-      const localAngle = slotAngle(ring, movement.slot.slot, 0)
+      const localAngle = slotAngle(ring, platform.slot.slot, 0)
       sprite.x = Math.cos(localAngle) * ring.radius
       sprite.y = Math.sin(localAngle) * ring.radius
 
-      const disabled = movement.disabledFor > 0
+      const disabled = platform.disabledFor > 0
       const colour = disabled
-        ? PALETTE.movementDisabled
-        : (MOVEMENT_COLOURS[movement.def.id] ?? PALETTE.movement)
+        ? PALETTE.platformDisabled
+        : (PLATFORM_COLOURS[platform.def.id] ?? PALETTE.platform)
 
       sprite.clear()
       // Body.
@@ -174,22 +174,22 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
       if (!disabled) {
         // Health ring, so damage is legible without a bar.
-        const health = movement.hp / movement.maxHp
+        const health = platform.hp / platform.maxHp
         if (health < 1) {
           sprite
             .arc(0, 0, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * health)
             .stroke({ width: 2, color: colour, alpha: 0.8 })
         }
-        if (movement.buffs.shield.magnitude > 0) {
-          sprite.circle(0, 0, 13).stroke({ width: 1.5, color: PALETTE.chime, alpha: 0.7 })
+        if (platform.buffs.shield.magnitude > 0) {
+          sprite.circle(0, 0, 13).stroke({ width: 1.5, color: PALETTE.array, alpha: 0.7 })
         }
       }
     }
 
-    for (const [id, sprite] of movementSprites) {
+    for (const [id, sprite] of platformSprites) {
       if (seen.has(id)) continue
       sprite.destroy()
-      movementSprites.delete(id)
+      platformSprites.delete(id)
     }
 
     // The entire rotation system: one write per ring.
@@ -200,102 +200,102 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
-  function drawChimes(simulation: Simulation) {
+  function drawArrays(simulation: Simulation) {
     const seen = new Set<number>()
 
-    for (const chime of simulation.state.chimes) {
-      seen.add(chime.id)
-      let sprite = chimeSprites.get(chime.id)
+    for (const array of simulation.state.arrays) {
+      seen.add(array.id)
+      let sprite = arraySprites.get(array.id)
       if (!sprite) {
         sprite = new Graphics()
-        chimeSprites.set(chime.id, sprite)
-        chimeLayer.addChild(sprite)
+        arraySprites.set(array.id, sprite)
+        arrayLayer.addChild(sprite)
       }
 
-      const position = chimePosition(chime)
+      const position = arrayPosition(array)
       sprite.x = position.x
       sprite.y = position.y
 
       sprite.clear()
       sprite.rect(-7, -7, 14, 14).fill({
-        color: PALETTE.chime,
-        alpha: chime.disabledFor > 0 ? 0.3 : 1,
+        color: PALETTE.array,
+        alpha: array.disabledFor > 0 ? 0.3 : 1,
       })
 
-      // Charge pips — the resource that makes Chimes burst-y, made visible.
-      const whole = Math.floor(chime.charge)
-      for (let i = 0; i < chime.maxCharge; i++) {
+      // Charge pips — the resource that makes Arrays burst-y, made visible.
+      const whole = Math.floor(array.charge)
+      for (let i = 0; i < array.maxCharge; i++) {
         sprite
           .circle(-6 + i * 6, 13, 2)
-          .fill({ color: PALETTE.chime, alpha: i < whole ? 1 : 0.22 })
+          .fill({ color: PALETTE.array, alpha: i < whole ? 1 : 0.22 })
       }
     }
 
-    for (const [id, sprite] of chimeSprites) {
+    for (const [id, sprite] of arraySprites) {
       if (seen.has(id)) continue
       sprite.destroy()
-      chimeSprites.delete(id)
+      arraySprites.delete(id)
     }
   }
 
   /**
-   * Slack are the dominant render cost, so their geometry is only rebuilt when
+   * Contact are the dominant render cost, so their geometry is only rebuilt when
    * it actually changes.
    *
-   * Phase 11 measured ~12 us per Slack per frame against ~4 us for a projectile
+   * Phase 11 measured ~12 us per Contact per frame against ~4 us for a projectile
    * that is merely repositioned. The difference was `clear()` plus a geometry
    * rebuild every frame for entities that mostly are not changing: an
-   * undamaged, non-telegraphing Slack looks identical frame to frame and only
+   * undamaged, non-telegraphing Contact looks identical frame to frame and only
    * needs its position updated.
    *
    * A signature captures everything that affects the drawing. Telegraphing
-   * Slack animate, so they are exempt — but only a handful telegraph at once.
+   * Contact animate, so they are exempt — but only a handful telegraph at once.
    */
-  function slackSignature(slack: SlackInstance): number {
-    const flashing = slack.hitFlash > 0 ? 1 : 0
+  function contactSignature(contact: ContactInstance): number {
+    const flashing = contact.hitFlash > 0 ? 1 : 0
     // Health quantised to 20 steps: finer than the eye resolves on a 4 px arc,
     // and it stops a continuous regen trickle from dirtying every frame.
-    const health = Math.round((slack.hp / slack.maxHp) * 20)
-    const shielded = slack.shieldHitsRemaining > 0 ? 1 : 0
+    const health = Math.round((contact.hp / contact.maxHp) * 20)
+    const shielded = contact.shieldHitsRemaining > 0 ? 1 : 0
     return flashing | (shielded << 1) | (health << 2)
   }
 
-  function drawSlack(simulation: Simulation, alpha: number) {
+  function drawContact(simulation: Simulation, alpha: number) {
     const seen = new Set<number>()
     const lead = alpha * TICK_SECONDS
 
-    for (const slack of simulation.state.slack) {
-      seen.add(slack.id)
-      let sprite = slackSprites.get(slack.id)
+    for (const contact of simulation.state.contact) {
+      seen.add(contact.id)
+      let sprite = contactSprites.get(contact.id)
       if (!sprite) {
         sprite = new Graphics()
-        slackSprites.set(slack.id, sprite)
-        slackLayer.addChild(sprite)
-        slackSigs.set(slack.id, -1)
+        contactSprites.set(contact.id, sprite)
+        contactLayer.addChild(sprite)
+        contactSigs.set(contact.id, -1)
       }
 
       // Position always updates — this is the cheap part.
-      sprite.x = slack.position.x + slack.velocity.x * lead
-      sprite.y = slack.position.y + slack.velocity.y * lead
+      sprite.x = contact.position.x + contact.velocity.x * lead
+      sprite.y = contact.position.y + contact.velocity.y * lead
 
-      const telegraphing = slack.telegraphRemaining > 0
-      const signature = slackSignature(slack)
+      const telegraphing = contact.telegraphRemaining > 0
+      const signature = contactSignature(contact)
 
       // Skip the rebuild when nothing visible changed.
-      if (!telegraphing && slackSigs.get(slack.id) === signature) continue
-      slackSigs.set(slack.id, telegraphing ? -1 : signature)
+      if (!telegraphing && contactSigs.get(contact.id) === signature) continue
+      contactSigs.set(contact.id, telegraphing ? -1 : signature)
 
-      const size = slack.def.motion === 'drift' ? 11 : 7
+      const size = contact.def.motion === 'drift' ? 11 : 7
 
       sprite.clear()
       sprite
         .circle(0, 0, size)
-        .fill({ color: slack.hitFlash > 0 ? PALETTE.slackFlash : PALETTE.slack })
+        .fill({ color: contact.hitFlash > 0 ? PALETTE.contactFlash : PALETTE.contact })
 
       // Telegraph: a pattern that fires without warning is a bug, so the
       // warning has to be visible from the render layer, not implied.
       if (telegraphing) {
-        const t = slack.telegraphRemaining
+        const t = contact.telegraphRemaining
         sprite.circle(0, 0, size + 6 + t * 14).stroke({
           width: 2,
           color: PALETTE.telegraph,
@@ -303,19 +303,19 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         })
       }
 
-      const health = slack.hp / slack.maxHp
+      const health = contact.hp / contact.maxHp
       if (health < 1) {
         sprite
           .arc(0, 0, size + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * health)
-          .stroke({ width: 1.5, color: PALETTE.slack, alpha: 0.8 })
+          .stroke({ width: 1.5, color: PALETTE.contact, alpha: 0.8 })
       }
     }
 
-    for (const [id, sprite] of slackSprites) {
+    for (const [id, sprite] of contactSprites) {
       if (seen.has(id)) continue
       sprite.destroy()
-      slackSprites.delete(id)
-      slackSigs.delete(id)
+      contactSprites.delete(id)
+      contactSigs.delete(id)
     }
   }
 
@@ -345,7 +345,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         sprite.visible = true
         sprite.clear()
         sprite.circle(0, 0, p.radius).fill({
-          color: p.faction === 'slack' ? PALETTE.projectileSlack : PALETTE.projectileChime,
+          color: p.faction === 'contact' ? PALETTE.projectileContact : PALETTE.projectileArray,
         })
       }
 
@@ -354,25 +354,25 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
-  function drawMainspring(simulation: Simulation) {
-    const state = simulation.state.mainspring
+  function drawSun(simulation: Simulation) {
+    const state = simulation.state.sun
     const fraction = state.maxHp > 0 ? state.hp / state.maxHp : 0
     const low = fraction < 0.3
 
-    mainspring.clear()
-    mainspring.circle(0, 0, 26).fill({
-      color: state.hitFlash > 0 ? 0xffffff : low ? PALETTE.mainspringLow : PALETTE.mainspring,
+    sun.clear()
+    sun.circle(0, 0, 26).fill({
+      color: state.hitFlash > 0 ? 0xffffff : low ? PALETTE.sunLow : PALETTE.sun,
       alpha: 0.95,
     })
 
-    // Tension as an arc around the core — the objective's health is the one
+    // Output as an arc around the core — the objective's health is the one
     // number that must never require looking away from the field.
-    mainspring
+    sun
       .arc(0, 0, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fraction)
-      .stroke({ width: 4, color: low ? PALETTE.mainspringLow : PALETTE.mainspring })
+      .stroke({ width: 4, color: low ? PALETTE.sunLow : PALETTE.sun })
 
     if (state.shield > 0) {
-      mainspring.circle(0, 0, 40).stroke({ width: 2, color: PALETTE.chime, alpha: 0.6 })
+      sun.circle(0, 0, 40).stroke({ width: 2, color: PALETTE.array, alpha: 0.6 })
     }
   }
 
@@ -390,13 +390,13 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     // Expand and fade over the strike's short life.
     const t = Math.min(1, strike.age / 0.35)
     strikeGraphic
-      .circle(strike.x, strike.y, BEAT.radius * (0.55 + 0.45 * t))
+      .circle(strike.x, strike.y, FLARE.radius * (0.55 + 0.45 * t))
       .stroke({ width: 3 * (1 - t) + 1, color: PALETTE.conjunction, alpha: 1 - t })
   }
 
   const FEED_COLOURS: Record<string, number> = {
     damage: 0xe8e2d4,
-    kill: PALETTE.mainspring,
+    kill: PALETTE.sun,
     block: PALETTE.detent,
   }
 
@@ -431,7 +431,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
       popup.visible = true
       popup.text = event.kind === 'block' ? '–' : String(event.amount)
-      popup.style.fill = FEED_COLOURS[event.kind] ?? PALETTE.projectileSlack
+      popup.style.fill = FEED_COLOURS[event.kind] ?? PALETTE.projectileContact
       // Drift upward and fade, so overlapping numbers separate over time.
       popup.x = event.x
       popup.y = event.y - t * 22
@@ -448,11 +448,11 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     render(simulation: Simulation) {
       const alpha = simulation.alpha
 
-      drawMovements(simulation, alpha)
-      drawChimes(simulation)
-      drawSlack(simulation, alpha)
+      drawPlatforms(simulation, alpha)
+      drawArrays(simulation)
+      drawContact(simulation, alpha)
       drawProjectiles(simulation, alpha)
-      drawMainspring(simulation)
+      drawSun(simulation)
       drawStrike(simulation)
       drawFeed(simulation)
 
@@ -482,9 +482,9 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       destroyed = true
 
       app.destroy(true, { children: true })
-      movementSprites.clear()
-      slackSprites.clear()
-      chimeSprites.clear()
+      platformSprites.clear()
+      contactSprites.clear()
+      arraySprites.clear()
       projectileSprites.length = 0
       popups.length = 0
     },

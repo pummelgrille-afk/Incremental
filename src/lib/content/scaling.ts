@@ -56,8 +56,8 @@ export const OVER_LEVEL = {
    * which the wave delivers HP. At 1.0 the player exactly keeps pace with
    * arrivals, which is already a comfortable clear.
    *
-   * **Calibrated so the reference formation never triggers it.** Six Movements
-   * and two Chimes at level 1 — the build every balance pass since Phase 14 has
+   * **Calibrated so the reference formation never triggers it.** Six Platforms
+   * and two Arrays at level 1 — the build every balance pass since Phase 14 has
    * been measured against — peaks at 2.39 pressure, on First Shift, which is
    * deliberately the gentlest stage in the zone. A director that fired there
    * would be rebalancing the game rather than answering farming, and it would

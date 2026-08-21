@@ -35,9 +35,9 @@ beforeEach(() => {
 })
 
 const node = (id: string) => upgradeById(id)!
-const ROOT = 'winding-tension-of-the-stroke'
-const SECOND = 'winding-shortened-escape'
-const THIRD = 'winding-sympathetic-stroke'
+const ROOT = 'aperture-force-of-the-pulse'
+const SECOND = 'aperture-shortened-dwell'
+const THIRD = 'aperture-sympathetic-pulse'
 
 describe('the authored graph', () => {
   it('passes validation', () => {
@@ -66,7 +66,7 @@ describe('the authored graph', () => {
   it('keeps Regulation buying reach, not numbers', () => {
     // economy-spec.md §2 asks Phase 34 to protect this identity. Asserting it
     // now means the guard exists before the content does.
-    const numeric: UpgradeEffectKind[] = ['attack', 'defence', 'tension', 'haste']
+    const numeric: UpgradeEffectKind[] = ['attack', 'defence', 'output', 'haste']
     for (const n of UPGRADE_NODES.filter((x) => x.branch === 'regulation')) {
       for (const effect of n.effects) {
         expect(numeric, `${n.id} grants "${effect.kind}"`).not.toContain(effect.kind)
@@ -85,7 +85,7 @@ describe('the authored graph', () => {
   it('catches a node requiring one from another branch', () => {
     const broken: UpgradeNodeDef[] = [
       { ...node(ROOT) },
-      { ...node('bracing-hardened-pallets'), requires: [ROOT] },
+      { ...node('shielding-hardened-plating'), requires: [ROOT] },
     ]
     expect(validateTree(broken).some((p) => p.problem.includes('another branch'))).toBe(true)
   })
@@ -156,7 +156,7 @@ describe('cost', () => {
 
     const other = createDefaultSave(0)
     other.meta.recollection = 1000
-    purchase(other, 'bracing-deeper-winding')
+    purchase(other, 'shielding-deeper-reserves')
     const afterOtherBranch = nodeCost(other, node(SECOND))
 
     expect(afterOwnBranch).toBeGreaterThan(afterOtherBranch)
@@ -165,7 +165,7 @@ describe('cost', () => {
 
   it('follows the authored growth exactly', () => {
     purchase(save, ROOT)
-    expect(branchDepth(save, 'winding')).toBe(1)
+    expect(branchDepth(save, 'aperture')).toBe(1)
     expect(nodeCost(save, node(SECOND))).toBe(
       Math.ceil(node(SECOND).baseCost * TREE.nodeCostGrowth),
     )
@@ -206,7 +206,7 @@ describe('respec', () => {
     const before = save.meta.recollection
     purchase(save, ROOT)
     purchase(save, SECOND)
-    purchase(save, 'bracing-deeper-winding')
+    purchase(save, 'shielding-deeper-reserves')
 
     const refund = respec(save)
     expect(save.meta.recollection).toBe(before)
@@ -260,15 +260,15 @@ describe('effects', () => {
 
   it('accumulates across branches independently', () => {
     purchase(save, ROOT)
-    purchase(save, 'bracing-deeper-winding')
-    purchase(save, 'salvage-swarf-discipline')
-    purchase(save, 'regulation-second-beat')
+    purchase(save, 'shielding-deeper-reserves')
+    purchase(save, 'recovery-debris-discipline')
+    purchase(save, 'regulation-second-flare')
 
     const effects = effectsOf(save)
     expect(effects.attack).toBeGreaterThan(0)
-    expect(effects.tension).toBeGreaterThan(0)
-    expect(effects.filings).toBeGreaterThan(0)
-    expect(effects.beatCharges).toBe(1)
+    expect(effects.output).toBeGreaterThan(0)
+    expect(effects.salvage).toBeGreaterThan(0)
+    expect(effects.flareCharges).toBe(1)
   })
 
   it('skips an unknown id rather than throwing', () => {

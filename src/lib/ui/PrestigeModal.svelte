@@ -62,9 +62,9 @@
         <section class="keeps">
           <h3>Kept</h3>
           <ul>
-            <li>{preview.keeps.keys} Keys</li>
+            <li>{preview.keeps.clearance} Clearance</li>
             <li>{preview.keeps.unlockedUnits} unlocked units, with their levels</li>
-            <li>{preview.keeps.nodes} Escapement Tree nodes</li>
+            <li>{preview.keeps.nodes} Almanac nodes</li>
             <li>{preview.keeps.zones} zone{preview.keeps.zones === 1 ? '' : 's'} unlocked</li>
             <li>Achievements, settings, statistics</li>
           </ul>
@@ -76,10 +76,10 @@
         <section class="resets">
           <h3>Reset</h3>
           <ul>
-            <li>{preview.resets.filings} Filings</li>
+            <li>{preview.resets.salvage} Salvage</li>
             <li>
-              {preview.resets.movements} slotted Movements,
-              {preview.resets.chimes} mounted Chimes
+              {preview.resets.platforms} slotted Platforms,
+              {preview.resets.arrays} mounted Arrays
             </li>
             <li>Stage progress this run</li>
             <li>Repairs and reinforcements</li>

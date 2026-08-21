@@ -1,14 +1,14 @@
-import { createMainspring } from '../entities/Mainspring'
+import { createSun } from '../entities/Sun'
 import { isBossWave } from '../entities/Wave'
 import { parseStageAddress, type StageAddress, type StageDef, type ZoneDef } from '../entities/Zone'
-import { slackById } from '../content/enemies'
+import { contactById } from '../content/contacts'
 import { isBossStage } from '../systems/scaling'
 import { zoneById } from '../content/zones'
-import { createBeatState, createRingStates, type SimulationState } from './simulation'
+import { createFlareState, createRingStates, type SimulationState } from './simulation'
 import { CombatFeed } from '../systems/feed'
 import { createTelemetry } from '../systems/telemetry'
 import { noUpgradeEffects, type UpgradeEffects } from '../entities/Upgrade'
-import { BEAT } from '../content/field'
+import { FLARE } from '../content/field'
 
 /**
  * Reads a zone/stage definition from content and initializes the simulation.
@@ -28,9 +28,9 @@ export class StageLoadError extends Error {
 
 export interface StageLoadOptions {
   /**
-   * The Escapement Tree's aggregate for this run.
+   * The Almanac's aggregate for this run.
    *
-   * Superseded `bonusTension`, which was a single hand-placed hook for the
+   * Superseded `bonusOutput`, which was a single hand-placed hook for the
    * Bracing branch; the tree now supplies every bonus through one object.
    */
   effects?: UpgradeEffects
@@ -86,9 +86,9 @@ export function validateStage(stage: StageDef): string[] {
       problems.push(`Stage "${stage.id}" wave ${index} has no spawn groups`)
     }
     for (const group of wave.groups) {
-      if (!slackById(group.defId)) {
+      if (!contactById(group.defId)) {
         problems.push(
-          `Stage "${stage.id}" wave ${index} references unknown Slack "${group.defId}"`,
+          `Stage "${stage.id}" wave ${index} references unknown Contact "${group.defId}"`,
         )
       }
       if (group.count <= 0) {
@@ -104,8 +104,8 @@ export function validateStage(stage: StageDef): string[] {
  * Build a fresh SimulationState for a stage.
  *
  * Entities are not populated here: the player's formation is applied by
- * progression/, and Slack are spawned over time by systems/spawn.ts. What comes
- * back is an empty field with the Mainspring wound and the rings turning.
+ * progression/, and Contact are spawned over time by systems/spawn.ts. What comes
+ * back is an empty field with the Sun wound and the rings turning.
  */
 export function loadStage(
   address: StageAddress,
@@ -121,7 +121,7 @@ export function loadStage(
   }
 
   const effects = options.effects ?? noUpgradeEffects()
-  const maxTension = stage.baseTension + effects.tension
+  const maxOutput = stage.baseOutput + effects.output
 
   return {
     zone,
@@ -139,19 +139,19 @@ export function loadStage(
     effects,
     gapRemaining: 0,
 
-    mainspring: createMainspring(maxTension),
+    sun: createSun(maxOutput),
     rings: createRingStates(),
     // Regulation grants whole extra charges, so it changes the maximum the
-    // Beat regenerates toward, not just the starting value.
-    beat: createBeatState(BEAT.maxCharges + Math.floor(effects.beatCharges)),
+    // Flare regenerates toward, not just the starting value.
+    flare: createFlareState(FLARE.maxCharges + Math.floor(effects.flareCharges)),
     feed: new CombatFeed(),
 
-    movements: [],
-    chimes: [],
-    slack: [],
+    platforms: [],
+    arrays: [],
+    contact: [],
     projectiles: [],
 
-    filingsEarned: 0,
+    salvageEarned: 0,
     synergyAccumulator: 0,
 
     nextEntityId: 1,

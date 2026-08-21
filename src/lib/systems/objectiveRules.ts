@@ -1,10 +1,10 @@
 import {
   isOverwhelmed,
   REGEN_IN_COMBAT,
-  tensionFraction,
-  TENSION_THRESHOLDS,
-  type MainspringState,
-} from '../entities/Mainspring'
+  outputFraction,
+  OUTPUT_THRESHOLDS,
+  type SunState,
+} from '../entities/Sun'
 import { isBossWave } from '../entities/Wave'
 import type { SimulationState } from '../core/simulation'
 import type { Rng } from '../core/rng'
@@ -13,7 +13,7 @@ import { waveSpawnDuration } from './spawn'
 /**
  * The rules that govern the defended objective and the stage around it.
  *
- * Separated from `Mainspring.ts` because these depend on the whole simulation —
+ * Separated from `Sun.ts` because these depend on the whole simulation —
  * what is still alive, which wave is running — rather than on the objective
  * alone. Separated from `loop.ts` because win and loss conditions are the thing
  * most likely to be argued about, and they should be readable and testable
@@ -23,7 +23,7 @@ import { waveSpawnDuration } from './spawn'
  */
 
 export interface ObjectiveEvents {
-  /** Tension thresholds crossed downward this tick, e.g. [0.5]. */
+  /** Output thresholds crossed downward this tick, e.g. [0.5]. */
   thresholdsCrossed: number[]
   stageCleared: boolean
   stageLost: boolean
@@ -51,7 +51,7 @@ export function noEvents(): ObjectiveEvents {
  * carry-over between waves that game-loop.md depends on.
  */
 export function updateObjective(sim: SimulationState, dt: number): void {
-  const m = sim.mainspring
+  const m = sim.sun
 
   if (m.shieldRemaining > 0) {
     m.shieldRemaining -= dt
@@ -70,7 +70,7 @@ export function updateObjective(sim: SimulationState, dt: number): void {
 }
 
 /**
- * Detect Tension thresholds crossed downward, and reset the baseline.
+ * Detect Output thresholds crossed downward, and reset the baseline.
  *
  * **Must run late in the tick**, after damage has been applied — damage lands at
  * steps 6-8 while recovery runs at step 2 (combat-spec.md section 8), so a check
@@ -78,23 +78,23 @@ export function updateObjective(sim: SimulationState, dt: number): void {
  * That was a real bug, caught by test.
  *
  * Only downward crossings fire. Regenerating back through a threshold is not an
- * event, or a Mainspring hovering at 50% would spam them.
+ * event, or a Sun hovering at 50% would spam them.
  */
 export function checkThresholds(sim: SimulationState): number[] {
-  const m = sim.mainspring
-  const now = tensionFraction(m)
+  const m = sim.sun
+  const now = outputFraction(m)
   const before = m.previousFraction
   m.previousFraction = now
 
   if (now >= before) return []
-  return TENSION_THRESHOLDS.filter((t) => before > t && now <= t)
+  return OUTPUT_THRESHOLDS.filter((t) => before > t && now <= t)
 }
 
 /** Has the current wave finished spawning and been fully destroyed? */
 export function isWaveComplete(sim: SimulationState): boolean {
   const wave = sim.stage.waves[sim.waveIndex]
   if (!wave) return false
-  if (sim.slack.length > 0) return false
+  if (sim.contact.length > 0) return false
   return sim.waveElapsed >= waveSpawnDuration(sim, sim.waveIndex)
 }
 
@@ -106,8 +106,8 @@ export function isFinalWave(sim: SimulationState): boolean {
 /**
  * Advance stage state: loss, wave completion, gap countdown, stage clear.
  *
- * Ordered so that loss is checked first. A Mainspring that hits zero on the same
- * tick the last Slack dies is a **loss**, not a clear — the machine stopped, and
+ * Ordered so that loss is checked first. A Sun that hits zero on the same
+ * tick the last Contact dies is a **loss**, not a clear — the machine stopped, and
  * clearing a stage you did not survive would be incoherent.
  */
 /**
@@ -123,7 +123,7 @@ export function rerollWaveArc(sim: SimulationState, rng: Rng): void {
 export function updateStageProgress(sim: SimulationState, dt: number): ObjectiveEvents {
   const events = noEvents()
 
-  if (isOverwhelmed(sim.mainspring)) {
+  if (isOverwhelmed(sim.sun)) {
     sim.phase = 'overwhelmed'
     events.stageLost = true
     return events
@@ -164,12 +164,12 @@ export function updateStageProgress(sim: SimulationState, dt: number): Objective
 }
 
 /**
- * Was this stage cleared without losing any Tension?
+ * Was this stage cleared without losing any Output?
  *
  * Backs the "Within Tolerance" achievement (narrative.md) and is a useful
  * telemetry signal in Phase 20 — a stage that is routinely cleared untouched is
  * under-tuned.
  */
 export function clearedUntouched(sim: SimulationState): boolean {
-  return sim.phase === 'cleared' && sim.mainspring.lowestFraction >= 1
+  return sim.phase === 'cleared' && sim.sun.lowestFraction >= 1
 }

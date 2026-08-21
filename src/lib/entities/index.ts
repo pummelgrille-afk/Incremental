@@ -26,22 +26,22 @@ export type {
 export type {
   ConjunctionEffect,
   FormationBonuses,
-  MovementDef,
-  MovementInstance,
-} from './Movement'
-export { conjunctionScaleOf, NO_FORMATION_BONUSES } from './Movement'
+  PlatformDef,
+  PlatformInstance,
+} from './Platform'
+export { conjunctionScaleOf, NO_FORMATION_BONUSES } from './Platform'
 
-export type { ChimeDef, ChimeInstance } from './Chime'
-export { canFire } from './Chime'
+export type { ArrayDef, ArrayInstance } from './Array'
+export { canFire } from './Array'
 
-export type { SlackDef, SlackInstance, SlackMotion, SlackTraits } from './Slack'
-export { distanceToCentre } from './Slack'
+export type { ContactDef, ContactInstance, ContactMotion, ContactTraits } from './Contact'
+export { distanceToCentre } from './Contact'
 
 export type { Projectile, ProjectileFaction } from './Projectile'
 export { deactivate } from './Projectile'
 
-export type { MainspringState } from './Mainspring'
-export { createMainspring, isOverwhelmed, MAINSPRING_HITBOX_RADIUS } from './Mainspring'
+export type { SunState } from './Sun'
+export { createSun, isOverwhelmed, SUN_HITBOX_RADIUS } from './Sun'
 
 export type { AnyWaveDef, BossWaveDef, SpawnGroup, WaveDef, WaveTemplate } from './Wave'
 export { isBossWave } from './Wave'

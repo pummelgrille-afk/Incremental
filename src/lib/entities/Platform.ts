@@ -10,23 +10,27 @@ import type {
 } from './types'
 
 /**
- * A Movement — a wound automaton slotted onto a rotating ring. The front line.
+ * A Platform — a wound automaton slotted onto a rotating ring. The front line.
  * Lore in docs/design/narrative.md; rules in docs/design/combat-spec.md §2.
  *
- * Naming note: in this codebase the noun "Movement" always means this entity,
+ * Naming note: in this codebase the noun "Platform" always means this entity,
  * never positional change. Use motion/velocity/advance for that. See CLAUDE.md.
  */
 
 /**
  * What a conjunction does when this unit participates.
  *
- * `repair` was declared here for a phase and a half with no ally using it.
- * Untested configuration is where this project keeps finding bugs, so it is
- * gone until Phase 29's roster is large enough to carry a healer; re-adding a
- * case to one switch is cheap, and a dead branch is not.
+ * `repair` was declared here for a phase and a half with no ally using it, and
+ * was deleted in Phase 18 on the grounds that untested configuration is where
+ * this project keeps finding bugs. It returns in Phase 29 with the Tuner, which
+ * is the healer that note said it was waiting for.
+ *
+ * Every kind except `repair` applies to the unit that brought it. `repair`
+ * heals **every participant**, and is the only effect that reaches past its own
+ * unit — which is what makes support a role rather than a label.
  */
 export interface ConjunctionEffect {
-  kind: 'damagePulse' | 'shield' | 'haste'
+  kind: 'damagePulse' | 'shield' | 'haste' | 'repair'
   /** Base magnitude, scaled by the conjunction's scale and type pairing. */
   magnitude: number
   /**
@@ -38,9 +42,9 @@ export interface ConjunctionEffect {
 }
 
 /**
- * Immutable blueprint. Lives in content/allies.ts, never mutated at runtime.
+ * Immutable blueprint. Lives in content/platforms.ts, never mutated at runtime.
  */
-export interface MovementDef extends ContentDef {
+export interface PlatformDef extends ContentDef {
   readonly role: UnitRole
   readonly damageType: DamageType
 
@@ -64,7 +68,7 @@ export interface MovementDef extends ContentDef {
 
   readonly conjunctionEffect: ConjunctionEffect
 
-  /** Keys unlock cost. Levelling multiplies stats — see progression/. */
+  /** Clearance unlock cost. Levelling multiplies stats — see progression/. */
   readonly unlockCost: number
 }
 
@@ -72,9 +76,9 @@ export interface MovementDef extends ContentDef {
  * Live state. One per slotted unit, created by the stage loader and mutated by
  * systems. Never serialized directly — saves store the def id plus level.
  */
-export interface MovementInstance {
+export interface PlatformInstance {
   readonly id: EntityId
-  readonly def: MovementDef
+  readonly def: PlatformDef
 
   slot: SlotRef
   level: number
@@ -90,7 +94,7 @@ export interface MovementInstance {
 
   /**
    * Disabled units are inert for recoveryTime, then restored at full HP.
-   * Movements are never permanently lost — see combat-spec.md §5.
+   * Platforms are never permanently lost — see combat-spec.md §5.
    */
   disabledFor: number
 

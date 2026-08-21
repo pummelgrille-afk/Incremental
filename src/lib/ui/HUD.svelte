@@ -18,26 +18,26 @@
 
 <div class="hud">
   <header>
-    <div class="tension" class:low={game.tensionFraction < 0.3}>
-      <span class="label">Tension</span>
+    <div class="output" class:low={game.outputFraction < 0.3}>
+      <span class="label">Output</span>
       <div class="bar">
-        <div class="fill" style:width="{game.tensionFraction * 100}%"></div>
+        <div class="fill" style:width="{game.outputFraction * 100}%"></div>
       </div>
-      <span class="value">{format(game.tension)} / {format(game.maxTension)}</span>
+      <span class="value">{format(game.output)} / {format(game.maxOutput)}</span>
     </div>
 
     <div class="stack">
-      <span class="label">Filings</span>
-      <span class="value big" class:gaining={game.filingsGain > 0}>{format(game.filings)}</span>
-      {#if game.filingsGain > 0}<span class="gain">+{format(game.filingsGain)}</span>{/if}
+      <span class="label">Salvage</span>
+      <span class="value big" class:gaining={game.salvageGain > 0}>{format(game.salvage)}</span>
+      {#if game.salvageGain > 0}<span class="gain">+{format(game.salvageGain)}</span>{/if}
     </div>
 
-    <!-- The permanent currencies. Kept visually quieter than Filings: they
+    <!-- The permanent currencies. Kept visually quieter than Salvage: they
          change on the scale of a run, not a second, and a counter that never
          moves competing for attention with one that always does is noise. -->
     <div class="stack meta">
-      <span class="label">Keys</span>
-      <span class="value">{format(game.keys)}</span>
+      <span class="label">Clearance</span>
+      <span class="value">{format(game.clearance)}</span>
     </div>
 
     <div class="stack meta">
@@ -52,20 +52,20 @@
   </header>
 
   <footer>
-    <div class="beat" class:ready={game.canStrike}>
-      <span class="label">The Beat</span>
+    <div class="flare" class:ready={game.canStrike}>
+      <span class="label">The Flare</span>
       <div class="pips">
-        {#each Array(game.beatMaxCharge) as _, i (i)}
-          <span class="pip" class:filled={i < game.beatsReady}></span>
+        {#each Array(game.flareMaxCharge) as _, i (i)}
+          <span class="pip" class:filled={i < game.flaresReady}></span>
         {/each}
       </div>
       <div class="charge" class:ready={game.canStrike}>
-        <div class="fill" style:width="{game.beatProgress * 100}%"></div>
+        <div class="fill" style:width="{game.flareProgress * 100}%"></div>
       </div>
     </div>
 
     <p class="hint">
-      Click the floor to strike · <kbd>F</kbd> formation{#if game.treeRevealed}{' '}·
+      Click the field to strike · <kbd>F</kbd> formation{#if game.treeRevealed}{' '}·
         <kbd>T</kbd> tree{/if}{#if game.rewindUnlocked}{' '}· <kbd>P</kbd> rewind{/if} ·
       <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
     </p>
@@ -79,11 +79,11 @@
         <dt>sim</dt><dd>{game.simMs.toFixed(2)} ms</dd>
         <dt>render</dt><dd class:warn={game.overFrameBudget}>{game.renderMs.toFixed(2)} ms</dd>
 
-        <dt class="sep">slack</dt>
-        <dd class="sep" class:warn={game.slackCount > BUDGETS.slack}>
-          {game.slackCount}<span class="of">/{BUDGETS.slack}</span>
+        <dt class="sep">contact</dt>
+        <dd class="sep" class:warn={game.contactCount > BUDGETS.contact}>
+          {game.contactCount}<span class="of">/{BUDGETS.contact}</span>
         </dd>
-        <dt>peak</dt><dd>{game.slackPeak}</dd>
+        <dt>peak</dt><dd>{game.contactPeak}</dd>
         <dt>bullets</dt>
         <dd>{game.projectilesLive}<span class="of">/{BUDGETS.projectiles}</span></dd>
         <dt>peak</dt><dd>{game.projectilePeak}</dd>
@@ -95,9 +95,9 @@
           <dt class="warn">over budget</dt><dd class="warn">{game.ticksOverBudget} ticks</dd>
         {/if}
 
-        <dt class="sep">killed</dt><dd class="sep">{game.slackKilled}</dd>
+        <dt class="sep">killed</dt><dd class="sep">{game.contactKilled}</dd>
         <dt>conj.</dt><dd>{game.conjunctions}</dd>
-        <dt>beats</dt><dd>{game.beatsStruck}</dd>
+        <dt>flares</dt><dd>{game.flaresStruck}</dd>
       </dl>
 
       {#if game.telemetryRows.length > 0}
@@ -119,11 +119,11 @@
   {#if game.phase === 'cleared'}
     <div class="banner">
       <strong>Stage clear.</strong>
-      <span>The rings hold. {format(game.filings)} filings recovered.</span>
-      {#if game.lastKeyAward}
+      <span>The rings hold. {format(game.salvage)} salvage recovered.</span>
+      {#if game.lastClearanceAward}
         <span class="reward">
-          +{game.lastKeyAward.keys}{' '}
-          {game.lastKeyAward.keys === 1 ? 'Key' : 'Keys'}{game.lastKeyAward.zoneCompleted
+          +{game.lastClearanceAward.clearance}{' '}
+          Clearance{''}{game.lastClearanceAward.zoneCompleted
             ? ' — zone complete'
             : ''}
         </span>
@@ -140,8 +140,8 @@
     </div>
   {:else if game.phase === 'overwhelmed'}
     <div class="banner lost">
-      <strong>The Orrery has stopped.</strong>
-      <span>Tension exhausted. Nothing is lost but the shift.</span>
+      <strong>The Perihelion has stopped.</strong>
+      <span>Output exhausted. Nothing is lost but the shift.</span>
       <span class="next"><kbd>R</kbd> to wind it again.</span>
     </div>
   {/if}
@@ -199,7 +199,7 @@
     gap: 0.15rem;
   }
 
-  .tension {
+  .output {
     min-width: 15rem;
   }
 
@@ -243,11 +243,11 @@
     transition: width 120ms linear;
   }
 
-  .tension.low .fill {
+  .output.low .fill {
     background: #f87171;
   }
 
-  .beat {
+  .flare {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -260,7 +260,7 @@
     transition: opacity 120ms linear;
   }
 
-  .beat.ready {
+  .flare.ready {
     opacity: 1;
     border-color: var(--brass);
   }

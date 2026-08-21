@@ -41,7 +41,7 @@ Representative: *Super Auto Pets*, *Teamfight Tactics*, *Dota Underlords*,
 - Commitment happens *before* the fight; the fight itself is a readout of a
   decision already made.
 - Synergy by type or adjacency is the main source of combinatorial depth.
-- Economy tension between spending now and saving for a stronger later board.
+- Economy output between spending now and saving for a stronger later board.
 - A legible board so the player can diagnose *why* they lost.
 
 **Common failure mode:** the board is static, so once arranged, watching it is
@@ -68,7 +68,7 @@ Representative: *Vampire Survivors*, *Brotato*, *20 Minutes Till Dawn*,
 watching dense patterns resolve often cannot survive them.
 
 **Our answer:** we automate firing *and* remove positioning from the player
-entirely. Rings turn on their own; the only live input is the Beat, which is
+entirely. Rings turn on their own; the only live input is the Flare, which is
 instant and area-based, so there is nothing to aim and nothing to miss (P3). The
 spectacle survives; the dexterity requirement does not.
 
@@ -93,7 +93,7 @@ That last row is the actual design thesis. We take the auto-battler's
 "commit before the fight" and add one coarse steering input during it, which is
 the seam none of the three spaces occupies cleanly.
 
-## What the Orrery lets us do differently
+## What the Perihelion lets us do differently
 
 1. **A formation surface with its own clock.** Rotation is a second axis of
    arrangement — *when* a unit passes an arc, not just *where* it sits. No surveyed
@@ -103,7 +103,7 @@ the seam none of the three spaces occupies cleanly.
    paced* rings align is specific to a rotating board and gives the watching phase
    genuine suspense.
 3. **A reset with no loss of memory.** Prestige is usually framed as sacrifice.
-   Rewinding a mainspring while the Wright keeps their memory reframes it as
+   Rewinding a sun while the Operator keeps their memory reframes it as
    returning better-informed, which directly addresses the genre's reset-fatigue.
 4. **Readability from the palette up.** Warm brass on a dark field is a natural
    high-contrast scheme for dense projectiles — the art direction and the

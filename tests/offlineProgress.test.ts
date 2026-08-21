@@ -19,8 +19,8 @@ function effects(overrides: Partial<UpgradeEffects> = {}): UpgradeEffects {
   return { ...noUpgradeEffects(), ...overrides }
 }
 
-const run = (elapsedSeconds: number, filingsPerSecond = 2, e = effects()) =>
-  calculateOffline({ elapsedSeconds, filingsPerSecond, effects: e })
+const run = (elapsedSeconds: number, salvagePerSecond = 2, e = effects()) =>
+  calculateOffline({ elapsedSeconds, salvagePerSecond, effects: e })
 
 describe('the formula', () => {
   it('follows economy-spec §4 exactly', () => {
@@ -29,7 +29,7 @@ describe('the formula', () => {
     const result = run(seconds, rate)
 
     const expected = seconds * rate * OFFLINE.efficiency * diminishing(seconds)
-    expect(result.filings).toBeCloseTo(expected, 8)
+    expect(result.salvage).toBeCloseTo(expected, 8)
   })
 
   it('halves the marginal rate every four hours', () => {
@@ -39,20 +39,20 @@ describe('the formula', () => {
   })
 
   it('pays nothing for no time and nothing for no rate', () => {
-    expect(run(0).filings).toBe(0)
-    expect(run(HOUR, 0).filings).toBe(0)
+    expect(run(0).salvage).toBe(0)
+    expect(run(HOUR, 0).salvage).toBe(0)
   })
 
   it('treats negative input as zero rather than paying out', () => {
     // A clock that went backwards must not become income.
-    expect(run(-HOUR).filings).toBe(0)
-    expect(run(HOUR, -5).filings).toBe(0)
+    expect(run(-HOUR).salvage).toBe(0)
+    expect(run(HOUR, -5).salvage).toBe(0)
   })
 
   it('never pays less for longer, even past the cap', () => {
     let previous = -1
     for (let hours = 0; hours <= 48; hours += 0.5) {
-      const paid = run(hours * HOUR).filings
+      const paid = run(hours * HOUR).salvage
       expect(paid, `${hours}h`).toBeGreaterThanOrEqual(previous)
       previous = paid
     }
@@ -63,7 +63,7 @@ describe('the cap', () => {
   it('stops counting past the authored window', () => {
     const capped = run(OFFLINE.capSeconds)
     const longer = run(OFFLINE.capSeconds * 5)
-    expect(longer.filings).toBeCloseTo(capped.filings, 8)
+    expect(longer.salvage).toBeCloseTo(capped.salvage, 8)
   })
 
   it('reports the overflow rather than hiding it', () => {
@@ -78,11 +78,11 @@ describe('the cap', () => {
     expect(run(HOUR).wastedSeconds).toBe(0)
   })
 
-  it('widens with the Salvage branch', () => {
+  it('widens with the Recovery branch', () => {
     const wider = offlineCap(effects({ offlineCap: 4 * HOUR }))
     expect(wider).toBe(OFFLINE.capSeconds + 4 * HOUR)
-    expect(run(12 * HOUR, 2, effects({ offlineCap: 4 * HOUR })).filings).toBeGreaterThan(
-      run(12 * HOUR).filings,
+    expect(run(12 * HOUR, 2, effects({ offlineCap: 4 * HOUR })).salvage).toBeGreaterThan(
+      run(12 * HOUR).salvage,
     )
   })
 
@@ -106,7 +106,7 @@ describe('efficiency stays below parity', () => {
     expect(offlineEfficiency(effects({ offlineEfficiency: 10 }))).toBe(OFFLINE.maxEfficiency)
   })
 
-  it('rises with the Salvage branch, up to the ceiling', () => {
+  it('rises with the Recovery branch, up to the ceiling', () => {
     const better = offlineEfficiency(effects({ offlineEfficiency: 0.15 }))
     expect(better).toBeGreaterThan(OFFLINE.efficiency)
     expect(better).toBeLessThanOrEqual(OFFLINE.maxEfficiency)
@@ -116,7 +116,7 @@ describe('efficiency stays below parity', () => {
     const maxed = effects({ offlineEfficiency: 10, offlineCap: 1000 * HOUR })
     for (const hours of [0.5, 4, 12, 24, 48, 200]) {
       const result = run(hours * HOUR, 3, maxed)
-      expect(result.filings, `${hours}h`).toBeLessThan(result.activeEquivalent)
+      expect(result.salvage, `${hours}h`).toBeLessThan(result.activeEquivalent)
     }
   })
 
@@ -127,7 +127,7 @@ describe('efficiency stays below parity', () => {
     const eight = run(8 * HOUR, 3, maxed)
     const activeEight = 8 * HOUR * 3
 
-    expect(eight.filings / activeEight).toBeLessThan(0.5)
+    expect(eight.salvage / activeEight).toBeLessThan(0.5)
   })
 })
 
@@ -135,7 +135,7 @@ describe('what the summary is told', () => {
   it('reports the active equivalent so the shortfall can be shown', () => {
     const result = run(2 * HOUR, 2)
     expect(result.activeEquivalent).toBeCloseTo(2 * HOUR * 2, 6)
-    expect(result.filings).toBeLessThan(result.activeEquivalent)
+    expect(result.salvage).toBeLessThan(result.activeEquivalent)
   })
 
   it('reports the cap and efficiency in force', () => {
@@ -159,7 +159,7 @@ describe('what the summary is told', () => {
   })
 })
 
-describe('the Salvage nodes are wired', () => {
+describe('the Recovery nodes are wired', () => {
   it('raises the cap and the efficiency through the tree', () => {
     // A new effect kind with no node using it is untested configuration, which
     // is the failure this project keeps finding.
@@ -167,11 +167,11 @@ describe('the Salvage nodes are wired', () => {
     save.meta.recollection = 10_000
 
     for (const id of [
-      'salvage-swarf-discipline',
-      'salvage-honest-accounting',
-      'salvage-the-long-view',
-      'salvage-the-night-shift',
-      'salvage-standing-orders',
+      'recovery-debris-discipline',
+      'recovery-honest-accounting',
+      'recovery-the-long-view',
+      'recovery-the-night-shift',
+      'recovery-standing-orders',
     ]) {
       expect(purchase(save, id), id).toBe(true)
     }

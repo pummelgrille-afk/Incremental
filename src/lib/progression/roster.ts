@@ -1,13 +1,13 @@
 import { ROSTER } from '../content/economy'
-import { MOVEMENTS, movementById, STARTING_MOVEMENT_ID } from '../content/allies'
-import { CHIMES, chimeById } from '../content/supportUnits'
+import { PLATFORMS, platformById, STARTING_PLATFORM_ID } from '../content/platforms'
+import { ARRAYS, arrayById } from '../content/arrays'
 import type { SaveData } from '../core/saveSchema'
 
 /**
  * The roster: which units a player owns, and how far each is levelled.
  *
- * Both are bought with **Keys**, which are first-clear only (economy-spec.md
- * §1). That separation is load-bearing: Keys measure content *seen*, so the
+ * Both are bought with **Clearance**, which are first-clear only (economy-spec.md
+ * §1). That separation is load-bearing: Clearance measure content *seen*, so the
  * roster curve is authored rather than grindable, and a long idle session can
  * never substitute for it.
  *
@@ -15,8 +15,8 @@ import type { SaveData } from '../core/saveSchema'
  * save plus its arguments. Nothing reaches into a running simulation.
  */
 
-/** A Movement or a Chime — the two are levelled identically. */
-export type UnitKind = 'movement' | 'chime'
+/** A Platform or a Array — the two are levelled identically. */
+export type UnitKind = 'platform' | 'array'
 
 export interface UnitDefLike {
   readonly id: string
@@ -25,30 +25,30 @@ export interface UnitDefLike {
 }
 
 function defsFor(kind: UnitKind): readonly UnitDefLike[] {
-  return kind === 'movement' ? MOVEMENTS : CHIMES
+  return kind === 'platform' ? PLATFORMS : ARRAYS
 }
 
 function defFor(kind: UnitKind, id: string): UnitDefLike | undefined {
-  return kind === 'movement' ? movementById(id) : chimeById(id)
+  return kind === 'platform' ? platformById(id) : arrayById(id)
 }
 
 function ledger(save: SaveData, kind: UnitKind): Record<string, number> {
-  return kind === 'movement' ? save.meta.movements : save.meta.chimes
+  return kind === 'platform' ? save.meta.platforms : save.meta.arrays
 }
 
 /**
- * Ensure the starting Movement is owned.
+ * Ensure the starting Platform is owned.
  *
  * Its `unlockCost` is 0, but a save that has never bought anything would
  * otherwise have an empty roster and no way to field a formation — a new player
- * cannot spend Keys they have not earned.
+ * cannot spend Clearance they have not earned.
  *
  * Returns whether it granted, so the caller can pair the grant with a free
  * placement exactly once. Idempotent; called on load.
  */
 export function grantStartingRoster(save: SaveData): boolean {
-  if (save.meta.movements[STARTING_MOVEMENT_ID] !== undefined) return false
-  save.meta.movements[STARTING_MOVEMENT_ID] = 1
+  if (save.meta.platforms[STARTING_PLATFORM_ID] !== undefined) return false
+  save.meta.platforms[STARTING_PLATFORM_ID] = 1
   return true
 }
 
@@ -66,7 +66,7 @@ export function unlockCost(kind: UnitKind, id: string): number {
 }
 
 /**
- * Keys to raise a unit one level, or null when it is already at the ceiling.
+ * Clearance to raise a unit one level, or null when it is already at the ceiling.
  *
  * Null rather than Infinity so a caller has to handle "cannot" rather than
  * quietly rendering an unaffordable price the player can never reach.
@@ -94,9 +94,9 @@ export function unlock(save: SaveData, kind: UnitKind, id: string): boolean {
 
   const def = defFor(kind, id)
   if (!def) return false
-  if (save.meta.keys < def.unlockCost) return false
+  if (save.meta.clearance < def.unlockCost) return false
 
-  save.meta.keys -= def.unlockCost
+  save.meta.clearance -= def.unlockCost
   ledger(save, kind)[id] = 1
   return true
 }
@@ -104,9 +104,9 @@ export function unlock(save: SaveData, kind: UnitKind, id: string): boolean {
 /** Raise a unit one level, or refuse. */
 export function levelUp(save: SaveData, kind: UnitKind, id: string): boolean {
   const cost = levelCost(save, kind, id)
-  if (cost === null || save.meta.keys < cost) return false
+  if (cost === null || save.meta.clearance < cost) return false
 
-  save.meta.keys -= cost
+  save.meta.clearance -= cost
   ledger(save, kind)[id] = levelOf(save, kind, id) + 1
   return true
 }
@@ -117,9 +117,9 @@ export interface RosterEntry {
   name: string
   unlocked: boolean
   level: number
-  /** Keys to unlock, when locked. */
+  /** Clearance to unlock, when locked. */
   unlockCost: number
-  /** Keys for the next level, null at the ceiling or when locked. */
+  /** Clearance for the next level, null at the ceiling or when locked. */
   levelCost: number | null
   atMaxLevel: boolean
   canUnlock: boolean
@@ -142,8 +142,8 @@ export function rosterOf(save: SaveData, kind: UnitKind): RosterEntry[] {
       unlockCost: def.unlockCost,
       levelCost: cost,
       atMaxLevel: unlocked && level >= ROSTER.maxLevel,
-      canUnlock: !unlocked && save.meta.keys >= def.unlockCost,
-      canLevel: cost !== null && save.meta.keys >= cost,
+      canUnlock: !unlocked && save.meta.clearance >= def.unlockCost,
+      canLevel: cost !== null && save.meta.clearance >= cost,
     }
   })
 }

@@ -18,18 +18,18 @@ function playedRun(): SaveData {
   grantStartingLoadout(s)
 
   s.meta.rewindCount = 1 // already unlocked; the gate is tested separately
-  s.meta.keys = 50
+  s.meta.clearance = 50
   s.meta.recollection = 40
   s.meta.unlockedZones = [STARTING_ZONE_ID, 'somewhere-else']
   s.meta.clearedStages = [`${STARTING_ZONE_ID}:first-shift` as StageAddress]
   s.meta.achievements = ['within-tolerance']
 
-  unlock(s, 'movement', 'detent')
-  unlock(s, 'chime', 'quarter-bell')
-  buyTrack(s, 'quarter-bell', 'capacity')
-  purchase(s, 'winding-tension-of-the-stroke')
+  unlock(s, 'platform', 'anchor')
+  unlock(s, 'array', 'long-baseline')
+  buyTrack(s, 'long-baseline', 'capacity')
+  purchase(s, 'aperture-force-of-the-pulse')
 
-  s.run.filings = 1200
+  s.run.salvage = 1200
   s.run.deepestScalingIndex = 20
   s.run.repairsThisStage = 3
   s.run.reinforcements = 2
@@ -111,7 +111,7 @@ describe('what a Rewind resets', () => {
   })
 
   it('clears the run currency', () => {
-    expect(save.run.filings).toBe(0)
+    expect(save.run.salvage).toBe(0)
   })
 
   it('clears stage progress and the in-run counters', () => {
@@ -128,7 +128,7 @@ describe('what a Rewind resets', () => {
   it('hands back the opening formation', () => {
     /*
      * Without this a Rewind lands in exactly the deadlock Phase 24 found at a
-     * fresh save: no units, no Filings, and Filings only come from kills. The
+     * fresh save: no units, no Salvage, and Salvage only come from kills. The
      * roster survives a Rewind, so the first-time grant declines to fire.
      */
     expect(slotsUsed(save)).toBe(OPENING_SLOTS.length)
@@ -157,18 +157,18 @@ describe('what a Rewind keeps', () => {
     expect(save.meta.recollection).toBe(heldBefore + award)
   })
 
-  it('keeps Keys and the roster with its levels', () => {
-    expect(save.meta.keys).toBeGreaterThan(0)
-    expect(save.meta.movements['detent']).toBe(1)
-    expect(save.meta.chimes['quarter-bell']).toBe(1)
+  it('keeps Clearance and the roster with its levels', () => {
+    expect(save.meta.clearance).toBeGreaterThan(0)
+    expect(save.meta.platforms['anchor']).toBe(1)
+    expect(save.meta.arrays['long-baseline']).toBe(1)
   })
 
-  it('keeps the Escapement Tree', () => {
-    expect(save.meta.purchasedNodes).toContain('winding-tension-of-the-stroke')
+  it('keeps the Almanac', () => {
+    expect(save.meta.purchasedNodes).toContain('aperture-force-of-the-pulse')
   })
 
-  it('keeps Chime upgrade tracks', () => {
-    expect(save.meta.chimeUpgrades['quarter-bell']?.capacity).toBe(1)
+  it('keeps Array upgrade tracks', () => {
+    expect(save.meta.arrayUpgrades['long-baseline']?.capacity).toBe(1)
   })
 
   it('keeps zone unlocks — you never re-clear a zone to reach it', () => {
@@ -197,20 +197,20 @@ describe('the preview matches what happens', () => {
 
   it('quotes what is on the field before it is cleared', () => {
     const preview = rewindPreview(save)
-    expect(preview.resets.movements).toBe(OPENING_SLOTS.length)
-    expect(preview.resets.filings).toBe(1200)
+    expect(preview.resets.platforms).toBe(OPENING_SLOTS.length)
+    expect(preview.resets.salvage).toBe(1200)
   })
 
-  it('applies the Salvage bonus to the quote', () => {
+  it('applies the Recovery bonus to the quote', () => {
     // The tree raises the award, so the modal must quote the boosted figure —
     // a preview that under-quotes is worse than none.
     const bare = rewindPreview(save).award
 
     const boosted = playedRun()
     boosted.meta.recollection = 10_000
-    purchase(boosted, 'salvage-swarf-discipline')
-    purchase(boosted, 'salvage-honest-accounting')
-    purchase(boosted, 'salvage-the-long-view')
+    purchase(boosted, 'recovery-debris-discipline')
+    purchase(boosted, 'recovery-honest-accounting')
+    purchase(boosted, 'recovery-the-long-view')
 
     expect(rewindPreview(boosted).award).toBeGreaterThan(bare)
   })

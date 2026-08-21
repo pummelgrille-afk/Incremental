@@ -2,16 +2,16 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { Simulation, TICK_SECONDS, MAX_CATCHUP_SECONDS } from '../src/lib/core/loop'
 import { loadStage } from '../src/lib/core/stageLoader'
 import { createRng, seedFrom } from '../src/lib/core/rng'
-import { mountChime, placeMovement, removeMovement } from '../src/lib/core/formation'
-import { movementById } from '../src/lib/content/allies'
-import { chimeById } from '../src/lib/content/supportUnits'
+import { mountArray, placePlatform, removePlatform } from '../src/lib/core/formation'
+import { platformById } from '../src/lib/content/platforms'
+import { arrayById } from '../src/lib/content/arrays'
 import { computeDamage, mitigate } from '../src/lib/systems/combat'
 import { updateProjectiles } from '../src/lib/systems/collision'
-import { createSlack } from '../src/lib/systems/spawn'
-import { slackById } from '../src/lib/content/enemies'
+import { createContact } from '../src/lib/systems/spawn'
+import { contactById } from '../src/lib/content/contacts'
 import { findConjunctions, timeToNextConjunction } from '../src/lib/systems/synergy'
 import {
-  BEAT,
+  FLARE,
   INNERMOST_RING,
   OUTERMOST_RING,
   RIM_RADIUS,
@@ -21,7 +21,7 @@ import {
 import type { StageAddress } from '../src/lib/entities/Zone'
 import type { SimulationState } from '../src/lib/core/simulation'
 
-const STAGE: StageAddress = 'escapement-floor:first-shift'
+const STAGE: StageAddress = 'service-floor:first-shift'
 
 function build(): Simulation {
   return new Simulation(loadStage(STAGE), createRng(seedFrom(STAGE)))
@@ -62,15 +62,15 @@ describe('fixed timestep', () => {
       a.tick(TICK_SECONDS)
       b.tick(TICK_SECONDS)
     }
-    expect(a.state.slack.length).toBe(b.state.slack.length)
-    expect(a.state.filingsEarned).toBeCloseTo(b.state.filingsEarned, 10)
-    expect(a.totalSlackKilled).toBe(b.totalSlackKilled)
+    expect(a.state.contact.length).toBe(b.state.contact.length)
+    expect(a.state.salvageEarned).toBeCloseTo(b.state.salvageEarned, 10)
+    expect(a.totalContactKilled).toBe(b.totalContactKilled)
 
-    // Tension is the sensitive signal: counts survive small timing jitter but
+    // Output is the sensitive signal: counts survive small timing jitter but
     // damage taken does not. A stray Math.random() in spawn.ts hid behind the
     // coarser assertions above until Phase 12.
-    expect(a.state.mainspring.hp).toBe(b.state.mainspring.hp)
-    expect(a.state.mainspring.lowestFraction).toBe(b.state.mainspring.lowestFraction)
+    expect(a.state.sun.hp).toBe(b.state.sun.hp)
+    expect(a.state.sun.lowestFraction).toBe(b.state.sun.lowestFraction)
   })
 
   it('produces identical entity state across two seeded runs', () => {
@@ -82,7 +82,7 @@ describe('fixed timestep', () => {
     }
 
     const snapshot = (s: Simulation) =>
-      s.state.slack.map((x) => [
+      s.state.contact.map((x) => [
         x.def.id,
         x.hp.toFixed(6),
         x.position.x.toFixed(6),
@@ -130,15 +130,15 @@ describe('rings are not controllable', () => {
   })
 })
 
-describe('the Beat', () => {
+describe('the Flare', () => {
   it('starts fully charged', () => {
-    expect(state.beat.charge).toBe(BEAT.maxCharges)
+    expect(state.flare.charge).toBe(FLARE.maxCharges)
   })
 
   it('spends one charge per strike', () => {
     expect(sim.strike(100, 0)).toBe(true)
-    expect(state.beat.charge).toBe(BEAT.maxCharges - 1)
-    expect(state.beat.struck).toBe(1)
+    expect(state.flare.charge).toBe(FLARE.maxCharges - 1)
+    expect(state.flare.struck).toBe(1)
   })
 
   it('refuses a second strike inside the cooldown', () => {
@@ -148,38 +148,38 @@ describe('the Beat', () => {
 
   it('allows another strike once the cooldown passes', () => {
     sim.strike(100, 0)
-    for (let i = 0; i < Math.ceil(BEAT.cooldown / TICK_SECONDS) + 1; i++) {
+    for (let i = 0; i < Math.ceil(FLARE.cooldown / TICK_SECONDS) + 1; i++) {
       sim.tick(TICK_SECONDS)
     }
     expect(sim.strike(100, 0)).toBe(true)
   })
 
   it('refuses when out of charge', () => {
-    for (let i = 0; i < BEAT.maxCharges; i++) {
+    for (let i = 0; i < FLARE.maxCharges; i++) {
       expect(sim.strike(100, 0)).toBe(true)
-      for (let t = 0; t < Math.ceil(BEAT.cooldown / TICK_SECONDS) + 1; t++) {
+      for (let t = 0; t < Math.ceil(FLARE.cooldown / TICK_SECONDS) + 1; t++) {
         sim.tick(TICK_SECONDS)
       }
     }
-    state.beat.charge = 0
+    state.flare.charge = 0
     expect(sim.strike(100, 0)).toBe(false)
   })
 
   it('regenerates charge on simulation time', () => {
-    state.beat.charge = 0
-    const seconds = BEAT.rechargeInterval
+    state.flare.charge = 0
+    const seconds = FLARE.rechargeInterval
     for (let i = 0; i < seconds / TICK_SECONDS; i++) sim.tick(TICK_SECONDS)
-    expect(state.beat.charge).toBeCloseTo(1, 1)
+    expect(state.flare.charge).toBeCloseTo(1, 1)
   })
 
   it('never exceeds its maximum charge', () => {
     for (let i = 0; i < 600; i++) sim.tick(TICK_SECONDS)
-    expect(state.beat.charge).toBeLessThanOrEqual(BEAT.maxCharges)
+    expect(state.flare.charge).toBeLessThanOrEqual(FLARE.maxCharges)
   })
 
-  it('damages Slack inside the blast radius', () => {
+  it('damages Contact inside the blast radius', () => {
     for (let i = 0; i < 60; i++) sim.tick(TICK_SECONDS)
-    const target = state.slack[0]
+    const target = state.contact[0]
     expect(target).toBeDefined()
 
     const before = target.hp
@@ -187,21 +187,21 @@ describe('the Beat', () => {
     expect(target.hp).toBeLessThan(before)
   })
 
-  it('leaves Slack outside the blast radius alone', () => {
+  it('leaves Contact outside the blast radius alone', () => {
     for (let i = 0; i < 60; i++) sim.tick(TICK_SECONDS)
-    const target = state.slack[0]
+    const target = state.contact[0]
     const before = target.hp
 
     // Well beyond the radius.
-    sim.strike(target.position.x + BEAT.radius * 4, target.position.y)
+    sim.strike(target.position.x + FLARE.radius * 4, target.position.y)
     expect(target.hp).toBe(before)
   })
 
-  it('hits several Slack at once, which is why it has a radius', () => {
+  it('hits several Contact at once, which is why it has a radius', () => {
     // Percussive is unfavourable against Massed; the blast is what keeps the
     // one manual action satisfying against the commonest armour class.
     for (let i = 0; i < 80; i++) sim.tick(TICK_SECONDS)
-    const cluster = state.slack.slice(0, 3)
+    const cluster = state.contact.slice(0, 3)
     if (cluster.length < 2) return
 
     // Move them together so a single strike covers them.
@@ -215,11 +215,11 @@ describe('the Beat', () => {
     cluster.forEach((s, i) => expect(s.hp).toBeLessThan(before[i]))
   })
 
-  it('never costs Tension', () => {
+  it('never costs Output', () => {
     // Its failure mode is damage not dealt, never damage taken.
-    const before = state.mainspring.hp
+    const before = state.sun.hp
     sim.strike(0, 0)
-    expect(state.mainspring.hp).toBe(before)
+    expect(state.sun.hp).toBe(before)
   })
 
   it('does nothing once the stage is resolved', () => {
@@ -230,17 +230,17 @@ describe('the Beat', () => {
   it('is optional — a stage still clears without a single strike', () => {
     // P1 held honestly: the machine really does run without you.
     const s2 = build()
-    placeMovement(s2.state, movementById('detent')!, 1, 0)
-    placeMovement(s2.state, movementById('detent')!, 1, 3)
-    placeMovement(s2.state, movementById('hammer')!, 2, 0)
-    placeMovement(s2.state, movementById('hammer')!, 2, 5)
-    mountChime(s2.state, chimeById('quarter-bell')!, 0)
+    placePlatform(s2.state, platformById('anchor')!, 1, 0)
+    placePlatform(s2.state, platformById('anchor')!, 1, 3)
+    placePlatform(s2.state, platformById('bolt')!, 2, 0)
+    placePlatform(s2.state, platformById('bolt')!, 2, 5)
+    mountArray(s2.state, arrayById('long-baseline')!, 0)
 
     let cleared = false
     for (let i = 0; i < 4000 && !cleared; i++) cleared = s2.tick(TICK_SECONDS).stageCleared
 
     expect(cleared).toBe(true)
-    expect(s2.state.beat.struck).toBe(0)
+    expect(s2.state.flare.struck).toBe(0)
   })
 
   it('reports the strike to the render layer even when it hits nothing', () => {
@@ -274,69 +274,69 @@ describe('damage', () => {
 })
 
 describe('formation bonuses', () => {
-  const hammer = movementById('hammer')!
+  const bolt = platformById('bolt')!
 
   it('gives the innermost ring a defence bonus and the outermost a range bonus', () => {
     // Keyed on the derived bounds, not on the literal 1 and 3: adding an orbit
     // must not silently move the range bonus onto an interior ring.
-    const inner = placeMovement(state, hammer, INNERMOST_RING, 0)
-    const outer = placeMovement(state, hammer, OUTERMOST_RING, 0)
+    const inner = placePlatform(state, bolt, INNERMOST_RING, 0)
+    const outer = placePlatform(state, bolt, OUTERMOST_RING, 0)
     expect(inner.bonuses.defence).toBeGreaterThan(0)
     expect(outer.bonuses.range).toBeCloseTo(0.1, 6)
   })
 
   it('rewards a unit flanked on both sides', () => {
-    placeMovement(state, hammer, 2, 0)
-    const middle = placeMovement(state, hammer, 2, 1)
+    placePlatform(state, bolt, 2, 0)
+    const middle = placePlatform(state, bolt, 2, 1)
     expect(middle.bonuses.attack).toBe(0)
 
-    placeMovement(state, hammer, 2, 2)
+    placePlatform(state, bolt, 2, 2)
     expect(middle.bonuses.attack).toBeCloseTo(0.1, 6)
   })
 
   it('wraps neighbour checks around the ring', () => {
     const slots = RINGS[0].slots
-    placeMovement(state, hammer, 1, slots - 1)
-    const first = placeMovement(state, hammer, 1, 0)
-    placeMovement(state, hammer, 1, 1)
+    placePlatform(state, bolt, 1, slots - 1)
+    const first = placePlatform(state, bolt, 1, 0)
+    placePlatform(state, bolt, 1, 1)
     expect(first.bonuses.attack).toBeCloseTo(0.1, 6)
   })
 
   it('grants a full-ring bonus to every unit on it', () => {
-    for (let slot = 0; slot < RINGS[0].slots; slot++) placeMovement(state, hammer, 1, slot)
-    for (const movement of state.movements) {
+    for (let slot = 0; slot < RINGS[0].slots; slot++) placePlatform(state, bolt, 1, slot)
+    for (const platform of state.platforms) {
       // Full ring (+8%) and both-neighbours (+10%).
-      expect(movement.bonuses.attack).toBeCloseTo(0.18, 6)
+      expect(platform.bonuses.attack).toBeCloseTo(0.18, 6)
     }
   })
 
   it('recomputes when a unit is removed', () => {
-    placeMovement(state, hammer, 2, 0)
-    const middle = placeMovement(state, hammer, 2, 1)
-    placeMovement(state, hammer, 2, 2)
+    placePlatform(state, bolt, 2, 0)
+    const middle = placePlatform(state, bolt, 2, 1)
+    placePlatform(state, bolt, 2, 2)
     expect(middle.bonuses.attack).toBeCloseTo(0.1, 6)
 
-    removeMovement(state, 2, 2)
+    removePlatform(state, 2, 2)
     expect(middle.bonuses.attack).toBe(0)
   })
 
   it('refuses to double-occupy a slot', () => {
-    placeMovement(state, hammer, 2, 3)
-    expect(() => placeMovement(state, hammer, 2, 3)).toThrow()
+    placePlatform(state, bolt, 2, 3)
+    expect(() => placePlatform(state, bolt, 2, 3)).toThrow()
   })
 
   it('refuses a slot that does not exist on that ring', () => {
-    expect(() => placeMovement(state, hammer, 1, 99)).toThrow()
+    expect(() => placePlatform(state, bolt, 1, 99)).toThrow()
   })
 })
 
 describe('conjunction', () => {
-  const hammer = movementById('hammer')!
+  const bolt = platformById('bolt')!
 
   it('never counts two units on the same ring', () => {
     // Same-ring units hold a fixed offset and would otherwise fire forever.
-    placeMovement(state, hammer, 2, 0)
-    placeMovement(state, hammer, 2, 1)
+    placePlatform(state, bolt, 2, 0)
+    placePlatform(state, bolt, 2, 1)
     for (let i = 0; i < 400; i++) {
       sim.tick(TICK_SECONDS)
       expect(findConjunctions(state)).toEqual([])
@@ -345,8 +345,8 @@ describe('conjunction', () => {
 
   it('detects units on different rings sharing an angle', () => {
     // Slot 0 on every ring is angle 0 at phase 0 — aligned by construction.
-    placeMovement(state, hammer, 1, 0)
-    placeMovement(state, hammer, 2, 0)
+    placePlatform(state, bolt, 1, 0)
+    placePlatform(state, bolt, 2, 0)
     const found = findConjunctions(state)
     expect(found).toHaveLength(1)
     expect(found[0].participants).toHaveLength(2)
@@ -354,15 +354,15 @@ describe('conjunction', () => {
   })
 
   it('scales with participant count', () => {
-    placeMovement(state, hammer, 1, 0)
-    placeMovement(state, hammer, 2, 0)
-    placeMovement(state, hammer, 3, 0)
+    placePlatform(state, bolt, 1, 0)
+    placePlatform(state, bolt, 2, 0)
+    placePlatform(state, bolt, 3, 0)
     expect(findConjunctions(state)[0].scale).toBe('major')
   })
 
   it('ignores disabled units', () => {
-    const a = placeMovement(state, hammer, 1, 0)
-    placeMovement(state, hammer, 2, 0)
+    const a = placePlatform(state, bolt, 1, 0)
+    placePlatform(state, bolt, 2, 0)
     a.disabledFor = 5
     expect(findConjunctions(state)).toEqual([])
   })
@@ -370,8 +370,8 @@ describe('conjunction', () => {
   it('does not fire the same alignment every tick', () => {
     // The 6s per-slot-set cooldown is what stops a lingering alignment
     // machine-gunning.
-    placeMovement(state, hammer, 1, 0)
-    placeMovement(state, hammer, 2, 0)
+    placePlatform(state, bolt, 1, 0)
+    placePlatform(state, bolt, 2, 0)
 
     let fired = 0
     for (let i = 0; i < 20; i++) fired += sim.tick(TICK_SECONDS).conjunctionsFired
@@ -379,8 +379,8 @@ describe('conjunction', () => {
   })
 
   it('previews the time to the next alignment', () => {
-    placeMovement(state, hammer, 1, 1)
-    placeMovement(state, hammer, 2, 4)
+    placePlatform(state, bolt, 1, 1)
+    placePlatform(state, bolt, 2, 4)
     const t = timeToNextConjunction(state)
     expect(t).not.toBeNull()
     expect(t!).toBeGreaterThan(0)
@@ -388,45 +388,45 @@ describe('conjunction', () => {
 
   it('leaves ring phases untouched after previewing', () => {
     // The preview simulates forward; it must not mutate the live state.
-    placeMovement(state, hammer, 1, 1)
-    placeMovement(state, hammer, 2, 4)
+    placePlatform(state, bolt, 1, 1)
+    placePlatform(state, bolt, 2, 4)
     const before = state.rings.map((r) => r.phase)
     timeToNextConjunction(state)
     expect(state.rings.map((r) => r.phase)).toEqual(before)
   })
 
   it('returns null with fewer than two units', () => {
-    placeMovement(state, hammer, 1, 0)
+    placePlatform(state, bolt, 1, 0)
     expect(timeToNextConjunction(state)).toBeNull()
   })
 })
 
 describe('stage progression', () => {
-  it('spawns Slack on the wave schedule', () => {
-    expect(state.slack).toHaveLength(0)
+  it('spawns Contact on the wave schedule', () => {
+    expect(state.contact).toHaveLength(0)
     for (let i = 0; i < 40; i++) sim.tick(TICK_SECONDS)
-    expect(state.slack.length).toBeGreaterThan(0)
+    expect(state.contact.length).toBeGreaterThan(0)
   })
 
   it('clears the stage when a defended field survives every wave', () => {
-    const hammer = movementById('hammer')!
-    const detent = movementById('detent')!
-    placeMovement(state, detent, 1, 0)
-    placeMovement(state, detent, 1, 3)
-    placeMovement(state, hammer, 2, 0)
-    placeMovement(state, hammer, 2, 5)
-    mountChime(state, chimeById('quarter-bell')!, 0)
+    const bolt = platformById('bolt')!
+    const anchor = platformById('anchor')!
+    placePlatform(state, anchor, 1, 0)
+    placePlatform(state, anchor, 1, 3)
+    placePlatform(state, bolt, 2, 0)
+    placePlatform(state, bolt, 2, 5)
+    mountArray(state, arrayById('long-baseline')!, 0)
 
     let cleared = false
     for (let i = 0; i < 4000 && !cleared; i++) cleared = sim.tick(TICK_SECONDS).stageCleared
 
     expect(cleared).toBe(true)
     expect(state.phase).toBe('cleared')
-    expect(state.filingsEarned).toBeGreaterThan(0)
+    expect(state.salvageEarned).toBeGreaterThan(0)
   })
 
-  it('loses the stage when Tension is exhausted', () => {
-    state.mainspring.hp = 1
+  it('loses the stage when Output is exhausted', () => {
+    state.sun.hp = 1
     let lost = false
     for (let i = 0; i < 2000 && !lost; i++) lost = sim.tick(TICK_SECONDS).stageLost
     expect(lost).toBe(true)
@@ -434,7 +434,7 @@ describe('stage progression', () => {
   })
 
   it('stops ticking once resolved', () => {
-    state.mainspring.hp = 0
+    state.sun.hp = 0
     sim.tick(TICK_SECONDS)
     const ticks = sim.tickCount
     sim.tick(TICK_SECONDS)
@@ -450,7 +450,7 @@ describe('telegraphs', () => {
     let sawTelegraph = false
     for (let i = 0; i < 200; i++) {
       const before = sim.projectiles.live
-      if (state.slack.some((s) => s.telegraphRemaining > 0)) sawTelegraph = true
+      if (state.contact.some((s) => s.telegraphRemaining > 0)) sawTelegraph = true
       sim.tick(TICK_SECONDS)
       if (sim.projectiles.live > before) {
         expect(sawTelegraph).toBe(true)
@@ -533,28 +533,28 @@ describe('ring period constraint', () => {
 
 describe('every damage path goes through the type matrix', () => {
   /**
-   * Regression guard. Chime projectiles and conjunction pulses originally
+   * Regression guard. Array projectiles and conjunction pulses originally
    * applied raw damage, bypassing both the type multiplier and armour. That
-   * made "Chimes are always Resonant" (combat-spec.md §4) meaningless, since
+   * made "Arrays are always Resonant" (combat-spec.md §4) meaningless, since
    * the entire reason they counter Erratic and struggle against Seized is the
    * ×1.5 / ×0.75.
    */
-  function slackAt(s: Simulation, defId: string, x: number, y: number) {
-    const instance = createSlack(s.state, slackById(defId)!, { x, y })
+  function contactAt(s: Simulation, defId: string, x: number, y: number) {
+    const instance = createContact(s.state, contactById(defId)!, { x, y })
     instance.velocity = { x: 0, y: 0 }
     instance.hp = 100000
     instance.maxHp = 100000
-    s.state.slack.push(instance)
+    s.state.contact.push(instance)
     return instance
   }
 
-  function chimeShotDamage(defId: string): number {
+  function arrayShotDamage(defId: string): number {
     const s = build()
-    s.state.movements.length = 0
-    const target = slackAt(s, defId, 200, 0)
+    s.state.platforms.length = 0
+    const target = contactAt(s, defId, 200, 0)
 
     const p = s.projectiles.acquire()!
-    p.faction = 'chime'
+    p.faction = 'array'
     p.position = { x: 200, y: 0 }
     p.velocity = { x: 0, y: 0 }
     p.damage = 100
@@ -568,21 +568,21 @@ describe('every damage path goes through the type matrix', () => {
     return before - target.hp
   }
 
-  it('applies the Resonant advantage against Erratic Slack', () => {
+  it('applies the Resonant advantage against Erratic Contact', () => {
     // backlash is Erratic — Resonant is favourable (×1.5).
-    const erratic = chimeShotDamage('backlash')
+    const erratic = arrayShotDamage('lance')
     // drift is Seized — Resonant is unfavourable (×0.75).
-    const seized = chimeShotDamage('drift')
+    const seized = arrayShotDamage('hulk')
 
     expect(erratic).toBeGreaterThan(0)
     expect(seized).toBeGreaterThan(0)
     expect(erratic).toBeGreaterThan(seized)
   })
 
-  it('applies armour mitigation to Chime shots', () => {
+  it('applies armour mitigation to Array shots', () => {
     // drift is Seized (Resonant ×0.75) with 8 defence. The type multiplier
     // alone would give 75; mitigation must take it below that.
-    const damage = chimeShotDamage('drift')
+    const damage = arrayShotDamage('hulk')
     expect(damage).toBeLessThan(75)
     expect(damage).toBeGreaterThan(60)
   })
@@ -590,19 +590,19 @@ describe('every damage path goes through the type matrix', () => {
   it('leaves a neutral, unarmoured target at face value', () => {
     // burr is Massed with 0 defence, and Resonant vs Massed is neutral — so
     // exactly 100 is the correct answer here, not evidence of a bypass.
-    expect(chimeShotDamage('burr')).toBeCloseTo(100, 5)
+    expect(arrayShotDamage('skiff')).toBeCloseTo(100, 5)
   })
 
   it('makes conjunction pulses type-sensitive too', () => {
     // An off-type build must not be strictly better at conjunctions.
     function pulseDamage(defId: string): number {
       const s = build()
-      s.state.movements.length = 0
-      // hammer is Percussive; its conjunction effect is a damagePulse.
-      placeMovement(s.state, movementById('hammer')!, 1, 0)
-      placeMovement(s.state, movementById('hammer')!, 2, 0)
+      s.state.platforms.length = 0
+      // bolt is Percussive; its conjunction effect is a damagePulse.
+      placePlatform(s.state, platformById('bolt')!, 1, 0)
+      placePlatform(s.state, platformById('bolt')!, 2, 0)
 
-      const target = slackAt(s, defId, 90, 0)
+      const target = contactAt(s, defId, 90, 0)
       const before = target.hp
       // Run long enough for the synergy pass to fire.
       for (let i = 0; i < 4; i++) s.tick(TICK_SECONDS)
@@ -611,8 +611,8 @@ describe('every damage path goes through the type matrix', () => {
 
     // burr is Massed — Percussive is unfavourable (×0.75).
     // backlash is Erratic — Percussive is neutral (×1.0).
-    const massed = pulseDamage('burr')
-    const erratic = pulseDamage('backlash')
+    const massed = pulseDamage('skiff')
+    const erratic = pulseDamage('lance')
 
     expect(massed).toBeGreaterThan(0)
     expect(erratic).toBeGreaterThan(massed)

@@ -31,7 +31,7 @@
       })
       .catch((e: unknown) => {
         error = e instanceof Error ? e.message : String(e)
-        console.error('[orrery] failed to start', e)
+        console.error('[perihelion] failed to start', e)
       })
 
     return () => {
@@ -45,7 +45,7 @@
 
 {#if error}
   <div class="error">
-    <strong>The Orrery did not start.</strong>
+    <strong>The Perihelion did not start.</strong>
     <code>{error}</code>
   </div>
 {:else}

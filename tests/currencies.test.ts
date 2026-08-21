@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createDefaultSave } from '../src/lib/core/saveSchema'
-import { FILINGS, KEYS, RECOLLECTION } from '../src/lib/content/economy'
+import { SALVAGE, CLEARANCE, RECOLLECTION } from '../src/lib/content/economy'
 import {
   applyStageClear,
   canAfford,
   clearReward,
-  earnFilings,
-  filingsDrop,
+  earnSalvage,
+  salvageDrop,
   minimumRewindDepth,
   mountCost,
   recollectionFor,
@@ -14,10 +14,10 @@ import {
   reinforceCost,
   repairCost,
   slotCost,
-  spendFilings,
+  spendSalvage,
 } from '../src/lib/progression/currencies'
 import { ZONES } from '../src/lib/content/zones'
-import { SLACK, slackById } from '../src/lib/content/enemies'
+import { CONTACT, contactById } from '../src/lib/content/contacts'
 import { scaledCount } from '../src/lib/systems/scaling'
 import { isBossWave } from '../src/lib/entities/Wave'
 import type { SaveData } from '../src/lib/core/saveSchema'
@@ -32,52 +32,52 @@ beforeEach(() => {
   save = createDefaultSave(0)
 })
 
-describe('Filings drops', () => {
+describe('Salvage drops', () => {
   it('pays the base drop in the first zone', () => {
-    expect(filingsDrop(5, 0)).toBeCloseTo(5, 10)
+    expect(salvageDrop(5, 0)).toBeCloseTo(5, 10)
   })
 
   it('scales with zone index', () => {
-    expect(filingsDrop(5, 2)).toBeCloseTo(5 * (1 + 2 * FILINGS.zoneScaling), 10)
+    expect(salvageDrop(5, 2)).toBeCloseTo(5 * (1 + 2 * SALVAGE.zoneScaling), 10)
   })
 
   it('applies the tree bonus on top', () => {
-    const bonus = { filings: 0.5, recollection: 0 }
-    expect(filingsDrop(10, 0, bonus)).toBeCloseTo(15, 10)
+    const bonus = { salvage: 0.5, recollection: 0 }
+    expect(salvageDrop(10, 0, bonus)).toBeCloseTo(15, 10)
   })
 
   it('does not round, so thousands of small drops do not compound', () => {
     // The same argument damage uses. The HUD rounds for display.
-    const drop = filingsDrop(5, 1)
+    const drop = salvageDrop(5, 1)
     expect(Number.isInteger(drop)).toBe(false)
   })
 
-  it('gives every Slack something to drop', () => {
-    for (const def of SLACK) {
+  it('gives every Contact something to drop', () => {
+    for (const def of CONTACT) {
       expect(def.baseDrop, def.id).toBeGreaterThan(0)
     }
   })
 })
 
-describe('Filings sinks', () => {
+describe('Salvage sinks', () => {
   it('charges the authored base for the first of each', () => {
-    expect(slotCost(0)).toBe(FILINGS.slot.base)
-    expect(mountCost(0)).toBe(FILINGS.mount.base)
-    expect(repairCost(0)).toBe(FILINGS.repair.base)
-    expect(reinforceCost(0)).toBe(FILINGS.reinforce.base)
+    expect(slotCost(0)).toBe(SALVAGE.slot.base)
+    expect(mountCost(0)).toBe(SALVAGE.mount.base)
+    expect(repairCost(0)).toBe(SALVAGE.repair.base)
+    expect(reinforceCost(0)).toBe(SALVAGE.reinforce.base)
   })
 
-  it('prices a Chime above a Movement, as economy-spec §1 requires', () => {
-    // A Chime is the bigger commitment; if this inverts, the intended order in
+  it('prices a Array above a Platform, as economy-spec §1 requires', () => {
+    // A Array is the bigger commitment; if this inverts, the intended order in
     // which a player meets the sinks inverts with it.
     expect(mountCost(0)).toBeGreaterThan(slotCost(0))
   })
 
   it('escalates repairs faster than anything else', () => {
     // Repair is a panic button, not a strategy — economy-spec invariant 6.
-    expect(FILINGS.repair.growth).toBeGreaterThan(FILINGS.slot.growth)
-    expect(FILINGS.repair.growth).toBeGreaterThan(FILINGS.mount.growth)
-    expect(FILINGS.repair.growth).toBeGreaterThan(FILINGS.reinforce.growth)
+    expect(SALVAGE.repair.growth).toBeGreaterThan(SALVAGE.slot.growth)
+    expect(SALVAGE.repair.growth).toBeGreaterThan(SALVAGE.mount.growth)
+    expect(SALVAGE.repair.growth).toBeGreaterThan(SALVAGE.reinforce.growth)
   })
 
   it('keeps the tenth slot reachable and the twentieth not', () => {
@@ -99,10 +99,10 @@ describe('Filings sinks', () => {
       for (const wave of stage.waves) {
         if (isBossWave(wave)) continue
         for (const group of wave.groups) {
-          const def = slackById(group.defId)
+          const def = contactById(group.defId)
           if (!def) continue
           const count = scaledCount(group.count, stage.scalingIndex)
-          zoneYield += count * filingsDrop(def.baseDrop, ZONE.index)
+          zoneYield += count * salvageDrop(def.baseDrop, ZONE.index)
         }
       }
     }
@@ -132,30 +132,30 @@ describe('Filings sinks', () => {
 
 describe('spending', () => {
   it('refuses a purchase the player cannot afford, and changes nothing', () => {
-    save.run.filings = 10
+    save.run.salvage = 10
     expect(canAfford(save, 50)).toBe(false)
-    expect(spendFilings(save, 50)).toBe(false)
-    expect(save.run.filings).toBe(10)
+    expect(spendSalvage(save, 50)).toBe(false)
+    expect(save.run.salvage).toBe(10)
   })
 
   it('allows spending exactly the balance', () => {
-    save.run.filings = 50
-    expect(spendFilings(save, 50)).toBe(true)
-    expect(save.run.filings).toBe(0)
+    save.run.salvage = 50
+    expect(spendSalvage(save, 50)).toBe(true)
+    expect(save.run.salvage).toBe(0)
   })
 
   it('banks a drop and the lifetime statistic together', () => {
-    earnFilings(save, 12)
-    earnFilings(save, 8)
-    expect(save.run.filings).toBe(20)
-    expect(save.statistics.totalFilingsEarned).toBe(20)
+    earnSalvage(save, 12)
+    earnSalvage(save, 8)
+    expect(save.run.salvage).toBe(20)
+    expect(save.statistics.totalSalvageEarned).toBe(20)
   })
 
   it('ignores a non-positive gain rather than recording a phantom one', () => {
-    earnFilings(save, 0)
-    earnFilings(save, -5)
-    expect(save.run.filings).toBe(0)
-    expect(save.statistics.totalFilingsEarned).toBe(0)
+    earnSalvage(save, 0)
+    earnSalvage(save, -5)
+    expect(save.run.salvage).toBe(0)
+    expect(save.statistics.totalSalvageEarned).toBe(0)
   })
 })
 
@@ -165,7 +165,7 @@ describe('Recollection', () => {
   })
 
   it('rewards depth super-linearly', () => {
-    // The 1.6 exponent: two stages deeper is worth roughly 1.8x, so depth beats
+    // The 1.6 exponent: two stages deeper is worth roughly 1.8x, so depth flares
     // breadth without making an early Rewind a mistake.
     const ratio = recollectionFor(20) / recollectionFor(10)
     expect(ratio).toBeGreaterThan(2)
@@ -189,7 +189,7 @@ describe('Recollection', () => {
 
   it('applies the tree bonus', () => {
     const bare = recollectionFor(20)
-    const boosted = recollectionFor(20, { filings: 0, recollection: 1 })
+    const boosted = recollectionFor(20, { salvage: 0, recollection: 1 })
     expect(boosted).toBeGreaterThan(bare)
   })
 
@@ -202,27 +202,27 @@ describe('Recollection', () => {
   })
 })
 
-describe('Keys', () => {
+describe('Clearance', () => {
   it('pays for a first clear', () => {
     const reward = applyStageClear(save, STAGES[0])
     expect(reward.firstClear).toBe(true)
-    expect(reward.keys).toBe(KEYS.normalStageFirstClear)
-    expect(save.meta.keys).toBe(KEYS.normalStageFirstClear)
+    expect(reward.clearance).toBe(CLEARANCE.normalStageFirstClear)
+    expect(save.meta.clearance).toBe(CLEARANCE.normalStageFirstClear)
   })
 
-  it('pays nothing for a re-clear, so Keys cannot be farmed', () => {
+  it('pays nothing for a re-clear, so Clearance cannot be farmed', () => {
     // The property Phase 29's roster balance depends on.
     applyStageClear(save, STAGES[0])
     const again = applyStageClear(save, STAGES[0])
 
     expect(again.firstClear).toBe(false)
-    expect(again.keys).toBe(KEYS.reclear)
-    expect(save.meta.keys).toBe(KEYS.normalStageFirstClear)
+    expect(again.clearance).toBe(CLEARANCE.reclear)
+    expect(save.meta.clearance).toBe(CLEARANCE.normalStageFirstClear)
   })
 
   it('is idempotent, so a doubled clear event cannot double-pay', () => {
     for (let i = 0; i < 5; i++) applyStageClear(save, STAGES[0])
-    expect(save.meta.keys).toBe(KEYS.normalStageFirstClear)
+    expect(save.meta.clearance).toBe(CLEARANCE.normalStageFirstClear)
     expect(save.meta.clearedStages).toEqual([STAGES[0]])
   })
 
@@ -231,7 +231,7 @@ describe('Keys', () => {
     const last = applyStageClear(save, STAGES[STAGES.length - 1])
 
     expect(last.zoneCompleted).toBe(true)
-    expect(last.keys).toBe(KEYS.normalStageFirstClear + KEYS.zoneComplete)
+    expect(last.clearance).toBe(CLEARANCE.normalStageFirstClear + CLEARANCE.zoneComplete)
   })
 
   it('does not call a zone complete before it is', () => {
@@ -242,19 +242,19 @@ describe('Keys', () => {
   it('reports a reward without granting it', () => {
     // `clearReward` is what the UI quotes; only `applyStageClear` pays.
     const quoted = clearReward(save, STAGES[0])
-    expect(quoted.keys).toBeGreaterThan(0)
-    expect(save.meta.keys).toBe(0)
+    expect(quoted.clearance).toBeGreaterThan(0)
+    expect(save.meta.clearance).toBe(0)
     expect(save.meta.clearedStages).toEqual([])
   })
 
   it('awards nothing for an address that does not exist', () => {
     const reward = applyStageClear(save, 'nowhere:nothing' as StageAddress)
-    expect(reward.keys).toBe(0)
-    expect(save.meta.keys).toBe(0)
+    expect(reward.clearance).toBe(0)
+    expect(save.meta.clearance).toBe(0)
   })
 
   it('pays more for a boss stage than a normal one', () => {
-    expect(KEYS.bossStageFirstClear).toBeGreaterThan(KEYS.normalStageFirstClear)
+    expect(CLEARANCE.bossStageFirstClear).toBeGreaterThan(CLEARANCE.normalStageFirstClear)
   })
 })
 
@@ -283,19 +283,19 @@ describe('depth tracking', () => {
 })
 
 describe('currencies stay separate', () => {
-  it('leaves the permanent currencies untouched by Filings activity', () => {
+  it('leaves the permanent currencies untouched by Salvage activity', () => {
     // economy-spec.md §1: if two currencies ever bought the same thing, one
     // would be redundant. The sources must not leak into each other either.
-    earnFilings(save, 500)
-    spendFilings(save, 100)
+    earnSalvage(save, 500)
+    spendSalvage(save, 100)
 
     expect(save.meta.recollection).toBe(0)
-    expect(save.meta.keys).toBe(0)
+    expect(save.meta.clearance).toBe(0)
   })
 
-  it('leaves Filings untouched by a stage clear', () => {
-    save.run.filings = 42
+  it('leaves Salvage untouched by a stage clear', () => {
+    save.run.salvage = 42
     applyStageClear(save, STAGES[0])
-    expect(save.run.filings).toBe(42)
+    expect(save.run.salvage).toBe(42)
   })
 })

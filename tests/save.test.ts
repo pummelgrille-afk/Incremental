@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   BACKUP_KEY,
+  LEGACY_BACKUP_KEY,
+  LEGACY_LIVE_KEY,
   LIVE_KEY,
   SaveImportError,
   SaveManager,
@@ -27,18 +29,18 @@ describe('round trip', () => {
   it('loads back exactly what was saved', () => {
     const save = createDefaultSave(1000)
     save.meta.recollection = 42
-    save.meta.keys = 7
-    save.run.filings = 1234.5
-    save.meta.purchasedNodes = ['winding-1', 'bracing-1']
+    save.meta.clearance = 7
+    save.run.salvage = 1234.5
+    save.meta.purchasedNodes = ['aperture-1', 'shielding-1']
 
     expect(manager.save(save, 2000)).toBe(true)
 
     const loaded = manager.load(2000)
     expect(loaded.source).toBe('live')
     expect(loaded.data.meta.recollection).toBe(42)
-    expect(loaded.data.meta.keys).toBe(7)
-    expect(loaded.data.run.filings).toBe(1234.5)
-    expect(loaded.data.meta.purchasedNodes).toEqual(['winding-1', 'bracing-1'])
+    expect(loaded.data.meta.clearance).toBe(7)
+    expect(loaded.data.run.salvage).toBe(1234.5)
+    expect(loaded.data.meta.purchasedNodes).toEqual(['aperture-1', 'shielding-1'])
   })
 
   it('creates a fresh save when storage is empty', () => {
@@ -100,7 +102,7 @@ describe('corruption safety', () => {
 
   it('leaves the live save untouched when a write fails', () => {
     const good = createDefaultSave()
-    good.meta.keys = 5
+    good.meta.clearance = 5
     manager.save(good, 1000)
     const before = storage.getItem(LIVE_KEY)
 
@@ -117,12 +119,12 @@ describe('corruption safety', () => {
 
     const failing = new SaveManager(hostile)
     const next = createDefaultSave()
-    next.meta.keys = 999
+    next.meta.clearance = 999
     expect(failing.save(next, 2000)).toBe(false)
 
     // The old save must survive intact.
     expect(storage.getItem(LIVE_KEY)).toBe(before)
-    expect(JSON.parse(storage.getItem(LIVE_KEY)!).meta.keys).toBe(5)
+    expect(JSON.parse(storage.getItem(LIVE_KEY)!).meta.clearance).toBe(5)
   })
 
   it('does not leave a temp key behind after a failed write', () => {
@@ -212,9 +214,9 @@ describe('export and import', () => {
   it('survives non-ASCII content in the save', () => {
     const save = createDefaultSave()
     // Content ids are authored text; one em dash must not break exports.
-    save.meta.purchasedNodes = ['regulation—1', 'salvage-café', '調整']
+    save.meta.purchasedNodes = ['regulation—1', 'recovery-café', '調整']
     const imported = manager.importString(manager.exportString(save))
-    expect(imported.meta.purchasedNodes).toEqual(['regulation—1', 'salvage-café', '調整'])
+    expect(imported.meta.purchasedNodes).toEqual(['regulation—1', 'recovery-café', '調整'])
   })
 
   it('does not write anything on import', () => {
@@ -263,16 +265,16 @@ describe('validation and repair', () => {
   it('strips values of the wrong type instead of trusting them', () => {
     const result = validateSave({
       schemaVersion: 1,
-      meta: { recollection: 'lots', purchasedNodes: ['a', 5, 'b'], movements: { x: 'y' } },
+      meta: { recollection: 'lots', purchasedNodes: ['a', 5, 'b'], platforms: { x: 'y' } },
     })
     expect(result.data!.meta.recollection).toBe(0)
     expect(result.data!.meta.purchasedNodes).toEqual(['a', 'b'])
-    expect(result.data!.meta.movements).toEqual({})
+    expect(result.data!.meta.platforms).toEqual({})
   })
 
   it('refuses negative currencies', () => {
-    const result = validateSave({ schemaVersion: 1, run: { filings: -500 } })
-    expect(result.data!.run.filings).toBe(0)
+    const result = validateSave({ schemaVersion: 1, run: { salvage: -500 } })
+    expect(result.data!.run.salvage).toBe(0)
   })
 
   it('always leaves the player a zone to enter', () => {
@@ -294,13 +296,13 @@ describe('validation and repair', () => {
 describe('resetRun', () => {
   it('clears run state and increments the rewind count', () => {
     const save = createDefaultSave(1000)
-    save.run.filings = 5000
+    save.run.salvage = 5000
     save.run.deepestScalingIndex = 22
-    save.run.formation = { '1:0': 'hammer' }
+    save.run.formation = { '1:0': 'bolt' }
 
     const after = resetRun(save, 2000)
 
-    expect(after.run.filings).toBe(0)
+    expect(after.run.salvage).toBe(0)
     expect(after.run.deepestScalingIndex).toBe(0)
     expect(after.run.formation).toEqual({})
     expect(after.meta.rewindCount).toBe(1)
@@ -309,32 +311,126 @@ describe('resetRun', () => {
   it('preserves everything a Rewinding must not touch', () => {
     const save = createDefaultSave(1000)
     save.meta.recollection = 120
-    save.meta.keys = 9
-    save.meta.purchasedNodes = ['winding-3']
-    save.meta.movements = { hammer: 4 }
+    save.meta.clearance = 9
+    save.meta.purchasedNodes = ['aperture-3']
+    save.meta.platforms = { bolt: 4 }
     save.meta.achievements = ['wound-it-back']
-    save.statistics.totalFilingsEarned = 99_999
+    save.statistics.totalSalvageEarned = 99_999
 
     const after = resetRun(save, 2000)
 
     expect(after.meta.recollection).toBe(120)
-    expect(after.meta.keys).toBe(9)
-    expect(after.meta.purchasedNodes).toEqual(['winding-3'])
-    expect(after.meta.movements).toEqual({ hammer: 4 })
+    expect(after.meta.clearance).toBe(9)
+    expect(after.meta.purchasedNodes).toEqual(['aperture-3'])
+    expect(after.meta.platforms).toEqual({ bolt: 4 })
     expect(after.meta.achievements).toEqual(['wound-it-back'])
-    expect(after.statistics.totalFilingsEarned).toBe(99_999)
+    expect(after.statistics.totalSalvageEarned).toBe(99_999)
   })
 
   it('never resets content access', () => {
     // economy-spec.md §3: a Rewind resets power within a run, never access to
     // content already unlocked. This is the anti-churn guarantee.
     const save = createDefaultSave(1000)
-    save.meta.unlockedZones = ['escapement-floor', 'hour-ring']
-    save.meta.clearedStages = ['escapement-floor:first-shift']
+    save.meta.unlockedZones = ['service-floor', 'hour-ring']
+    save.meta.clearedStages = ['service-floor:first-shift']
 
     const after = resetRun(save, 2000)
 
-    expect(after.meta.unlockedZones).toEqual(['escapement-floor', 'hour-ring'])
-    expect(after.meta.clearedStages).toEqual(['escapement-floor:first-shift'])
+    expect(after.meta.unlockedZones).toEqual(['service-floor', 'hour-ring'])
+    expect(after.meta.clearedStages).toEqual(['service-floor:first-shift'])
+  })
+})
+
+
+describe('the pre-reskin storage key', () => {
+  /**
+   * A save exactly as a pre-Phase-29 build wrote it: the old key, the old
+   * schema, and the old vocabulary inside.
+   */
+  function plantLegacy(key: string = LEGACY_LIVE_KEY): void {
+    storage.setItem(
+      key,
+      JSON.stringify({
+        schemaVersion: 5,
+        savedAt: 1000,
+        run: {
+          filings: 356,
+          currentStage: 'escapement-floor:routine-maintenance',
+          formation: { '2:0': 'hammer' },
+          mounts: {},
+        },
+        meta: { keys: 4, movements: { hammer: 3 }, unlockedZones: ['escapement-floor'] },
+      }),
+    )
+  }
+
+  it('finds a save left under the old key', () => {
+    /*
+     * The reskin's blanket rename moved the storage key along with everything
+     * else. Without this fallback the game looks under the new key, finds
+     * nothing, and reports a fresh start — and the 5 → 6 migration never runs,
+     * because there is nothing to migrate. Total silent data loss, with no
+     * error and nothing in `notices` to hint at it.
+     */
+    plantLegacy()
+    const result = manager.load(2000)
+
+    expect(result.source).toBe('legacy')
+    expect(result.data.run.salvage).toBe(356)
+    expect(result.data.meta.clearance).toBe(4)
+  })
+
+  it('migrates it on the way through', () => {
+    // Reaching the old save is only half the job: it is still schema 5, in the
+    // old vocabulary, referencing content ids that no longer exist.
+    plantLegacy()
+    const { data } = manager.load(2000)
+
+    expect(data.schemaVersion).toBe(SCHEMA_VERSION)
+    expect(data.run.formation).toEqual({ '2:0': 'bolt' })
+    expect(data.meta.platforms).toEqual({ bolt: 3 })
+    expect(data.meta.unlockedZones).toEqual(['service-floor'])
+    expect(data.run.currentStage).toBe('service-floor:routine-maintenance')
+  })
+
+  it('says so, rather than carrying it over silently', () => {
+    plantLegacy()
+    expect(manager.load(2000).notices.join(' ')).toMatch(/renamed/i)
+  })
+
+  it('prefers a save under the current key', () => {
+    // Someone who has already played the new build has a current save; the
+    // stale legacy one must not overwrite it.
+    plantLegacy()
+    const current = createDefaultSave(500)
+    current.run.salvage = 12
+    manager.save(current)
+
+    const result = manager.load(2000)
+    expect(result.source).toBe('live')
+    expect(result.data.run.salvage).toBe(12)
+  })
+
+  it('falls back to the legacy backup too', () => {
+    plantLegacy(LEGACY_BACKUP_KEY)
+    expect(manager.load(2000).source).toBe('legacy')
+  })
+
+  it('reports a save exists so the menu offers Continue', () => {
+    expect(manager.hasSave()).toBe(false)
+    plantLegacy()
+    expect(manager.hasSave()).toBe(true)
+  })
+
+  it('clears the old keys on a hard reset', () => {
+    // Otherwise a reset appears to work and the old save returns on the next
+    // load, which is worse than not resetting at all.
+    plantLegacy()
+    plantLegacy(LEGACY_BACKUP_KEY)
+    manager.clear()
+
+    expect(storage.getItem(LEGACY_LIVE_KEY)).toBeNull()
+    expect(storage.getItem(LEGACY_BACKUP_KEY)).toBeNull()
+    expect(manager.load(2000).source).toBe('fresh')
   })
 })

@@ -23,7 +23,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   {
     id: 'within-tolerance',
     name: 'Within Tolerance',
-    description: 'Clear a stage without losing a point of Tension.',
+    description: 'Clear a stage without losing a point of Output.',
     trigger: (ctx) => ctx.event === 'stage-cleared' && ctx.clearedUntouched,
   },
   {
@@ -43,9 +43,9 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   {
     id: 'documented-procedure',
     name: 'Documented Procedure',
-    description: 'Clear a zone without ever mounting a Chime.',
+    description: 'Clear a zone without ever mounting a Array.',
     /*
-     * narrative.md words this as "using only Movements from the Manual's
+     * narrative.md words this as "using only Platforms from the Manual's
      * roster". Read as: the front line alone, no support.
      *
      * Checked against the *run* rather than the zone, because a per-zone check
@@ -53,22 +53,22 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
      * it anyway. Whole-run is stricter and simpler, and an achievement that
      * rewards a technicality is worse than one that asks for a little more.
      */
-    trigger: (ctx) => ctx.zoneCompleted && !ctx.save.run.chimesEverMounted,
+    trigger: (ctx) => ctx.zoneCompleted && !ctx.save.run.arraysEverMounted,
   },
   {
     id: 'the-undermaster-will-hear-of-this',
     name: 'The Undermaster Will Hear of This',
-    description: 'Lose a stage with every unlocked Movement on the field.',
+    description: 'Lose a stage with every unlocked Platform on the field.',
     /*
-     * "A full roster slotted" read as *every Movement you own*, not every slot
+     * "A full roster slotted" read as *every Platform you own*, not every slot
      * on every ring. Thirty slots is unreachable for most of the game, and the
      * joke lands better when the player plainly had everything available and
      * still lost.
      */
     trigger: (ctx) =>
       ctx.event === 'stage-lost' &&
-      ctx.unlockedMovements > 0 &&
-      ctx.distinctMovementsSlotted >= ctx.unlockedMovements,
+      ctx.unlockedPlatforms > 0 &&
+      ctx.distinctPlatformsSlotted >= ctx.unlockedPlatforms,
   },
   {
     id: 'wound-it-back',

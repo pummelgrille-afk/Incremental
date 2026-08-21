@@ -13,7 +13,7 @@ import { isBossStage } from '../systems/scaling'
 import type { SaveData } from '../core/saveSchema'
 
 /**
- * The Escapement Tree.
+ * The Almanac.
  *
  * Bought with Recollection, persists through every Rewind (economy-spec.md §2).
  * Like `currencies.ts`, everything here is a **pure function of the save plus
@@ -339,7 +339,7 @@ const FIRST_TIER_RADIUS = 130
 /**
  * Where each node sits, derived rather than authored.
  *
- * **Radial, because the game is an orrery.** Branches take a quadrant each and
+ * **Radial, because the game is an perihelion.** Branches take a quadrant each and
  * tiers step outward, so investing in a branch reads as winding that arm of the
  * mechanism further out — and the shape needs no art direction to stay legible
  * as Phase 34 grows it from twelve nodes to seventy-two.

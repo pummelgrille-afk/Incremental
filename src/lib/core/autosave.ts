@@ -13,7 +13,7 @@ import type { SaveData } from './saveSchema'
 
 export type SaveReason =
   | 'interval'
-  /** Stage cleared — Keys may have been awarded. Never lose this. */
+  /** Stage cleared — Clearance may have been awarded. Never lose this. */
   | 'stage-clear'
   /** Currency spent. */
   | 'purchase'

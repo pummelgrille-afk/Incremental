@@ -1,16 +1,16 @@
 import type { ArmourClass, ContentDef, EntityId, Vec2 } from './types'
 
 /**
- * Slack — the creatures of the Unwinding. Not an invading faction; condensed
- * lost tension, moving down the tension gradient toward the Mainspring
+ * Contact — the creatures of the Approach. Not an invading faction; condensed
+ * lost output, moving down the output gradient toward the Sun
  * (docs/design/narrative.md).
  *
- * Unlike Movements and Chimes, Slack are free-moving and carry a resolved
+ * Unlike Platforms and Arrays, Contact are free-moving and carry a resolved
  * cartesian position rather than a slot reference.
  */
 
 /** Broad motion archetype. Concrete curves live in systems/spawn.ts. */
-export type SlackMotion =
+export type ContactMotion =
   | 'swarm'
   /** Straight in, steady pace. */
   | 'drift'
@@ -20,9 +20,9 @@ export type SlackMotion =
   | 'orbit'
 
 /** Behavioural hooks, reskinned per Phase 15. */
-export interface SlackTraits {
+export interface ContactTraits {
   /**
-   * Spawns smaller Slack on death.
+   * Spawns smaller Contact on death.
    *
    * Content must not create a split cycle (A spawning A, directly or through a
    * chain) — nothing clamps this at runtime, and a cycle would spawn without
@@ -34,24 +34,24 @@ export interface SlackTraits {
   readonly shieldHits?: number
 
   /**
-   * Multiplies incoming damage while this Slack is telegraphing.
+   * Multiplies incoming damage while this Contact is telegraphing.
    *
-   * A fairness window: the moment a Slack becomes dangerous is also the moment
+   * A fairness window: the moment a Contact becomes dangerous is also the moment
    * it is most worth shooting, so a player who reads the telegraph is rewarded
    * for acting on it rather than only for avoiding it.
    */
   readonly vulnerableWhileTelegraphing?: number
 
   /**
-   * Radius an `orbit` Slack settles at before circling. Ignored by every other
+   * Radius an `orbit` Contact settles at before circling. Ignored by every other
    * motion archetype.
    */
   readonly orbitRadius?: number
 }
 
-export interface SlackDef extends ContentDef {
+export interface ContactDef extends ContentDef {
   readonly armour: ArmourClass
-  readonly motion: SlackMotion
+  readonly motion: ContactMotion
 
   readonly maxHp: number
   readonly attack: number
@@ -63,7 +63,7 @@ export interface SlackDef extends ContentDef {
    * Collision radius, **decoupled from sprite bounds** (combat-spec.md §5).
    *
    * Deliberately generous relative to what is drawn, which favours the player:
-   * a shot that looks like a graze counts as a hit. The Mainspring's hitbox is
+   * a shot that looks like a graze counts as a hit. The Sun's hitbox is
    * decoupled the other way — smaller than drawn — so near misses read as
    * misses. Both err toward the player.
    *
@@ -71,26 +71,26 @@ export interface SlackDef extends ContentDef {
    */
   readonly hurtboxRadius: number
 
-  /** Id into content/patterns — what this Slack fires. */
+  /** Id into content/patterns — what this Contact fires. */
   readonly patternId: string
   /** Seconds between pattern emissions. */
   readonly patternInterval: number
 
-  /** Filings dropped on death, before zone and tree multipliers. */
+  /** Salvage dropped on death, before zone and tree multipliers. */
   readonly baseDrop: number
 
   /**
    * Contribution to the threat score that `highestThreat` targeting reads.
-   * Combined with proximity to the Mainspring in systems/ai.ts.
+   * Combined with proximity to the Sun in systems/ai.ts.
    */
   readonly threatWeight: number
 
-  readonly traits?: SlackTraits
+  readonly traits?: ContactTraits
 }
 
-export interface SlackInstance {
+export interface ContactInstance {
   readonly id: EntityId
-  readonly def: SlackDef
+  readonly def: ContactDef
 
   position: Vec2
   velocity: Vec2
@@ -112,8 +112,8 @@ export interface SlackInstance {
   hitFlash: number
 }
 
-/** Distance from the Mainspring, which sits at the origin. */
-export function distanceToCentre(slack: SlackInstance): number {
-  const { x, y } = slack.position
+/** Distance from the Sun, which sits at the origin. */
+export function distanceToCentre(contact: ContactInstance): number {
+  const { x, y } = contact.position
   return Math.sqrt(x * x + y * y)
 }

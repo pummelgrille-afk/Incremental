@@ -2,7 +2,7 @@ import type { RingIndex } from '../entities/types'
 
 /**
  * Field geometry. Mirrors docs/design/combat-spec.md §1 and the `field` and
- * `beat` rows of docs/design/balancing.csv.
+ * `flare` rows of docs/design/balancing.csv.
  *
  * balancing.csv is the ground truth (economy-spec.md §8). When these disagree,
  * the CSV wins and this file is wrong.
@@ -50,21 +50,21 @@ export const OUTERMOST_RING = RINGS[RINGS.length - 1].index
  * playtest.
  */
 
-/** Chime mounts. The rim does not rotate. */
+/** Array mounts. The rim does not rotate. */
 export const RIM_RADIUS = 380
 export const RIM_MOUNTS = 8
 
-/** Slack spawn at the rim and move inward. */
+/** Contact spawn at the rim and move inward. */
 export const SPAWN_RADIUS = RIM_RADIUS
 
 /**
- * The Beat — the Wright's manual strike, and the only live input.
+ * The Flare — the Operator's manual strike, and the only live input.
  *
  * Instant and area-based on purpose: there is nothing to aim and nothing to
  * miss, so its failure mode is *damage not dealt* rather than *damage taken*.
  * See combat-spec.md §1.
  */
-export const BEAT = {
+export const FLARE = {
   maxCharges: 3,
   /** Seconds to regain one charge. */
   rechargeInterval: 3,

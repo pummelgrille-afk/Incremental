@@ -1,50 +1,50 @@
 import { SUPPORT } from '../content/economy'
-import { CHIMES, chimeById } from '../content/supportUnits'
+import { ARRAYS, arrayById } from '../content/arrays'
 import { isUnlocked } from './roster'
-import type { ChimeDef } from '../entities/Chime'
+import type { ArrayDef } from '../entities/Array'
 import type { SaveData } from '../core/saveSchema'
 
 /**
- * Chime upgrade tracks.
+ * Array upgrade tracks.
  *
- * **Chimes are shaped, not levelled.** A Movement levels and gets uniformly
- * stronger; a Chime picks between burst, sustain and punch, and the three pull
- * against each other for the same scarce Keys. That is the "distinct in feel
+ * **Arrays are shaped, not levelled.** A Platform levels and gets uniformly
+ * stronger; a Array picks between burst, sustain and punch, and the three pull
+ * against each other for the same scarce Clearance. That is the "distinct in feel
  * from front-line allies" PLAN.md Phase 25 asks for, expressed as a different
  * *shape* of decision rather than as different numbers on the same lever.
  *
  * Two of the three tracks are about Charge, because Charge is what makes a
- * Chime a Chime (combat-spec.md §4).
+ * Array a Array (combat-spec.md §4).
  */
 
-export type SupportTrack = 'capacity' | 'winding' | 'resonance'
+export type SupportTrack = 'capacity' | 'recharge' | 'resonance'
 
 export const SUPPORT_TRACKS: readonly SupportTrack[] = [
   'capacity',
-  'winding',
+  'recharge',
   'resonance',
 ] as const
 
 const MAX_LEVEL: Record<SupportTrack, number> = {
   capacity: SUPPORT.capacity.maxLevel,
-  winding: SUPPORT.winding.maxLevel,
+  recharge: SUPPORT.recharge.maxLevel,
   resonance: SUPPORT.resonance.maxLevel,
 }
 
 export const TRACK_COPY: Record<SupportTrack, { name: string; effect: string }> = {
   capacity: { name: 'Capacity', effect: 'holds another shot' },
-  winding: { name: 'Winding', effect: 'recharges faster' },
+  recharge: { name: 'Recharge', effect: 'recharges faster' },
   resonance: { name: 'Resonance', effect: 'strikes harder' },
 }
 
 function ledger(save: SaveData, defId: string): Record<string, number> {
-  const all = save.meta.chimeUpgrades
+  const all = save.meta.arrayUpgrades
   if (!all[defId]) all[defId] = {}
   return all[defId]
 }
 
 export function trackLevel(save: SaveData, defId: string, track: SupportTrack): number {
-  return save.meta.chimeUpgrades[defId]?.[track] ?? 0
+  return save.meta.arrayUpgrades[defId]?.[track] ?? 0
 }
 
 export function maxTrackLevel(track: SupportTrack): number {
@@ -52,7 +52,7 @@ export function maxTrackLevel(track: SupportTrack): number {
 }
 
 /**
- * Keys for the next level of a track, or null at its ceiling.
+ * Clearance for the next level of a track, or null at its ceiling.
  *
  * Null rather than a price the player can never pay — the same contract
  * `roster.levelCost` uses, so the two read alike in the editor.
@@ -62,7 +62,7 @@ export function trackCost(
   defId: string,
   track: SupportTrack,
 ): number | null {
-  if (!isUnlocked(save, 'chime', defId)) return null
+  if (!isUnlocked(save, 'array', defId)) return null
 
   const level = trackLevel(save, defId, track)
   if (level >= MAX_LEVEL[track]) return null
@@ -73,18 +73,18 @@ export function trackCost(
 /** Buy one level of a track, or refuse. Refusal changes nothing. */
 export function buyTrack(save: SaveData, defId: string, track: SupportTrack): boolean {
   const cost = trackCost(save, defId, track)
-  if (cost === null || save.meta.keys < cost) return false
+  if (cost === null || save.meta.clearance < cost) return false
 
-  save.meta.keys -= cost
+  save.meta.clearance -= cost
   const entry = ledger(save, defId)
   entry[track] = (entry[track] ?? 0) + 1
   return true
 }
 
 /**
- * A Chime's stats after its tracks.
+ * A Array's stats after its tracks.
  *
- * Returned as a plain shape rather than a mutated `ChimeDef`: defs are
+ * Returned as a plain shape rather than a mutated `ArrayDef`: defs are
  * immutable content (CLAUDE.md), and a save that has bought upgrades must never
  * be able to write into the roster every other save shares.
  */
@@ -94,19 +94,19 @@ export interface SupportStats {
   attack: number
 }
 
-export function supportStats(save: SaveData, def: ChimeDef): SupportStats {
+export function supportStats(save: SaveData, def: ArrayDef): SupportStats {
   const capacity = trackLevel(save, def.id, 'capacity')
-  const winding = trackLevel(save, def.id, 'winding')
+  const recharge = trackLevel(save, def.id, 'recharge')
   const resonance = trackLevel(save, def.id, 'resonance')
 
   return {
     maxCharge: def.maxCharge + capacity * SUPPORT.capacity.chargesPerLevel,
     // Floored, not merely bounded by the level cap: `chargeInterval` is the
-    // balance lever between Chimes and Movements (combat-spec.md §4), and a
+    // balance lever between Arrays and Platforms (combat-spec.md §4), and a
     // later re-balance of the levels must not be able to cross it by accident.
     chargeInterval: Math.max(
-      SUPPORT.winding.floorSeconds,
-      def.chargeInterval - winding * SUPPORT.winding.secondsPerLevel,
+      SUPPORT.recharge.floorSeconds,
+      def.chargeInterval - recharge * SUPPORT.recharge.secondsPerLevel,
     ),
     attack: def.attack * (1 + resonance * SUPPORT.resonance.attackPerLevel),
   }
@@ -131,10 +131,10 @@ export interface SupportView {
   stats: SupportStats
 }
 
-/** Every Chime with its tracks, for the formation editor. */
+/** Every Array with its tracks, for the formation editor. */
 export function supportRoster(save: SaveData): SupportView[] {
-  return CHIMES.map((def) => {
-    const unlocked = isUnlocked(save, 'chime', def.id)
+  return ARRAYS.map((def) => {
+    const unlocked = isUnlocked(save, 'array', def.id)
 
     return {
       id: def.id,
@@ -152,16 +152,16 @@ export function supportRoster(save: SaveData): SupportView[] {
           maxLevel: MAX_LEVEL[track],
           cost,
           atMax: unlocked && level >= MAX_LEVEL[track],
-          affordable: cost !== null && save.meta.keys >= cost,
+          affordable: cost !== null && save.meta.clearance >= cost,
         }
       }),
     }
   })
 }
 
-/** Total Keys sunk into a Chime's tracks. Used by the Rewind's before/after. */
+/** Total Clearance sunk into a Array's tracks. Used by the Rewind's before/after. */
 export function investedIn(save: SaveData, defId: string): number {
-  const def = chimeById(defId)
+  const def = arrayById(defId)
   if (!def) return 0
 
   let total = 0

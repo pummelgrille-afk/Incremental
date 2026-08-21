@@ -7,11 +7,11 @@
  *
  * Two of these were already live but written inline — the zone drop scaling in
  * `systems/combat.ts` and the repair curve as default parameters on
- * `Mainspring.repairCost`. Both now read from here.
+ * `Sun.repairCost`. Both now read from here.
  */
 
-/** Filings: the run currency. economy-spec.md §1. */
-export const FILINGS = {
+/** Salvage: the run currency. economy-spec.md §1. */
+export const SALVAGE = {
   /** `drop = baseDrop × (1 + zoneIndex × zoneScaling) × (1 + treeBonus)`. */
   zoneScaling: 0.35,
 
@@ -24,7 +24,7 @@ export const FILINGS = {
    * investment.
    */
   slot: { base: 50, growth: 1.18 },
-  /** Deliberately pricier than a Movement — a Chime is a bigger commitment. */
+  /** Deliberately pricier than a Platform — a Array is a bigger commitment. */
   mount: { base: 120, growth: 1.22 },
   /** Steep on purpose: repair is a panic button, never a strategy. */
   repair: { base: 40, growth: 1.5 },
@@ -36,7 +36,7 @@ export const FILINGS = {
  * Recollection: the prestige currency, awarded only on Rewinding.
  *
  * `floor(deepest^1.6 / 8 × (1 + treeBonus))`. The exponent makes pushing two
- * stages deeper worth roughly 1.8× the award — enough that depth beats breadth,
+ * stages deeper worth roughly 1.8× the award — enough that depth flares breadth,
  * not so much that an early Rewind is ever a mistake.
  *
  * Phase 26 owns the Rewind itself. The formula lives here because it is a
@@ -49,13 +49,13 @@ export const RECOLLECTION = {
 } as const
 
 /**
- * Keys: roster tokens. Flat, and **first clear only**.
+ * Clearance: roster tokens. Flat, and **first clear only**.
  *
- * Not farmable by design — Keys measure how much content a player has *seen*,
+ * Not farmable by design — Clearance measure how much content a player has *seen*,
  * which is what makes the roster unlock curve authored rather than grindable.
  * Phase 29's roster balance depends on that.
  */
-export const KEYS = {
+export const CLEARANCE = {
   normalStageFirstClear: 1,
   bossStageFirstClear: 5,
   zoneComplete: 10,
@@ -64,7 +64,7 @@ export const KEYS = {
 } as const
 
 /**
- * The Escapement Tree. economy-spec.md §2.
+ * The Almanac. economy-spec.md §2.
  *
  * Growth keys on the **branch**, not the whole tree, which is what makes
  * spreading investment cheaper than driving one branch deep — a specialist
@@ -75,21 +75,21 @@ export const TREE = {
 } as const
 
 /**
- * The roster: unlocking and levelling Movements and Chimes.
+ * The roster: unlocking and levelling Platforms and Arrays.
  *
- * Both cost **Keys** (economy-spec.md §1), which are first-clear only. That is
+ * Both cost **Clearance** (economy-spec.md §1), which are first-clear only. That is
  * the whole point of keeping them separate from Recollection: roster breadth
  * and depth are gated on *seeing content*, not on grinding it, so Phase 29 can
  * author the unlock curve rather than discover it.
  */
 export const ROSTER = {
-  /** `base × growth^(levels already held)`, in Keys. */
+  /** `base × growth^(levels already held)`, in Clearance. */
   levelCost: { base: 1, growth: 1.55 },
 
   /**
    * Ceiling per unit.
    *
-   * A cap exists so Keys stay meaningful late: without one, every Key past the
+   * A cap exists so Clearance stays meaningful late: without one, every point past the
    * roster's breadth would funnel into a single favourite, which is the
    * "funnel everything into one axis" that §1 separates the currencies to
    * prevent.
@@ -108,19 +108,19 @@ export const ROSTER = {
 } as const
 
 /**
- * Chime upgrade tracks — Phase 25.
+ * Array upgrade tracks — Phase 25.
  *
- * **Deliberately not levelling.** A Movement levels: it gets uniformly
- * stronger. A Chime is *shaped*: you choose burst, sustain, or punch, and the
- * three pull against each other for the same scarce Keys. That is the
+ * **Deliberately not levelling.** A Platform levels: it gets uniformly
+ * stronger. A Array is *shaped*: you choose burst, sustain, or punch, and the
+ * three pull against each other for the same scarce Clearance. That is the
  * "distinct in feel from front-line allies" PLAN.md asks for, expressed as
  * mechanics rather than as different numbers on the same lever.
  *
- * Each track keys on what makes a Chime a Chime (combat-spec.md §4): Charge is
+ * Each track keys on what makes an Array an Array (combat-spec.md §4): Charge is
  * the resource that defines the class, so two of the three tracks are about it.
  */
 export const SUPPORT = {
-  /** `base × growth^(levels already held on this track)`, in Keys. */
+  /** `base × growth^(levels already held on this track)`, in Clearance. */
   trackCost: { base: 2, growth: 1.7 },
 
   capacity: {
@@ -129,15 +129,15 @@ export const SUPPORT = {
     chargesPerLevel: 1,
   },
 
-  winding: {
+  recharge: {
     /**
      * Faster regeneration. Sustain.
      *
      * **Bounded hard, and the bound is measured.** `chargeInterval` is the
      * balance lever between the two unit classes: Phase 14 found 4 s makes a
-     * Chime strictly better per Filing than the Movements it competes with, 6 s
+     * Array strictly better per Filing than the Platforms it competes with, 6 s
      * is the crossover, and 7 s tips the other way. Two levels of −0.5 s put a
-     * fully wound Chime at 5 s — better, and still short of dominant.
+     * fully wound Array at 5 s — better, and still short of dominant.
      */
     maxLevel: 2,
     secondsPerLevel: 0.5,
@@ -155,15 +155,15 @@ export const SUPPORT = {
 /**
  * Offline progress. economy-spec.md §4.
  *
- * **Filings only.** No conjunctions fire, no stage progress accrues, and so no
- * Keys can ever be earned while away. Those are not omissions — they are the
+ * **Salvage only.** No conjunctions fire, no stage progress accrues, and so no
+ * Clearance can ever be earned while away. Those are not omissions — they are the
  * three gaps that keep active play dominant, and P1 is honoured precisely by
  * them: the machine runs without you, but not as well.
  */
 export const OFFLINE = {
   /** Seconds of absence that count at all. Beyond this, nothing accrues. */
   capSeconds: 4 * 3600,
-  /** The ceiling the Salvage branch can raise the cap to. */
+  /** The ceiling the Recovery branch can raise the cap to. */
   maxCapSeconds: 24 * 3600,
 
   /**

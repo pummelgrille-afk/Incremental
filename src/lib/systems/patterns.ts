@@ -26,7 +26,7 @@ export interface ProjectileSpawn {
 export interface PatternContext {
   /** Where the emitter is. */
   origin: Vec2
-  /** Usually the Mainspring at the origin, or a lead-corrected point. */
+  /** Usually the Sun at the origin, or a lead-corrected point. */
   target: Vec2
   damage: number
   damageType: DamageType
@@ -143,7 +143,7 @@ export function spiral(arms: number, speed: number, curve: number) {
 
 /**
  * A line across an arc with one gap. Put the gap over something that can take
- * it, or break the wall with a Beat.
+ * it, or break the wall with a Flare.
  *
  * The gap is deliberately wide enough to read at a glance — a wall whose gap
  * has to be hunted for is a guessing game, which P4 rules out.
@@ -167,7 +167,7 @@ export function wall(count: number, arc: number, speed: number, gapWidth = 2) {
  *
  * Spawns away from the emitter — the only pattern that does. The wedge is
  * centred on the emitter's own bearing rather than the whole circle, so it
- * still reads as *that* Slack's doing; a field-wide version would appear
+ * still reads as *that* Contact's doing; a field-wide version would appear
  * unattributable, which is a legibility failure (P4) rather than drama.
  */
 export function converge(count: number, arc: number, speed: number, radius: number) {
@@ -195,7 +195,7 @@ export function converge(count: number, arc: number, speed: number, radius: numb
  * - **Speeds sit at 85-155 px/s**, roughly half genre-typical. A projectile
  *   crosses from rim to centre in ~2-4 s, so there is time to read and act.
  * - **Counts stay in single digits per emission.** Pressure comes from several
- *   Slack firing on staggered cadences, not from one wall of forty.
+ *   Contact firing on staggered cadences, not from one wall of forty.
  * - **Telegraphs run 450-750 ms**, above the 400 ms floor, and scale with how
  *   much of the field a pattern denies.
  *

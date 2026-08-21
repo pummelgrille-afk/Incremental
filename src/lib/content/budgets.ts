@@ -3,7 +3,7 @@
  * and the reasoning in docs/architecture.md, "Performance budgets".
  *
  * These are **content constraints**, not runtime clamps. A wave that would
- * exceed the Slack budget is a content bug caught by tests, not something the
+ * exceed the Contact budget is a content bug caught by tests, not something the
  * engine silently truncates — clamping spawns would change authored difficulty
  * invisibly, which is worse than a brief frame dip.
  *
@@ -14,11 +14,11 @@
 
 export const BUDGETS = {
   /**
-   * Concurrent Slack a stage may schedule. Measured cost is ~5.8 us each per
+   * Concurrent Contact a stage may schedule. Measured cost is ~5.8 us each per
    * frame after the Phase 11 render fix; 200 leaves roughly 7x headroom on the
    * reference machine, which is the low-spec margin.
    */
-  slack: 200,
+  contact: 200,
 
   /** Hard cap on live projectiles. Enforced by the pool in core/loop.ts. */
   projectiles: 600,
@@ -26,7 +26,7 @@ export const BUDGETS = {
   /** Particle budget for Phase 40's VFX library. Not yet spent. */
   particles: 400,
 
-  /** Movements plus Chimes. Bounded by TOTAL_SLOTS + RIM_MOUNTS anyway. */
+  /** Platforms plus Arrays. Bounded by TOTAL_SLOTS + RIM_MOUNTS anyway. */
   units: 56,
 } as const
 

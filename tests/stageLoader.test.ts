@@ -9,18 +9,18 @@ import {
 import { ZONES, zoneById, STARTING_ZONE_ID } from '../src/lib/content/zones'
 import { Simulation, TICK_SECONDS } from '../src/lib/core/loop'
 import { createRng } from '../src/lib/core/rng'
-import { slackById } from '../src/lib/content/enemies'
+import { contactById } from '../src/lib/content/contacts'
 import { isBossWave } from '../src/lib/entities/Wave'
 import { RINGS } from '../src/lib/content/field'
 import { noUpgradeEffects } from '../src/lib/entities/Upgrade'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
-const FIRST: StageAddress = 'escapement-floor:first-shift'
+const FIRST: StageAddress = 'service-floor:first-shift'
 
 describe('resolveStage', () => {
   it('resolves a zone and stage from an address', () => {
     const { zone, stage } = resolveStage(FIRST)
-    expect(zone.id).toBe('escapement-floor')
+    expect(zone.id).toBe('service-floor')
     expect(stage.id).toBe('first-shift')
   })
 
@@ -29,21 +29,21 @@ describe('resolveStage', () => {
   })
 
   it('throws a typed error for an unknown stage', () => {
-    expect(() => resolveStage('escapement-floor:nowhere')).toThrow(StageLoadError)
+    expect(() => resolveStage('service-floor:nowhere')).toThrow(StageLoadError)
   })
 })
 
 describe('loadStage', () => {
-  it('builds an empty field with the Mainspring wound and rings turning', () => {
+  it('builds an empty field with the Sun wound and rings turning', () => {
     const sim = loadStage(FIRST)
 
-    expect(sim.mainspring.tension).toBe(sim.mainspring.maxTension)
+    expect(sim.sun.output).toBe(sim.sun.maxOutput)
     expect(sim.rings).toHaveLength(RINGS.length)
     expect(sim.phase).toBe('wave-active')
 
     // Entities are populated by progression/ and spawn.ts, not the loader.
-    expect(sim.movements).toHaveLength(0)
-    expect(sim.slack).toHaveLength(0)
+    expect(sim.platforms).toHaveLength(0)
+    expect(sim.contact).toHaveLength(0)
   })
 
   it('gives each ring the angular velocity implied by its period', () => {
@@ -54,32 +54,32 @@ describe('loadStage', () => {
     })
   })
 
-  it('adds Bracing-branch bonus Tension to the stage base', () => {
+  it('adds Bracing-branch bonus Output to the stage base', () => {
     const base = loadStage(FIRST)
     const boosted = loadStage(FIRST, {
-      effects: { ...noUpgradeEffects(), tension: 500 },
+      effects: { ...noUpgradeEffects(), output: 500 },
     })
-    expect(boosted.mainspring.maxTension).toBe(base.mainspring.maxTension + 500)
+    expect(boosted.sun.maxOutput).toBe(base.sun.maxOutput + 500)
   })
 
-  it('grants the Regulation branch its extra Beat charges', () => {
+  it('grants the Regulation branch its extra Flare charges', () => {
     const base = loadStage(FIRST)
     const boosted = loadStage(FIRST, {
-      effects: { ...noUpgradeEffects(), beatCharges: 2 },
+      effects: { ...noUpgradeEffects(), flareCharges: 2 },
     })
-    // The maximum, not just the starting value — the Beat regenerates toward it.
-    expect(boosted.beat.maxCharge).toBe(base.beat.maxCharge + 2)
-    expect(boosted.beat.charge).toBe(boosted.beat.maxCharge)
+    // The maximum, not just the starting value — the Flare regenerates toward it.
+    expect(boosted.flare.maxCharge).toBe(base.flare.maxCharge + 2)
+    expect(boosted.flare.charge).toBe(boosted.flare.maxCharge)
   })
 
   it('starts a stage with a neutral aggregate when none is supplied', () => {
     expect(loadStage(FIRST).effects).toEqual(noUpgradeEffects())
   })
 
-  it('keeps tension aliased to hp', () => {
+  it('keeps output aliased to hp', () => {
     const sim = loadStage(FIRST)
-    sim.mainspring.hp -= 250
-    expect(sim.mainspring.tension).toBe(sim.mainspring.hp)
+    sim.sun.hp -= 250
+    expect(sim.sun.output).toBe(sim.sun.hp)
   })
 })
 
@@ -92,17 +92,17 @@ describe('validateStage', () => {
     }
   })
 
-  it('reports a wave referencing an unknown Slack', () => {
+  it('reports a wave referencing an unknown Contact', () => {
     const problems = validateStage({
       id: 'broken',
       name: 'Broken',
       scalingIndex: 1,
-      baseTension: 100,
-      keyReward: 0,
-      waves: [{ groups: [{ defId: 'not-a-slack', count: 1, delay: 0, interval: 0 }], gapAfter: 0 }],
+      baseOutput: 100,
+      clearanceReward: 0,
+      waves: [{ groups: [{ defId: 'not-a-contact', count: 1, delay: 0, interval: 0 }], gapAfter: 0 }],
     })
     expect(problems).toHaveLength(1)
-    expect(problems[0]).toContain('not-a-slack')
+    expect(problems[0]).toContain('not-a-contact')
   })
 
   it('reports a stage with no waves', () => {
@@ -110,8 +110,8 @@ describe('validateStage', () => {
       id: 'empty',
       name: 'Empty',
       scalingIndex: 1,
-      baseTension: 100,
-      keyReward: 0,
+      baseOutput: 100,
+      clearanceReward: 0,
       waves: [],
     })
     expect(problems[0]).toContain('no waves')
@@ -119,7 +119,7 @@ describe('validateStage', () => {
 
   it('refuses to load a stage that fails validation', () => {
     // Guard the contract itself: loadStage must not hand back a broken sim.
-    expect(() => loadStage('escapement-floor:nowhere')).toThrow(StageLoadError)
+    expect(() => loadStage('service-floor:nowhere')).toThrow(StageLoadError)
   })
 })
 
@@ -141,12 +141,12 @@ describe('content integrity', () => {
   it('only lists enemies in a zone pool that actually exist', () => {
     for (const zone of ZONES) {
       for (const id of zone.enemyPool) {
-        expect(slackById(id), `${zone.id} pool: ${id}`).toBeDefined()
+        expect(contactById(id), `${zone.id} pool: ${id}`).toBeDefined()
       }
     }
   })
 
-  it('only spawns Slack that its zone pool declares', () => {
+  it('only spawns Contact that its zone pool declares', () => {
     for (const zone of ZONES) {
       const pool = new Set(zone.enemyPool)
       for (const stage of zone.stages) {
