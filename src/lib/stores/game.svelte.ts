@@ -47,6 +47,23 @@ class GameStore {
 
   // Economy
   filings = $state(0)
+  /** Permanent currencies. Unchanged by anything the field does. */
+  recollection = $state(0)
+  keys = $state(0)
+
+  /**
+   * Recent Filings gain, pooled for the HUD's counter.
+   *
+   * Pooled rather than per-drop: kills arrive dozens a second and an animation
+   * each would strobe. Accumulated here rather than in the component because
+   * `syncFrom` already runs exactly once a frame — doing it in a `$effect`
+   * would mean guessing a frame rate and risking a self-triggering read.
+   */
+  filingsGain = $state(0)
+  private gainExpiresAt = 0
+
+  /** Set once when a stage clear pays Keys. The HUD clears it after showing. */
+  lastKeyAward = $state<{ keys: number; zoneCompleted: boolean } | null>(null)
 
   // Stage progress
   zoneName = $state('')
@@ -176,7 +193,7 @@ class GameStore {
     this.shield = sim.mainspring.shield
     this.lowestTensionFraction = sim.mainspring.lowestFraction
     this.repairsThisStage = sim.mainspring.repairsThisStage
-    this.filings = sim.filingsEarned
+    this.syncFilings(sim.filingsEarned, sim.elapsed)
 
     this.zoneName = sim.zone.name
     this.stageName = sim.stage.name
@@ -249,6 +266,27 @@ class GameStore {
 
     const seconds = timeToNextConjunction(sim)
     this.nextConjunctionAt = seconds === null ? null : sim.elapsed + seconds
+  }
+
+  /** How long a gain stays on screen. */
+  private static readonly GAIN_WINDOW = 1.1
+
+  /**
+   * Bank the frame's Filings delta and age the pooled total.
+   *
+   * The delta is taken against the previous *projected* value rather than a
+   * remembered stage total, so a reload mid-stage shows no phantom gain.
+   */
+  private syncFilings(earned: number, elapsed: number): void {
+    const delta = earned - this.filings
+    this.filings = earned
+
+    if (delta > 0) {
+      this.filingsGain += delta
+      this.gainExpiresAt = elapsed + GameStore.GAIN_WINDOW
+    } else if (this.filingsGain > 0 && elapsed >= this.gainExpiresAt) {
+      this.filingsGain = 0
+    }
   }
 
   /** Refresh the telemetry readout, at most once a second. */

@@ -4,6 +4,7 @@ import { slackById } from '../content/enemies'
 import { createSlack } from './spawn'
 import type { ArmourClass, DamageType } from '../entities/types'
 import { typeMultiplier } from '../content/damageTypes'
+import { FILINGS } from '../content/economy'
 import type { SimulationState } from '../core/simulation'
 import { absorb, attackScaleOf, clearBuffs } from './buffs'
 import type { MovementAttack } from './ai'
@@ -163,8 +164,10 @@ export function reapSlack(sim: SimulationState, dead: Set<number>): CombatResult
   if (dead.size === 0) return { slackKilled: 0, filingsDropped: 0 }
 
   let filings = 0
-  // Zone drop scaling — economy-spec.md §1.
-  const zoneBonus = 1 + sim.zone.index * 0.35
+  // Zone drop scaling — economy-spec.md §1. The tree bonus is applied in
+  // progression/currencies.ts, which owns the save; the simulation only knows
+  // about the field.
+  const zoneBonus = 1 + sim.zone.index * FILINGS.zoneScaling
 
   const offspring: SlackInstance[] = []
 

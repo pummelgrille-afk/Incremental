@@ -2,6 +2,7 @@ import { movementById, MOVEMENTS } from '../content/allies'
 import { CHIMES } from '../content/supportUnits'
 import { STARTING_ZONE_ID } from '../content/zones'
 import { game } from '../stores/game.svelte'
+import { applyStageClear, earnFilings, recordDepth } from '../progression/currencies'
 import { Autosaver } from './autosave'
 import { mountChime, placeMovement } from './formation'
 import { Simulation } from './loop'
@@ -11,6 +12,7 @@ import { SaveManager } from './save'
 import type { SaveData } from './saveSchema'
 import { loadStage } from './stageLoader'
 import type { StageAddress } from '../entities/Zone'
+import type { SimulationState } from './simulation'
 
 /**
  * Wires the simulation, renderer, input and autosave together.
@@ -127,6 +129,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   let fpsAccumulator = 0
   let fpsFrames = 0
 
+  /** The address the loaded stage came from. Ids are stable; objects are not. */
+  const stageAddressOf = (state: SimulationState): StageAddress =>
+    `${state.zone.id}:${state.stage.id}` as StageAddress
+
   const step = (now: number) => {
     frame = requestAnimationFrame(step)
 
@@ -139,17 +145,30 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     const simMs = performance.now() - simStart
 
     // Bank whatever the stage produced, and tell the autosaver about it.
-    if (events.filingsDropped > 0) {
-      saveData.run.filings += events.filingsDropped
-      saveData.statistics.totalFilingsEarned += events.filingsDropped
-    }
+    //
+    // This is the **one** place a tick's events become a currency change.
+    // `progression/currencies.ts` holds the rules and the simulation holds the
+    // field; neither knows about the other, and this loop is the seam.
+    earnFilings(saveData, events.filingsDropped)
     if (events.slackKilled > 0) {
       saveData.statistics.totalSlackDestroyed += events.slackKilled
     }
     if (events.conjunctionsFired > 0) {
       saveData.statistics.conjunctionsFired += events.conjunctionsFired
     }
-    if (events.stageCleared) autosaver.request('stage-clear')
+
+    if (events.stageCleared) {
+      const address = stageAddressOf(simulation.state)
+      recordDepth(saveData, simulation.state.stage.scalingIndex)
+
+      // Keys are first-clear only, and `applyStageClear` is idempotent — a
+      // clear event that somehow fires twice must not pay twice.
+      const reward = applyStageClear(saveData, address)
+      if (reward.keys > 0) {
+        game.lastKeyAward = { keys: reward.keys, zoneCompleted: reward.zoneCompleted }
+      }
+      autosaver.request('stage-clear')
+    }
 
     saveData.statistics.playtimeSeconds += elapsed
     autosaver.tick(elapsed)
@@ -160,6 +179,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
     // Step 11: publish the projection. The only write into Svelte.
     game.syncFrom(simulation)
+    // The permanent currencies live in the save, not the field, so they are
+    // published here rather than by `syncFrom`.
+    game.recollection = saveData.meta.recollection
+    game.keys = saveData.meta.keys
     game.simMs = simMs
     game.renderMs = renderMs
     game.frameMs = elapsedMs

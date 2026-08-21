@@ -28,7 +28,21 @@
 
     <div class="stack">
       <span class="label">Filings</span>
-      <span class="value big">{format(game.filings)}</span>
+      <span class="value big" class:gaining={game.filingsGain > 0}>{format(game.filings)}</span>
+      {#if game.filingsGain > 0}<span class="gain">+{format(game.filingsGain)}</span>{/if}
+    </div>
+
+    <!-- The permanent currencies. Kept visually quieter than Filings: they
+         change on the scale of a run, not a second, and a counter that never
+         moves competing for attention with one that always does is noise. -->
+    <div class="stack meta">
+      <span class="label">Keys</span>
+      <span class="value">{format(game.keys)}</span>
+    </div>
+
+    <div class="stack meta">
+      <span class="label">Recollection</span>
+      <span class="value">{format(game.recollection)}</span>
     </div>
 
     <div class="stack">
@@ -177,6 +191,31 @@
     border: 1px solid var(--brass-dim);
     border-radius: 3px;
     overflow: hidden;
+  }
+
+  .stack.meta .value {
+    color: var(--muted);
+  }
+
+  .value.gaining {
+    color: #f0e6c8;
+  }
+
+  .gain {
+    font-size: 0.7rem;
+    color: var(--brass);
+    animation: gain-fade 1.1s linear forwards;
+  }
+
+  @keyframes gain-fade {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-0.4rem);
+    }
   }
 
   .fill {

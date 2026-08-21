@@ -1,14 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import {
-  createMainspring,
+import {createMainspring,
   grantShield,
   isOverwhelmed,
   REPAIR_FRACTION,
   repair,
-  repairCost,
   tensionFraction,
-  TENSION_THRESHOLDS,
-} from '../src/lib/entities/Mainspring'
+  TENSION_THRESHOLDS} from '../src/lib/entities/Mainspring'
+import { repairCost } from '../src/lib/progression/currencies'
 import {
   checkThresholds,
   clearedUntouched,
@@ -215,9 +213,9 @@ describe('emergency repair', () => {
 
   it('escalates hard, keeping it a panic button not a strategy', () => {
     // economy-spec.md invariant 6.
-    const first = repairCost(state.mainspring)
+    const first = repairCost(state.mainspring.repairsThisStage)
     state.mainspring.repairsThisStage = 3
-    const fourth = repairCost(state.mainspring)
+    const fourth = repairCost(state.mainspring.repairsThisStage)
     expect(fourth).toBeGreaterThan(first * 3)
   })
 

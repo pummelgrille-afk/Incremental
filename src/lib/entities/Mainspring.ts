@@ -116,10 +116,12 @@ export function grantShield(m: MainspringState, amount: number, duration: number
   }
 }
 
-/** Cost of the next emergency repair. Escalates hard — economy-spec.md §1. */
-export function repairCost(m: MainspringState, base = 40, growth = 1.5): number {
-  return Math.ceil(base * growth ** m.repairsThisStage)
-}
+/*
+ * The cost of a repair lives in `progression/currencies.ts` with the other
+ * three Filings sinks, not here. It had its curve inline as default parameters
+ * — the drift CLAUDE.md's convention exists to prevent — and an entity reaching
+ * into `content/` to fix that would have inverted the layering instead.
+ */
 
 /**
  * Emergency repair: restore a fixed fraction of maximum Tension.

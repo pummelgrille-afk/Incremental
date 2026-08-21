@@ -16,7 +16,8 @@ import {
   updateObjective,
   updateStageProgress,
 } from '../systems/objectiveRules'
-import { grantShield, repair, repairCost } from '../entities/Mainspring'
+import { grantShield, repair } from '../entities/Mainspring'
+import { repairCost } from '../progression/currencies'
 import {
   chimePosition,
   updateChimes,
@@ -406,7 +407,7 @@ export class Simulation {
    * refuses at full Tension so nobody is charged for nothing.
    */
   repairMainspring(): { repaired: boolean; cost: number } {
-    const cost = repairCost(this.state.mainspring)
+    const cost = repairCost(this.state.mainspring.repairsThisStage)
     return { repaired: repair(this.state.mainspring), cost }
   }
 
