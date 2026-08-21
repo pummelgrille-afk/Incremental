@@ -9,6 +9,24 @@ import type { ArmourClass, ContentDef, EntityId, Vec2 } from './types'
  * cartesian position rather than a slot reference.
  */
 
+/**
+ * Roster tier — Phase 31.
+ *
+ * Not a label. The tier a Contact carries changes how the wave director treats
+ * it: the over-level bonus adds **basic** Contacts only. Pressure on a player
+ * who has out-levelled a stage should arrive as more bodies, never as more set
+ * pieces, or over-levelling would change a stage's character instead of its
+ * difficulty — and a stage whose two Shells quietly became five is a different
+ * puzzle, not a harder one. See systems/scaling.ts.
+ */
+export type ContactTier =
+  /** Fills waves. Cheap, numerous, individually unthreatening. */
+  | 'basic'
+  /** A step up in body and bite. Arrives escorted or in small groups. */
+  | 'elite'
+  /** Demands a specific answer rather than more damage. */
+  | 'specialist'
+
 /** Broad motion archetype. Concrete curves live in systems/spawn.ts. */
 export type ContactMotion =
   | 'swarm'
@@ -47,9 +65,31 @@ export interface ContactTraits {
    * motion archetype.
    */
   readonly orbitRadius?: number
+
+  /**
+   * Other Contacts within `radius` take `1 - reduction` of incoming damage.
+   *
+   * The roster's one Contact that punishes *ignoring* it rather than
+   * mispositioning against it. Everything else can be answered by killing it
+   * in whatever order it arrives; a Warden has to be killed **first**, which is
+   * the only reason `highestThreat` targeting is a real choice rather than a
+   * synonym for "closest big thing".
+   *
+   * **This was a heal first, and the heal did not work.** Measured across a
+   * full stage-3 clear it put back 4 HP in total: Contacts here die in one or
+   * two hits, so almost nothing survives damaged long enough to be repaired,
+   * and the trait was decorative. Damage reduction cannot be no-opped by
+   * killing quickly — it applies to the very first hit — so the aura is felt
+   * whether the wave is being deleted or ground down.
+   *
+   * Never applies to the Warden itself. A self-warding Contact is just one with
+   * more effective HP, and the decision it exists to create would disappear.
+   */
+  readonly wardsNearby?: { radius: number; reduction: number }
 }
 
 export interface ContactDef extends ContentDef {
+  readonly tier: ContactTier
   readonly armour: ArmourClass
   readonly motion: ContactMotion
 
@@ -110,6 +150,16 @@ export interface ContactInstance {
 
   /** Set on hit so the render layer can flash without querying the sim. */
   hitFlash: number
+
+  /**
+   * Multiplier on incoming damage from nearby Wardens. 1 when unwarded.
+   *
+   * Recomputed once per tick by `updateWards` rather than looked up inside
+   * `damageContact`. Damage is applied from four call sites and several times
+   * per Contact per tick; scanning for Wardens at each one would turn an O(n)
+   * pass into an O(n·hits) one for a number that cannot change between them.
+   */
+  damageScale: number
 }
 
 /** Distance from the Sun, which sits at the origin. */

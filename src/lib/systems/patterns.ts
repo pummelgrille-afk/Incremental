@@ -204,15 +204,31 @@ export function converge(count: number, arc: number, speed: number, radius: numb
  * should spike.
  */
 export const PATTERNS: readonly PatternDef[] = [
+  // ---- Basic tier: narrow, cheap, readable at a glance. ----
+  // The smallest emission in the game. A Mote alone is barely an event; the
+  // point is that Motes are never alone.
+  { id: 'spread-2', telegraphMs: 450, build: spread(2, (34 * Math.PI) / 180, 100) },
   { id: 'spread-3', telegraphMs: 450, build: spread(3, (50 * Math.PI) / 180, 105) },
+  // A sparse ring: gaps wide enough to walk an orbit through, unlike ring-8.
+  { id: 'ring-6', telegraphMs: 600, build: ring(6, 80) },
+
+  // ---- Elite tier: more field denied, and warned about for longer. ----
   { id: 'aimed-1', telegraphMs: 500, build: aimed(150) },
+  // A short wall thrown while still closing. Narrower and faster than wall-9,
+  // because a Harrier fires it from much closer in.
+  { id: 'wall-5', telegraphMs: 550, build: wall(5, (70 * Math.PI) / 180, 115, 2) },
+  // Denies the most field of any pattern, so it gets the longest warning.
+  { id: 'converge-7', telegraphMs: 750, build: converge(7, (70 * Math.PI) / 180, 90, 320) },
+
+  // ---- Specialist tier. ----
   { id: 'ring-8', telegraphMs: 650, build: ring(8, 85) },
+  { id: 'wall-9', telegraphMs: 700, build: wall(9, (110 * Math.PI) / 180, 100, 2) },
   // Slow curve: the arms sweep rather than whip, so the gap between them is
   // somewhere to be rather than a frame-perfect window.
   { id: 'spiral-4', telegraphMs: 600, build: spiral(4, 95, 0.9) },
-  { id: 'wall-9', telegraphMs: 700, build: wall(9, (110 * Math.PI) / 180, 100, 2) },
-  // Denies the most field of any pattern, so it gets the longest warning.
-  { id: 'converge-7', telegraphMs: 750, build: converge(7, (70 * Math.PI) / 180, 90, 320) },
+  // Three arms rather than four, curving harder. A Warden is meant to be
+  // approached and killed, so its pattern harasses rather than walls off.
+  { id: 'spiral-3', telegraphMs: 600, build: spiral(3, 90, 1.15) },
 ] as const
 
 const BY_ID = new Map(PATTERNS.map((p) => [p.id, p]))

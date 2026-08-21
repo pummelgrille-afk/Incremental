@@ -64,7 +64,9 @@ export function damageContact(contact: ContactInstance, amount: number): boolean
   const scaled =
     vulnerability && contact.telegraphRemaining > 0 ? amount * vulnerability : amount
 
-  contact.hp -= scaled
+  // Nearby Wardens soften every hit. Cached per tick by systems/spawn.ts, so
+  // this is a multiply rather than a search.
+  contact.hp -= scaled * contact.damageScale
   contact.hitFlash = 0.12
   return contact.hp <= 0
 }

@@ -46,6 +46,8 @@ array,burst_falloff,0.6,0.4,0.8,factor,30,Splash damage to neighbours; at 0.6 a 
 array,pierce_targets,3,2,4,count,30,Contacts one Transit shot passes through
 array,burst_radius,36,24,48,px,30,Corona splash radius
 array,max_pierce_memory,8,4,12,count,30,Contacts a piercing shot remembers; must exceed pierce_targets
+contact,warden_ward_radius,110,80,150,px,31,Warden aura radius
+contact,warden_ward_reduction,0.35,0.2,0.5,factor,31,Damage reduction near a Warden; multiplicative between Wardens
 patterns,min_telegraph,400,300,600,ms,5,Hard floor; never zero
 patterns,boss_telegraph,700,600,900,ms,5,
 budget,max_projectiles,600,300,1200,count,11,Runtime cap enforced by the pool; refusing a bullet degrades gracefully

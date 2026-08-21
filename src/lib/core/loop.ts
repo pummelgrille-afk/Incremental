@@ -24,7 +24,12 @@ import {
   updatePlatforms,
   type ArrayShot,
 } from '../systems/ai'
-import { updateContactMotion, updateSpawning, waveSpawnDuration } from '../systems/spawn'
+import {
+  updateContactMotion,
+  updateWards,
+  updateSpawning,
+  waveSpawnDuration,
+} from '../systems/spawn'
 import { createCooldowns, updateSynergy } from '../systems/synergy'
 import { directWave } from '../systems/scaling'
 import { TELEMETRY_SOURCES } from '../systems/telemetry'
@@ -236,6 +241,7 @@ export class Simulation {
     }
 
     // 4. Enemy motion and pattern emission.
+    updateWards(sim)
     updateContactMotion(sim, dt)
     this.emitPatterns(dt)
 

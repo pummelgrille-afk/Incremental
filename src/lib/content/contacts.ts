@@ -1,21 +1,37 @@
 import type { ContactDef } from '../entities/Contact'
 
 /**
- * Contact roster.
+ * The Contact roster — Phase 31.
  *
- * PLACEHOLDER — Phase 31 produces the real tiered roster (basic, elite,
- * specialist) with a unique pattern each. What is here exists so the stage
- * loader has something to resolve and the systems have something to fight.
+ * Ten craft across the three tiers PLAN.md asks for, each with its own pattern
+ * from systems/patterns.ts. The six that existed before this phase keep their
+ * numbers: they were tuned against measured clear rates across Phases 15 to 20,
+ * and re-tuning them in the same commit that adds four unmeasured Contacts
+ * would destroy the baseline the four are judged against — the same rule Phase
+ * 29 applied to Bolt and Phase 30 to Long Baseline.
  *
- * Phase 15 added the variety archetypes PLAN.md asks for, one per behavioural
- * hook, so each hook has a live user rather than being dead configuration:
+ * ## The tiers are mechanical, not decorative
  *
- *   skiff   swarm      the baseline
- *   lance   charge     fast; accelerates inside the outer orbit
- *   hulk    drift      tanky; the anvil
- *   shell   shielded   shrugs off N hits regardless of size
- *   brood   splitter   divides on death
- *   picket  orbiter    settles and circles; vulnerable while telegraphing
+ * `tier` changes what the wave director does: the over-level bonus adds
+ * **basic** Contacts only (systems/scaling.ts). A player who has out-levelled a
+ * stage meets more bodies, never more set pieces — a stage whose two Shells
+ * quietly became five is a different puzzle rather than a harder one.
+ *
+ * | Tier | Is | Answered by |
+ * |------|-----|-------------|
+ * | basic | fills waves | anything, in enough quantity |
+ * | elite | a step up in body and bite | positioning and type |
+ * | specialist | demands a specific answer | a particular unit or order |
+ *
+ * ## Coverage
+ *
+ * Every armour class appears in more than one tier, so no tier can be answered
+ * with a single damage type:
+ *
+ *   massed   Skiff (basic), Harrier (elite), Brood (specialist)
+ *   erratic  Mote (basic), Lance (elite), Picket (specialist)
+ *   rigid    Tender (basic), Shell (specialist)
+ *   seized   Hulk (elite), Warden (specialist)
  *
  * Names follow narrative.md: a Contact is classed the way a watch officer
  * classes one — by silhouette, never by intent. Nothing out there has been
@@ -23,12 +39,14 @@ import type { ContactDef } from '../entities/Contact'
  */
 
 export const CONTACT: readonly ContactDef[] = [
+  // -------------------------------------------------------------- basic ---
   {
     id: 'skiff',
     name: 'Skiff',
     description:
       'Small, and under power the whole way in. Individually trivial; they ' +
       'have never once arrived individually.',
+    tier: 'basic',
     armour: 'massed',
     motion: 'swarm',
     maxHp: 12,
@@ -42,11 +60,56 @@ export const CONTACT: readonly ContactDef[] = [
     threatWeight: 1,
   },
   {
+    id: 'mote',
+    name: 'Mote',
+    description:
+      'Too small to be worth a line in the log, and logged anyway, because ' +
+      'the count is the only thing about them that matters.',
+    tier: 'basic',
+    armour: 'erratic',
+    motion: 'swarm',
+    // The frailest Contact in the game and the fastest of the basics. It exists
+    // to make a wave feel like weather rather than like a list.
+    maxHp: 7,
+    attack: 3,
+    defence: 0,
+    speed: 46,
+    hurtboxRadius: 8,
+    patternId: 'spread-2',
+    patternInterval: 2.8,
+    baseDrop: 3,
+    threatWeight: 0.8,
+  },
+  {
+    id: 'tender',
+    name: 'Tender',
+    description:
+      'Carries something. Nobody has established what, and the Manual is ' +
+      'content to describe the question as outside the scope of the post.',
+    tier: 'basic',
+    armour: 'rigid',
+    motion: 'drift',
+    // Slow and stolid: the basic that cannot simply be swept aside, so a wave
+    // of basics still has something in it worth aiming at.
+    maxHp: 30,
+    attack: 5,
+    defence: 4,
+    speed: 20,
+    hurtboxRadius: 12,
+    patternId: 'ring-6',
+    patternInterval: 4.5,
+    baseDrop: 9,
+    threatWeight: 1.2,
+  },
+
+  // -------------------------------------------------------------- elite ---
+  {
     id: 'lance',
     name: 'Lance',
     description:
       'Comes down the well nose-first and does not correct. Accelerates as it ' +
       'nears the centre, in the manner of everything the Manual warns about.',
+    tier: 'elite',
     armour: 'erratic',
     motion: 'charge',
     maxHp: 20,
@@ -60,11 +123,33 @@ export const CONTACT: readonly ContactDef[] = [
     threatWeight: 2.5,
   },
   {
+    id: 'harrier',
+    name: 'Harrier',
+    description:
+      'Fires on the way in rather than on arrival, which is the entire ' +
+      'difference between it and a Lance and rather more trouble than it sounds.',
+    tier: 'elite',
+    armour: 'massed',
+    motion: 'charge',
+    maxHp: 26,
+    attack: 8,
+    defence: 3,
+    speed: 44,
+    hurtboxRadius: 11,
+    // A short wall thrown from close in. Shorter telegraph than wall-9 because
+    // it is fired at much closer range and a long warning would be a lie.
+    patternId: 'wall-5',
+    patternInterval: 3,
+    baseDrop: 12,
+    threatWeight: 2.8,
+  },
+  {
     id: 'hulk',
     name: 'Hulk',
     description:
       'Slow, heavy, and entirely indifferent to being shot. Operator Ock ' +
       'records having watched one cross Earth orbit across a full shift.',
+    tier: 'elite',
     armour: 'seized',
     motion: 'drift',
     maxHp: 70,
@@ -79,12 +164,15 @@ export const CONTACT: readonly ContactDef[] = [
     baseDrop: 18,
     threatWeight: 1.8,
   },
+
+  // --------------------------------------------------------- specialist ---
   {
     id: 'shell',
     name: 'Shell',
     description:
       'Presents an angled face to whatever it is approaching, and is protected ' +
       'by the fact. Strike it square or do not bother.',
+    tier: 'specialist',
     armour: 'rigid',
     motion: 'drift',
     maxHp: 34,
@@ -110,6 +198,7 @@ export const CONTACT: readonly ContactDef[] = [
     description:
       'Does not break so much as divide. The Manual notes that this was ' +
       'observed on the eleventh pass and recommends no change in procedure.',
+    tier: 'specialist',
     armour: 'massed',
     motion: 'drift',
     maxHp: 48,
@@ -133,6 +222,7 @@ export const CONTACT: readonly ContactDef[] = [
     description:
       'Takes a station at a distance and works away at the same spot ' +
       'indefinitely. Cannot be waited out; it has more time than the shift does.',
+    tier: 'specialist',
     armour: 'erratic',
     motion: 'orbit',
     maxHp: 40,
@@ -152,10 +242,50 @@ export const CONTACT: readonly ContactDef[] = [
       vulnerableWhileTelegraphing: 2,
     },
   },
+  {
+    id: 'warden',
+    name: 'Warden',
+    description:
+      'Does nothing on its own account. Everything near it is harder to ' +
+      'put down, which the log records as an increase in workload rather ' +
+      'than in danger.',
+    tier: 'specialist',
+    armour: 'seized',
+    motion: 'drift',
+    maxHp: 44,
+    // Deliberately the weakest attack of any specialist. A Warden is a problem
+    // of *order*, not of damage: it has to die first, and nothing else in the
+    // roster asks that.
+    attack: 4,
+    defence: 6,
+    speed: 18,
+    hurtboxRadius: 12,
+    patternId: 'spiral-3',
+    patternInterval: 3.4,
+    // Worth the most in the game, because killing it first costs the most.
+    baseDrop: 24,
+    // The highest threat weight of anything: `highestThreat` targeting should
+    // pick a Warden over a closer, bigger Contact, which is the one case that
+    // makes the policy meaningfully different from `nearest`.
+    threatWeight: 4,
+    traits: {
+      // Measured: a 90 px / 5 HP-per-second *heal* put back 4 HP across an
+      // entire stage-3 clear, because nothing here survives damaged for long.
+      // Reduction is felt on the first hit instead, so it cannot be skipped by
+      // killing quickly. At 0.35 a warded Skiff takes two Bolt hits instead of
+      // one, which is the threshold where the aura changes what a player does.
+      wardsNearby: { radius: 110, reduction: 0.35 },
+    },
+  },
 ] as const
 
 const BY_ID = new Map(CONTACT.map((s) => [s.id, s]))
 
 export function contactById(id: string): ContactDef | undefined {
   return BY_ID.get(id)
+}
+
+/** Every Contact of a tier. Used by the wave director and by zone validation. */
+export function contactsOfTier(tier: ContactDef['tier']): readonly ContactDef[] {
+  return CONTACT.filter((c) => c.tier === tier)
 }

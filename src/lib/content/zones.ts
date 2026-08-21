@@ -1,5 +1,5 @@
 import type { ZoneDef } from '../entities/Zone'
-import { escorted, scattered, withGap } from './waves'
+import { escorted, guarded, scattered, withGap } from './waves'
 
 /**
  * The progression map.
@@ -26,7 +26,21 @@ export const ZONES: readonly ZoneDef[] = [
       'out is.',
     epigraphAttribution: 'the Manual',
     scalingMultiplier: 1,
-    enemyPool: ['skiff', 'lance', 'hulk', 'shell', 'brood', 'picket'],
+    // Every Contact this zone's waves may draw on. Validated against the
+    // waves themselves by tests/contacts.test.ts — the field went unread for
+    // twenty phases, and a declared roster nothing checks is worse than none.
+    enemyPool: [
+      'skiff',
+      'mote',
+      'tender',
+      'lance',
+      'harrier',
+      'hulk',
+      'shell',
+      'brood',
+      'picket',
+      'warden',
+    ],
     stages: [
       {
         id: 'first-shift',
@@ -41,9 +55,17 @@ export const ZONES: readonly ZoneDef[] = [
         waves: [
           // Coverage, then an escort, then bulk. Every wave arrives on
           // randomised bearings — see the note on `scattered` in waves.ts.
+          //
           scattered('skiff', 10, 0.55),
           escorted('skiff', 13, 'lance', 3),
-          scattered('skiff', 16, 0.32),
+          /*
+           * Motes ride along with the bulk rather than replacing it. Swapping
+           * them in one-for-one was tried first and the over-level guard
+           * rejected it: a Mote has 7 HP against a Skiff's 12, so an all-Mote
+           * wave drops below the pressure threshold and the director starts
+           * adding bodies back. The wave has to keep a Skiff backbone.
+           */
+          escorted('skiff', 16, 'mote', 6, 0.32),
         ],
       },
       {
@@ -57,7 +79,10 @@ export const ZONES: readonly ZoneDef[] = [
         // not be cleared without the Flare, which combat-spec.md §1 forbids.
         // Now 69, restoring a monotonic count ramp of 42 / 69 / 71.
         waves: [
-          escorted('skiff', 20, 'lance', 6, 4),
+          // Tenders take the escort slot Lances held. A Tender is slow and
+          // rigid rather than fast and erratic, so the wave asks for a
+          // different damage type without asking for more damage.
+          escorted('skiff', 20, 'tender', 6, 4),
           // Introduces the splitter: killing it early is worth more than
           // killing it late, because the children still cross the same ground.
           escorted('skiff', 13, 'brood', 4, 3),
@@ -79,7 +104,17 @@ export const ZONES: readonly ZoneDef[] = [
           escorted('skiff', 18, 'shell', 4, 3),
           // Orbiters cannot be waited out; they settle and keep working.
           escorted('hulk', 4, 'picket', 4, 4),
-          withGap(scattered('skiff', 36, 0.2), 6),
+          /*
+           * The zone's last wave, and where the two Contacts that punish an
+           * *order* of killing arrive: a Harrier fires on the way in rather
+           * than on arrival, and a Warden makes everything around it last
+           * longer until it is dealt with first.
+           *
+           * Two Wardens, not more. The mechanic reads at two and stops being a
+           * priority call at five, when killing them is simply the whole wave.
+           */
+          escorted('skiff', 30, 'harrier', 4, 5),
+          withGap(guarded('skiff', 20, 'warden', 2), 6),
         ],
       },
     ],

@@ -162,7 +162,22 @@ export function directWave(sim: SimulationState, wave: AnyWaveDef): AnyWaveDef {
 
   const groups: SpawnGroup[] = wave.groups.map((group) => {
     const base = scaledCount(group.count, sim.stage.scalingIndex)
-    const count = Math.round(base * (1 + bonus))
+
+    /*
+     * The over-level bonus adds **basic** Contacts only.
+     *
+     * Pressure on a player who has out-levelled a stage should arrive as more
+     * bodies, never as more set pieces. Applied flat, a stage authored with two
+     * Shells would quietly run five against a strong formation — and three
+     * extra shielded Contacts is a different puzzle, not a harder one. The same
+     * bonus against Skiffs is simply more of what the stage already was.
+     *
+     * Elite and specialist groups still take the stage's `scaledCount`; it is
+     * only the over-level *surcharge* they are exempt from.
+     */
+    const def = contactById(group.defId)
+    const scalable = def === undefined || def.tier === 'basic'
+    const count = scalable ? Math.round(base * (1 + bonus)) : base
 
     // Hold the group's duration rather than its interval, so adding enemies
     // makes a wave denser instead of longer. A wave that stretches to fit its

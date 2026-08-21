@@ -84,6 +84,8 @@ export function createContact(
     telegraphRemaining: 0,
     shieldHitsRemaining: def.traits?.shieldHits ?? 0,
     hitFlash: 0,
+    // Overwritten every tick by `updateWards`; 1 means unwarded.
+    damageScale: 1,
   }
 }
 
@@ -165,6 +167,50 @@ const DEFAULT_ORBIT_RADIUS = 210
  *             and is the one archetype a static Array answers better than a
  *             rotating Platform
  */
+/**
+ * Recompute every Contact's damage multiplier from nearby Wardens.
+ *
+ * Runs once per tick, before motion, and writes a cached scale onto each
+ * Contact. Damage is applied from four call sites and several times per Contact
+ * per tick, so resolving the aura at each of them would turn one O(n) pass into
+ * an O(n x hits) search for a number that cannot change in between.
+ *
+ * A Warden never wards itself — that would just be more effective HP, and the
+ * decision it exists to create (kill this one first) would disappear. A dead
+ * Warden wards nothing: the counterplay is killing it, not waiting it out.
+ */
+export function updateWards(sim: SimulationState): void {
+  // Cheap exit for the overwhelmingly common case of no Warden on the field.
+  let anyWarden = false
+  for (const c of sim.contact) {
+    c.damageScale = 1
+    if (c.def.traits?.wardsNearby && c.hp > 0) anyWarden = true
+  }
+  if (!anyWarden) return
+
+  for (const warden of sim.contact) {
+    const ward = warden.def.traits?.wardsNearby
+    if (!ward || warden.hp <= 0) continue
+
+    const radiusSq = ward.radius * ward.radius
+    for (const other of sim.contact) {
+      if (other.id === warden.id) continue
+
+      const dx = other.position.x - warden.position.x
+      const dy = other.position.y - warden.position.y
+      if (dx * dx + dy * dy > radiusSq) continue
+
+      /*
+       * Two Wardens stack multiplicatively rather than additively. Additive
+       * reduction reaches 100% at three Wardens and makes a wave literally
+       * invulnerable; multiplicative approaches zero without ever arriving,
+       * so overlapping auras are strong and never degenerate.
+       */
+      other.damageScale *= 1 - ward.reduction
+    }
+  }
+}
+
 export function updateContactMotion(sim: SimulationState, dt: number): void {
   for (const contact of sim.contact) {
     const { x, y } = contact.position

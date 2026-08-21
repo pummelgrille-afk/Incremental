@@ -104,6 +104,40 @@ export function escorted(
   }
 }
 
+/**
+ * A bulk group with something protective travelling **inside** it.
+ *
+ * The counterpart to `escorted`, and the difference is load-bearing. `escorted`
+ * puts the dangerous thing *behind* the bulk, which is right for a Lance — a
+ * priority target walking in while the line is busy. It is wrong for an aura.
+ *
+ * Measured: a Warden authored with `escorted` arrived six seconds after its
+ * Skiffs on its own bearing, by which time they had scattered and moved inward,
+ * and its ward covered **1.5%** of Contact-ticks on the stage. The mechanic was
+ * present and doing nothing. Same bearing, same delay, one tight arc puts the
+ * group inside the radius for as long as the group survives.
+ *
+ * So: use `escorted` for something that must be *reached*, and `guarded` for
+ * something that must be *reached first*.
+ */
+export function guarded(
+  bulkId: string,
+  bulkCount: number,
+  guardId: string,
+  guardCount = 1,
+  centre = 0,
+): WaveDef {
+  const arc = { centre, width: Math.PI / 5 }
+  return {
+    groups: [
+      { defId: bulkId, count: bulkCount, delay: 0, interval: 0.35, arc },
+      // No delay and the same arc: the guard travels with what it protects.
+      { defId: guardId, count: guardCount, delay: 0, interval: 1, arc },
+    ],
+    gapAfter: 5,
+  }
+}
+
 /** Compose arbitrary groups when no shape above fits. */
 export function custom(groups: SpawnGroup[], gapAfter = 4): WaveDef {
   return { groups, gapAfter }
