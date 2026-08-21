@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { startGame, type GameSession } from './lib/core/bootstrap'
+  import { game } from './lib/stores/game.svelte'
   import HUD from './lib/ui/HUD.svelte'
 
   /**
@@ -11,7 +12,6 @@
   let host = $state<HTMLDivElement>()
   let session: GameSession | undefined
   let error = $state<string | null>(null)
-  let showDiagnostics = $state(true)
 
   onMount(() => {
     let disposed = false
@@ -29,17 +29,8 @@
         console.error('[orrery] failed to start', e)
       })
 
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'F2') {
-        event.preventDefault()
-        showDiagnostics = !showDiagnostics
-      }
-    }
-    window.addEventListener('keydown', onKey)
-
     return () => {
       disposed = true
-      window.removeEventListener('keydown', onKey)
       session?.destroy()
     }
   })
@@ -53,7 +44,7 @@
     <code>{error}</code>
   </div>
 {:else}
-  <HUD {showDiagnostics} />
+  <HUD showDiagnostics={game.showDiagnostics} />
 {/if}
 
 <style>

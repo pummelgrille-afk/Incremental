@@ -1,7 +1,7 @@
 # Architecture
 
-> Started in Phase 7. Phase 8 adds the module skeleton and interfaces; Phase 11
-> adds performance budgets. Design decisions live in `docs/design/`; this file
+> Started in Phase 7. Phase 8 added the module skeleton and interfaces; Phase 11
+> added performance budgets. Design decisions live in `docs/design/`; this file
 > covers *technical* structure.
 
 ## Stack
@@ -230,6 +230,102 @@ The renderer and the simulation therefore run at different rates by design — a
 fixed-timestep simulation with rendering interpolating between states. Phase 10
 establishes the pacing.
 
+## Performance budgets
+
+**Set in Phase 11 from measurement, not estimate.** Reference machine: Chrome on
+an NVIDIA RTX 3060 (ANGLE / D3D11), 800x600 canvas.
+
+### Where the time actually goes
+
+| Slack on field | Live bullets | Sim | Render | Combined | % of 60 fps frame |
+|---|---|---|---|---|---|
+| 300 | 594 | 0.0 ms | 2.9 ms | 2.9 ms | 17% |
+| 600 | 593 | 0.0 ms | 4.6 ms | 4.6 ms | 28% |
+| 1000 | 573 | 0.0 ms | 6.8 ms | 6.8 ms | 41% |
+| 1500 | 564 | 0.0 ms | 9.9 ms | 9.9 ms | 59% |
+| 2500 | 524 | 0.0 ms | 17.0 ms | 17.0 ms | **102% — breaks** |
+
+**Simulation cost is unmeasurable at every tier** — it does not reach 0.1 ms even
+with 2500 entities and a saturated projectile pool. Rendering is effectively
+100% of the frame cost. Every optimisation decision follows from that.
+
+### The Phase 11 render fix
+
+Isolating per-entity cost from the deltas showed Slack costing **~12 us each per
+frame** against **~4 us** for a projectile. The difference was that `drawSlack`
+called `clear()` and rebuilt geometry every frame, for entities that mostly were
+not changing.
+
+`render.ts` now keeps a signature per Slack (hit-flash, shield, health quantised
+to 20 steps) and rebuilds geometry only when it changes. Telegraphing Slack are
+exempt because they animate, but only a handful telegraph at once.
+
+Result: **2.1x across the board.** Per-Slack cost fell to ~5.8 us and the ceiling
+moved from ~1200 concurrent Slack to ~2200.
+
+Verified lossless by pixel comparison: an idle frame re-rendered differs by
+**0 pixels**, while damage (110 px), hit-flash (396 px) and telegraph (388 px)
+each redraw correctly.
+
+### The budgets
+
+Defined in `src/lib/content/budgets.ts`, mirrored in the `budget` rows of
+`balancing.csv`.
+
+| Budget | Value | Kind |
+|--------|-------|------|
+| Concurrent Slack | **200** | Content constraint |
+| Live projectiles | **600** | Runtime cap |
+| Particles (Phase 40) | **400** | Content constraint |
+| Units (Movements + Chimes) | **38** | Structural — equals total slots + rim mounts |
+| Frame safety factor | **0.6** | 10 ms of the 16.67 ms frame |
+
+**Content constraints are enforced by test, not by clamping at runtime.**
+Silently truncating a wave would change authored difficulty invisibly, which is
+a worse failure than a brief frame dip. `tests/budgets.test.ts` walks every
+authored stage and asserts worst-case concurrent spawns stay inside the budget.
+
+**The projectile budget is the one exception**, and is a genuine runtime cap:
+patterns emit far more than content can predict, and refusing a bullet degrades
+gracefully where refusing a spawn would rewrite the encounter.
+
+### Low-spec margin
+
+At the 200-Slack budget the reference machine spends roughly **2.4 ms** of its
+16.67 ms frame. That leaves about **7x headroom**, so a machine up to ~7x slower
+than an RTX 3060 still holds 60 fps at full budget. Integrated graphics
+typically land inside that.
+
+This is an *extrapolation, not a measurement*. Phase 46 owns the real low-spec
+pass and should re-measure on actual hardware before the numbers are treated as
+final. A 30 fps floor on the weakest targets is an acceptable fallback; 60 fps
+on mid-range is not negotiable.
+
+### Object pooling
+
+`utils/pool.ts` is a fixed-capacity pool used for projectiles, which churn
+hundreds per second.
+
+**Enemies and support units are deliberately not pooled**, which departs from
+PLAN.md Phase 11. The measurement above is the reason: simulation cost is
+unmeasurable, so pooling them would optimise something that costs nothing while
+forcing `SlackInstance.def` and `.id` to become mutable and breaking the
+Def/Instance convention from Phase 8. Revisit only if profiling ever shows
+allocation pressure — it does not today.
+
+### Profiling
+
+`F2` toggles the in-game diagnostics overlay: fps, frame/sim/render split, live
+and peak counts against budget, refused spawns, and ticks spent over budget. The
+setting persists via `settings.showFps`, so a profiling session survives a
+reload.
+
+Counters that go red mean something specific:
+
+- **refused** — the projectile pool hit its cap; bullets were dropped.
+- **over budget** — ticks spent above the Slack budget; a content bug.
+- **render** — the frame is over the safety factor.
+
 ## Module map
 
 Established in Phase 8. Directories not listed are still empty skeletons.
@@ -247,6 +343,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `entities/index.ts` | The single type-only barrel | 8 |
 | `content/field.ts` | Ring geometry, Beat and conjunction constants | 8 |
 | `content/damageTypes.ts` | Type interaction matrix | 8 |
+| `content/budgets.ts` | Entity and frame budgets | 11 |
 | `content/enemies.ts` | Slack roster (placeholder) | 31 |
 | `content/zones.ts` | Progression map (placeholder) | 33 |
 | `core/storage.ts` | StorageBackend abstraction, localStorage/memory backends | 9 |

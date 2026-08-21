@@ -1,5 +1,6 @@
 import type { StagePhase } from '../core/simulation'
 import type { Simulation } from '../core/loop'
+import { TARGET_FRAME_MS } from '../content/budgets'
 
 /**
  * The reactive projection of simulation state.
@@ -47,13 +48,22 @@ class GameStore {
   fps = $state(0)
   frameMs = $state(0)
   simMs = $state(0)
+  renderMs = $state(0)
   projectilePeak = $state(0)
   projectileExhausted = $state(0)
+  slackPeak = $state(0)
+  ticksOverBudget = $state(0)
+
+  /** Mirrors settings.showFps. Toggled with F2, persisted to the save. */
+  showDiagnostics = $state(false)
 
   tensionFraction = $derived(this.maxTension > 0 ? this.tension / this.maxTension : 0)
 
   /** True while the player can act — used to gate input and dim the field. */
   running = $derived(this.phase === 'wave-active' || this.phase === 'wave-gap')
+
+  /** True when the frame budget is at risk — drives the diagnostics warning. */
+  overFrameBudget = $derived(this.simMs + this.renderMs > TARGET_FRAME_MS)
 
   /** Whole charges available. Fractional regeneration is not spendable. */
   beatsReady = $derived(Math.floor(this.beatCharge))
@@ -89,6 +99,8 @@ class GameStore {
 
     this.projectilePeak = simulation.projectiles.peak
     this.projectileExhausted = simulation.projectiles.exhausted
+    this.slackPeak = simulation.peakSlack
+    this.ticksOverBudget = simulation.ticksOverSlackBudget
 
     this.beatCharge = sim.beat.charge
     this.beatMaxCharge = sim.beat.maxCharge

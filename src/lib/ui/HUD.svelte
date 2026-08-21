@@ -1,5 +1,6 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
+  import { BUDGETS } from '../content/budgets'
 
   /**
    * Minimal always-on HUD: objective health, resources, wave indicator.
@@ -46,22 +47,36 @@
       </div>
     </div>
 
-    <p class="hint">Click the floor to strike · <kbd>R</kbd> restart</p>
+    <p class="hint">
+      Click the floor to strike · <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
+    </p>
   </footer>
 
   {#if showDiagnostics}
     <aside class="diagnostics">
       <dl>
-        <dt>fps</dt><dd>{game.fps.toFixed(0)}</dd>
+        <dt>fps</dt><dd class:warn={game.fps < 55 && game.fps > 0}>{game.fps.toFixed(0)}</dd>
         <dt>frame</dt><dd>{game.frameMs.toFixed(2)} ms</dd>
         <dt>sim</dt><dd>{game.simMs.toFixed(2)} ms</dd>
-        <dt>slack</dt><dd>{game.slackCount}</dd>
-        <dt>bullets</dt><dd>{game.projectilesLive}</dd>
+        <dt>render</dt><dd class:warn={game.overFrameBudget}>{game.renderMs.toFixed(2)} ms</dd>
+
+        <dt class="sep">slack</dt>
+        <dd class="sep" class:warn={game.slackCount > BUDGETS.slack}>
+          {game.slackCount}<span class="of">/{BUDGETS.slack}</span>
+        </dd>
+        <dt>peak</dt><dd>{game.slackPeak}</dd>
+        <dt>bullets</dt>
+        <dd>{game.projectilesLive}<span class="of">/{BUDGETS.projectiles}</span></dd>
         <dt>peak</dt><dd>{game.projectilePeak}</dd>
+
         {#if game.projectileExhausted > 0}
-          <dt class="warn">over budget</dt><dd class="warn">{game.projectileExhausted}</dd>
+          <dt class="warn">refused</dt><dd class="warn">{game.projectileExhausted}</dd>
         {/if}
-        <dt>killed</dt><dd>{game.slackKilled}</dd>
+        {#if game.ticksOverBudget > 0}
+          <dt class="warn">over budget</dt><dd class="warn">{game.ticksOverBudget} ticks</dd>
+        {/if}
+
+        <dt class="sep">killed</dt><dd class="sep">{game.slackKilled}</dd>
         <dt>conj.</dt><dd>{game.conjunctions}</dd>
         <dt>beats</dt><dd>{game.beatsStruck}</dd>
       </dl>
@@ -240,6 +255,17 @@
 
   .warn {
     color: #f87171;
+  }
+
+  .of {
+    color: var(--muted);
+    opacity: 0.7;
+  }
+
+  .sep {
+    margin-top: 0.35rem;
+    padding-top: 0.35rem;
+    border-top: 1px solid var(--brass-dim);
   }
 
   .banner {

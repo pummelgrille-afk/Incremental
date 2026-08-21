@@ -1,5 +1,6 @@
 import type { Projectile } from '../entities/Projectile'
 import { isBossWave } from '../entities/Wave'
+import { BUDGETS } from '../content/budgets'
 import { BEAT, CONJUNCTION, RINGS } from '../content/field'
 import { patternById } from '../systems/patterns'
 import { updateProjectiles } from '../systems/collision'
@@ -41,7 +42,7 @@ export const TICK_SECONDS = 1 / TICK_RATE
 /** Never simulate more than this per frame; a stalled tab must not fast-forward. */
 export const MAX_CATCHUP_SECONDS = 0.5
 
-export const PROJECTILE_BUDGET = 600
+export const PROJECTILE_BUDGET = BUDGETS.projectiles
 
 export interface TickEvents {
   slackKilled: number
@@ -78,6 +79,11 @@ export class Simulation {
 
   /** Filings from a strike, banked into the next tick's events. */
   private pendingFilings = 0
+
+  /** Peak concurrent Slack this stage. Phase 11 budget instrumentation. */
+  peakSlack = 0
+  /** Ticks spent over the Slack budget. Non-zero means content overruns it. */
+  ticksOverSlackBudget = 0
 
   constructor(
     public state: SimulationState,
@@ -195,6 +201,11 @@ export class Simulation {
 
     this.totalSlackKilled += events.slackKilled
     this.totalConjunctions += events.conjunctionsFired
+
+    // Budget instrumentation. Never clamps — an overrun is a content bug to
+    // surface, not something to silently truncate (content/budgets.ts).
+    if (sim.slack.length > this.peakSlack) this.peakSlack = sim.slack.length
+    if (sim.slack.length > BUDGETS.slack) this.ticksOverSlackBudget++
 
     // Step 11 (publishing to stores) is the caller's job — the simulation never
     // reaches into Svelte.

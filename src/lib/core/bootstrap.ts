@@ -72,6 +72,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   let simulation = buildSimulation()
   const renderer: Renderer = await createRenderer(host)
 
+  game.showDiagnostics = saveData.settings.showFps
+
   const autosaver = new Autosaver(saves, () => saveData, { intervalSeconds: 15 })
 
   function buildSimulation(): Simulation {
@@ -96,6 +98,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'r') session.restart()
+    if (event.key === 'F2') {
+      event.preventDefault()
+      // Persisted, so a profiling session survives a reload.
+      saveData.settings.showFps = !saveData.settings.showFps
+      game.showDiagnostics = saveData.settings.showFps
+      autosaver.request('purchase')
+    }
   }
 
   host.addEventListener('pointerdown', onPointerDown)
@@ -142,11 +151,14 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     saveData.statistics.playtimeSeconds += elapsed
     autosaver.tick(elapsed)
 
+    const renderStart = performance.now()
     renderer.render(simulation)
+    const renderMs = performance.now() - renderStart
 
     // Step 11: publish the projection. The only write into Svelte.
     game.syncFrom(simulation)
     game.simMs = simMs
+    game.renderMs = renderMs
     game.frameMs = elapsedMs
 
     fpsAccumulator += elapsed

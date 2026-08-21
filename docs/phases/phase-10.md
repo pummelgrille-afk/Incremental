@@ -127,10 +127,15 @@ same change, so no doc still describes the nudge as live.
 
 ### Q3 — Do rotating defenders read clearly at 200+ projectiles?
 
-**Not answerable here.** The preview pane does not composite frames, so
-requestAnimationFrame never runs and nothing can be observed visually. The
-performance headroom exists; legibility is a judgement that needs eyes on it.
-**Carried to Phase 20**, and it is the main open risk against pillar P4.
+**Yes — confirmed by playtest.** Could not be answered from the harness (the
+preview pane does not composite frames, so requestAnimationFrame never runs), so
+it was settled by playing the build. No legibility problem observed.
+
+This was the main open risk against pillar P4, and it is now closed. The brass
+palette on a dark field plus the ring tracks give enough of a fixed reference
+that rotation does not muddy the read. Phase 39 and 40 must not spend that
+margin carelessly — backgrounds stay low-contrast and particle counts stay
+inside the Phase 11 budget.
 
 ### Q4 — Does the block-arc mechanic communicate itself without a tutorial?
 
@@ -213,6 +218,6 @@ without a telegraph first**.
 |-------|------|
 | 11 | Pool instrumentation exists (`peak`, `exhausted`); needs budgets + a low-spec re-measure |
 | 15–17 | Full motion set, pattern set, spatial partitioning |
-| 20 | Q3 and Q5; tune conjunction **cooldown** not tolerance; keep ring periods coprime; tune Beat damage so ignoring it stays viable |
+| 20 | Q5; tune conjunction **cooldown** not tolerance; keep ring periods coprime; tune Beat damage so ignoring it stays viable |
 | 24 | Formation editor should surface the symmetry trade-off |
 | 36 | Q4 — whether block-arc teaches itself |

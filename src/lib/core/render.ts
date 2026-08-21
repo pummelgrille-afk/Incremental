@@ -1,5 +1,6 @@
 import { Application, Container, Graphics } from 'pixi.js'
 import { BEAT, RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
+import type { SlackInstance } from '../entities/Slack'
 import { chimePosition } from '../systems/ai'
 import { TICK_SECONDS, type Simulation } from './loop'
 
@@ -113,6 +114,8 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   // Sprite registries, keyed by entity id so they survive across frames.
   const movementSprites = new Map<number, Graphics>()
   const slackSprites = new Map<number, Graphics>()
+  /** Last-drawn signature per Slack, so unchanged ones skip the rebuild. */
+  const slackSigs = new Map<number, number>()
   const chimeSprites = new Map<number, Graphics>()
   const projectileSprites: Graphics[] = []
 
@@ -222,6 +225,28 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
+  /**
+   * Slack are the dominant render cost, so their geometry is only rebuilt when
+   * it actually changes.
+   *
+   * Phase 11 measured ~12 us per Slack per frame against ~4 us for a projectile
+   * that is merely repositioned. The difference was `clear()` plus a geometry
+   * rebuild every frame for entities that mostly are not changing: an
+   * undamaged, non-telegraphing Slack looks identical frame to frame and only
+   * needs its position updated.
+   *
+   * A signature captures everything that affects the drawing. Telegraphing
+   * Slack animate, so they are exempt — but only a handful telegraph at once.
+   */
+  function slackSignature(slack: SlackInstance): number {
+    const flashing = slack.hitFlash > 0 ? 1 : 0
+    // Health quantised to 20 steps: finer than the eye resolves on a 4 px arc,
+    // and it stops a continuous regen trickle from dirtying every frame.
+    const health = Math.round((slack.hp / slack.maxHp) * 20)
+    const shielded = slack.shieldHitsRemaining > 0 ? 1 : 0
+    return flashing | (shielded << 1) | (health << 2)
+  }
+
   function drawSlack(simulation: Simulation, alpha: number) {
     const seen = new Set<number>()
     const lead = alpha * TICK_SECONDS
@@ -233,22 +258,30 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         sprite = new Graphics()
         slackSprites.set(slack.id, sprite)
         slackLayer.addChild(sprite)
+        slackSigs.set(slack.id, -1)
       }
 
+      // Position always updates — this is the cheap part.
       sprite.x = slack.position.x + slack.velocity.x * lead
       sprite.y = slack.position.y + slack.velocity.y * lead
 
+      const telegraphing = slack.telegraphRemaining > 0
+      const signature = slackSignature(slack)
+
+      // Skip the rebuild when nothing visible changed.
+      if (!telegraphing && slackSigs.get(slack.id) === signature) continue
+      slackSigs.set(slack.id, telegraphing ? -1 : signature)
+
       const size = slack.def.motion === 'drift' ? 11 : 7
-      const flashing = slack.hitFlash > 0
 
       sprite.clear()
       sprite
         .circle(0, 0, size)
-        .fill({ color: flashing ? PALETTE.slackFlash : PALETTE.slack })
+        .fill({ color: slack.hitFlash > 0 ? PALETTE.slackFlash : PALETTE.slack })
 
       // Telegraph: a pattern that fires without warning is a bug, so the
       // warning has to be visible from the render layer, not implied.
-      if (slack.telegraphRemaining > 0) {
+      if (telegraphing) {
         const t = slack.telegraphRemaining
         sprite.circle(0, 0, size + 6 + t * 14).stroke({
           width: 2,
@@ -269,6 +302,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       if (seen.has(id)) continue
       sprite.destroy()
       slackSprites.delete(id)
+      slackSigs.delete(id)
     }
   }
 
