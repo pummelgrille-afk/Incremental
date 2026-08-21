@@ -66,6 +66,21 @@ export const CONJUNCTION = {
   /** Seconds, keyed on the participating slot set. */
   cooldown: 6,
   multipliers: { minor: 1.25, major: 1.6, grand: 2.2 },
+
+  /**
+   * Type pairing — combat-spec.md §3 rule 5.
+   *
+   * A matched group amplifies; an opposed pair *interferes*, trading magnitude
+   * for reach. Interference is deliberately not a penalty with nothing to show
+   * for it: a wider pulse arc can catch a spread wave that a narrow one misses,
+   * so a mixed-type formation has a case rather than an apology.
+   */
+  pairing: { matched: 1.25, interference: 0.7, mixed: 1 },
+
+  /** Half-width, radians, of a damagePulse's reach around the alignment. */
+  pulseArc: 0.5,
+  /** The wider arc interference buys. */
+  interferenceArc: 1,
 } as const
 
 export function ringByIndex(index: RingIndex): RingConfig | undefined {

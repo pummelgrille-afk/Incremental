@@ -48,7 +48,8 @@
     </div>
 
     <p class="hint">
-      Click the floor to strike · <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
+      Click the floor to strike · <kbd>F</kbd> formation · <kbd>R</kbd> restart ·
+      <kbd>F2</kbd> diagnostics
     </p>
   </footer>
 

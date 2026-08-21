@@ -73,8 +73,13 @@ export interface ChimeInstance {
 
   disabledFor: number
 
-  attackMultiplier: number
-  hasteBonus: number
+  /**
+   * Permanent multiplier from this unit's level. Chimes carry no timed buffs:
+   * they do not participate in conjunctions (combat-spec.md §4), and nothing
+   * else grants one. A `hasteBonus` field sat here unwritten until Phase 18.
+   * Phase 25's support upgrades are where transient Chime modifiers belong.
+   */
+  levelScale: number
 }
 
 /** A Chime can fire only with at least one whole charge banked. */

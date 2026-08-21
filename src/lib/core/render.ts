@@ -180,7 +180,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
             .arc(0, 0, 11, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * health)
             .stroke({ width: 2, color: colour, alpha: 0.8 })
         }
-        if (movement.shield > 0) {
+        if (movement.buffs.shield.magnitude > 0) {
           sprite.circle(0, 0, 13).stroke({ width: 1.5, color: PALETTE.chime, alpha: 0.7 })
         }
       }

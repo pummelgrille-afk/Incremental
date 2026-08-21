@@ -98,6 +98,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'r') session.restart()
+    // The synergy preview. Not persisted — it is a planning aid you open when
+    // you are planning, unlike the diagnostics overlay.
+    if (event.key === 'f') game.showFormation = !game.showFormation
     if (event.key === 'F2') {
       event.preventDefault()
       // Persisted, so a profiling session survives a reload.

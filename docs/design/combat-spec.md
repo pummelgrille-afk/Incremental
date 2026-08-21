@@ -198,11 +198,73 @@ conjunctions occur on their own schedule. The player does not trigger them — t
 5. Type pairing modifies the effect. Matching types amplify; opposed types produce
    a distinct *interference* effect that is weaker but hits a wider arc.
 
+### Type pairing (Phase 18)
+
+Two damage types **oppose** when each is favourable against exactly what the
+other is unfavourable against. That is derived from the §7 matrix rather than
+listed separately, so the two cannot drift: it yields the two documented pairs,
+Shear↔Percussive and Thermal↔Resonant.
+
+A conjunction's pairing is a property of the whole group:
+
+| Pairing | When | Magnitude | Pulse arc |
+|---------|------|-----------|-----------|
+| **Matched** | every participant shares one type | ×1.25 | 0.5 rad |
+| **Interference** | any two participants oppose | ×0.7 | **1.0 rad** |
+| **Mixed** | neither | ×1 | 0.5 rad |
+
+Interference is a **trade, not a penalty**. A wider pulse catches a scattered
+wave that a narrow one misses, so a mixed-type formation has a case to make
+rather than an apology. `matched` is checked first; the two can never both hold,
+since a type does not oppose itself.
+
+**Scale and pairing multiply; neither touches duration.** A Grand conjunction of
+matched units hits harder — it does not also last longer. Against a 6 s cooldown
+and 4–5 s buffs, letting both scale duration would have meant permanent uptime.
+
+### Buff stacking (Phase 18)
+
+**One rule covers every timed modifier, on units and on the objective alike: the
+stronger grant wins, and an equal-or-weaker grant only extends what is already
+there. Nothing accumulates.**
+
+This was already the objective's shield rule (§5). Movements were stacking
+`shield +=` instead, which is the exact "bank conjunctions into an
+invulnerability window" the rule exists to prevent. `systems/buffs.ts` now owns
+it and a test asserts both implementations behave identically.
+
+Two further consequences:
+
+- A **disabled unit loses every buff**. It returns at full HP after the recovery
+  window; carrying a shield or a haste window through that would make being
+  disabled partly free.
+- A **spent shield clears its own clock**, so draining a strong shield does not
+  block a fresh weaker one for the remainder of the original duration.
+
+Debuffs need a sign-aware comparison — "stronger" for a penalty means *more*
+negative — and no content authors one yet, so the rule is not guessed at.
+Phase 31's Slack roster owns designing that half; `grantBonus` throws on a
+negative magnitude rather than silently doing the wrong thing.
+
+`repair` was removed from `ConjunctionEffect`. It had no ally using it for a
+phase and a half, and unreachable configuration is where this project keeps
+finding bugs. Phase 29's roster is where a healer would earn it back.
+
 ### Preview requirement
 
 `ui/FormationEditor.svelte` (Phase 18/24) must show **time-to-next-conjunction**
 for the current arrangement. Planning is only meaningful if it is legible. This is
 a hard requirement, not a nice-to-have — without it the mechanic is invisible.
+
+**Delivered in Phase 18** as a read-only panel (toggle `F`): the countdown, the
+formation's current pairing and what it does, per-slot placement bonuses, and a
+live count of buffed units. Phase 24 adds the editing half of the file.
+
+The countdown is stored as an **absolute simulation time**, not a remaining
+duration — the rings keep turning between recomputes, so a stored countdown goes
+stale the moment it is written. It is recomputed only when the formation changes
+or the predicted alignment passes, because `timeToNextConjunction` simulates the
+rings forward up to two minutes and must never run per frame.
 
 ## 4. Chimes — ranged support
 

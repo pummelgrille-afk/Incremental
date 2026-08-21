@@ -8,8 +8,8 @@ import {
   damageSlack,
   reapSlack,
   resolveMovementAttacks,
-  updateBuffs,
 } from '../systems/combat'
+import { updateBuffs } from '../systems/buffs'
 import {
   checkThresholds,
   rerollWaveArc,
@@ -407,7 +407,7 @@ export class Simulation {
       p.position.y = origin.y
       p.velocity.x = Math.cos(angle) * speed
       p.velocity.y = Math.sin(angle) * speed
-      p.damage = shot.chime.def.attack * shot.chime.attackMultiplier
+      p.damage = shot.chime.def.attack * shot.chime.levelScale
       p.damageType = 'resonant'
       p.radius = 4
       p.lifetime = 4

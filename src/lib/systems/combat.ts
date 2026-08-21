@@ -5,6 +5,7 @@ import { createSlack } from './spawn'
 import type { ArmourClass, DamageType } from '../entities/types'
 import { typeMultiplier } from '../content/damageTypes'
 import type { SimulationState } from '../core/simulation'
+import { absorb, attackScaleOf, clearBuffs } from './buffs'
 import type { MovementAttack } from './ai'
 
 /**
@@ -69,11 +70,7 @@ export function damageMovement(movement: MovementInstance, amount: number): void
 
   let remaining = mitigate(amount, effectiveDefence)
 
-  if (movement.shield > 0) {
-    const absorbed = Math.min(movement.shield, remaining)
-    movement.shield -= absorbed
-    remaining -= absorbed
-  }
+  remaining -= absorb(movement.buffs.shield, remaining)
 
   movement.hp -= remaining
 
@@ -81,6 +78,10 @@ export function damageMovement(movement: MovementInstance, amount: number): void
     movement.hp = 0
     movement.disabledFor = RECOVERY_TIME
     movement.targetId = null
+    // A disabled unit comes back at full HP after RECOVERY_TIME; letting a
+    // shield or haste window survive that would make being disabled partly
+    // free.
+    clearBuffs(movement.buffs)
   }
 }
 
@@ -121,7 +122,7 @@ export function resolveMovementAttacks(
 
     const damage = computeDamage(
       movement.def.attack,
-      movement.attackMultiplier * (1 + movement.bonuses.attack),
+      attackScaleOf(movement),
       movement.def.damageType,
       target.def.armour,
       target.def.defence,
@@ -189,16 +190,4 @@ export function reapSlack(sim: SimulationState, dead: Set<number>): CombatResult
 
   sim.filingsEarned += filings
   return { slackKilled: dead.size, filingsDropped: filings }
-}
-
-/** Decay transient buffs granted by conjunctions. */
-export function updateBuffs(sim: SimulationState, dt: number): void {
-  for (const movement of sim.movements) {
-    if (movement.hasteBonus > 0) {
-      movement.hasteBonus = Math.max(0, movement.hasteBonus - dt * 0.25)
-    }
-    if (movement.attackMultiplier > 1) {
-      movement.attackMultiplier = Math.max(1, movement.attackMultiplier - dt * 0.2)
-    }
-  }
 }

@@ -66,6 +66,12 @@ export interface SimulationState {
    * is the question the wave asks and must survive; only its bearing moves.
    */
   waveArcOffset: number
+  /**
+   * Bumped on every formation change. The synergy preview is far too expensive
+   * to recompute per frame, so `stores/` watches this instead of diffing the
+   * formation itself.
+   */
+  formationVersion: number
   /** Counts down during 'wave-gap'. */
   gapRemaining: number
 

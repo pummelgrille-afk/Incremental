@@ -69,3 +69,13 @@ export interface ContentDef {
   /** Key into the Phase 37 asset manifest. Unresolved until then. */
   readonly assetKey?: string
 }
+
+/**
+ * A modifier with a life, in seconds. `magnitude` is zero exactly when nothing
+ * is active. The stacking rule that governs these lives in systems/buffs.ts —
+ * the shape is here because entities may not depend on systems.
+ */
+export interface TimedBonus {
+  magnitude: number
+  remaining: number
+}

@@ -1,6 +1,8 @@
 import { conjunctionScaleOf, type MovementInstance } from '../entities/Movement'
 import type { ConjunctionScale } from '../entities/types'
 import { CONJUNCTION, ringByIndex, slotAngle } from '../content/field'
+import { pairingOf, type TypePairing } from '../content/damageTypes'
+import { grantBonus } from './buffs'
 import type { SimulationState } from '../core/simulation'
 import { angleDelta } from './ai'
 import { computeDamage, damageSlack, reapSlack } from './combat'
@@ -23,6 +25,8 @@ export interface ConjunctionEvent {
   scale: ConjunctionScale
   /** Mean angle of the participants — where the render layer draws the burst. */
   angle: number
+  /** How the participants' damage types relate. combat-spec.md §3 rule 5. */
+  pairing: TypePairing
 }
 
 /** Cooldowns keyed on the participating slot set, so a lingering alignment
@@ -96,6 +100,7 @@ export function findConjunctions(sim: SimulationState): ConjunctionEvent[] {
         participants: group,
         scale: conjunctionScaleOf(group.length),
         angle: seedAngle,
+        pairing: pairingOf(group.map((m) => m.def.damageType)),
       })
     }
   }
@@ -135,11 +140,19 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
     cooldowns.set(key, CONJUNCTION.cooldown)
     result.fired.push(event)
 
-    const multiplier = CONJUNCTION.multipliers[event.scale]
+    // Scale and pairing are independent: how many units aligned, and how well
+    // their types agree. Duration is *not* scaled by either — a Grand
+    // conjunction hits harder, it does not also last longer, or the two would
+    // compound into permanent uptime against a 6 s cooldown.
+    const multiplier =
+      CONJUNCTION.multipliers[event.scale] * CONJUNCTION.pairing[event.pairing]
+    const arc =
+      event.pairing === 'interference' ? CONJUNCTION.interferenceArc : CONJUNCTION.pulseArc
 
     for (const movement of event.participants) {
       const effect = movement.def.conjunctionEffect
       const magnitude = effect.magnitude * multiplier
+      const duration = effect.duration ?? 0
 
       switch (effect.kind) {
         case 'damagePulse': {
@@ -147,7 +160,7 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
           for (const slack of sim.slack) {
             if (dead.has(slack.id)) continue
             const slackAngle = Math.atan2(slack.position.y, slack.position.x)
-            if (Math.abs(angleDelta(event.angle, slackAngle)) <= 0.5) {
+            if (Math.abs(angleDelta(event.angle, slackAngle)) <= arc) {
               // Carries the participating unit's damage type, so a conjunction
               // is as type-sensitive as the unit that fired it. Raw damage here
               // would make an off-type build strictly better at conjunctions
@@ -165,13 +178,10 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
           break
         }
         case 'shield':
-          movement.shield += magnitude
+          grantBonus(movement.buffs.shield, magnitude, duration)
           break
         case 'haste':
-          movement.hasteBonus = Math.max(movement.hasteBonus, magnitude)
-          break
-        case 'repair':
-          movement.hp = Math.min(movement.maxHp, movement.hp + magnitude)
+          grantBonus(movement.buffs.haste, magnitude, duration)
           break
       }
     }

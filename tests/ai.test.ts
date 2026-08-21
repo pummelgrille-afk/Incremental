@@ -17,6 +17,7 @@ import {
 } from '../src/lib/systems/ai'
 import { RINGS } from '../src/lib/content/field'
 import { findConjunctions } from '../src/lib/systems/synergy'
+import { grantBonus } from '../src/lib/systems/buffs'
 import type { MovementDef } from '../src/lib/entities/Movement'
 import type { TargetingPolicy } from '../src/lib/entities/types'
 import type { SlackInstance } from '../src/lib/entities/Slack'
@@ -226,7 +227,7 @@ describe('attack timing', () => {
     const withoutHaste = slow.cooldownRemaining
 
     slow.cooldownRemaining = 0
-    slow.hasteBonus = 1
+    grantBonus(slow.buffs.haste, 1, 4)
     updateMovements(sim.state, TICK_SECONDS)
     expect(slow.cooldownRemaining).toBeLessThan(withoutHaste)
   })

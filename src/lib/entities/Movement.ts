@@ -6,6 +6,7 @@ import type {
   TargetingPolicy,
   UnitRole,
   ConjunctionScale,
+  TimedBonus,
 } from './types'
 
 /**
@@ -16,12 +17,23 @@ import type {
  * never positional change. Use motion/velocity/advance for that. See CLAUDE.md.
  */
 
-/** What a conjunction does when this unit participates. */
+/**
+ * What a conjunction does when this unit participates.
+ *
+ * `repair` was declared here for a phase and a half with no ally using it.
+ * Untested configuration is where this project keeps finding bugs, so it is
+ * gone until Phase 29's roster is large enough to carry a healer; re-adding a
+ * case to one switch is cheap, and a dead branch is not.
+ */
 export interface ConjunctionEffect {
-  kind: 'damagePulse' | 'shield' | 'haste' | 'repair'
-  /** Base magnitude, scaled by the conjunction's scale multiplier. */
+  kind: 'damagePulse' | 'shield' | 'haste'
+  /** Base magnitude, scaled by the conjunction's scale and type pairing. */
   magnitude: number
-  /** Seconds; ignored by instantaneous effects such as damagePulse. */
+  /**
+   * Seconds the buff lasts. Required for everything except `damagePulse`,
+   * which resolves instantly — enforced by test rather than by the type, so
+   * content reads plainly.
+   */
   duration?: number
 }
 
@@ -85,10 +97,30 @@ export interface MovementInstance {
   /** Cached formation bonuses. Recomputed on formation change, not per tick. */
   bonuses: FormationBonuses
 
-  /** Transient multipliers from buffs and conjunctions. */
-  attackMultiplier: number
-  hasteBonus: number
-  shield: number
+  /**
+   * Permanent multiplier from this unit's level. **Never decays** — it shared a
+   * field with transient buffs until Phase 18, which meant a levelled unit lost
+   * its damage bonus within seconds of combat starting.
+   */
+  levelScale: number
+
+  /** Transient modifiers. Stacking rules live in systems/buffs.ts. */
+  buffs: UnitBuffs
+}
+
+/**
+ * The timed modifiers a unit can carry.
+ *
+ * `shield` is the odd one: its magnitude is a live pool that damage depletes,
+ * not a cached strength. The others are read-only multipliers.
+ */
+export interface UnitBuffs {
+  /** Attack speed: interval is divided by (1 + magnitude). */
+  haste: TimedBonus
+  /** Damage: attack is multiplied by (1 + magnitude). */
+  attack: TimedBonus
+  /** Absorbs damage before HP. Depleted by hits as well as by time. */
+  shield: TimedBonus
 }
 
 /** Additive bonuses from slot placement. See combat-spec.md §2. */

@@ -1,5 +1,6 @@
 import type { ChimeDef, ChimeInstance } from '../entities/Chime'
 import type { FormationBonuses, MovementDef, MovementInstance } from '../entities/Movement'
+import { createBuffs } from '../systems/buffs'
 import type { RingIndex } from '../entities/types'
 import { RINGS, ringByIndex } from '../content/field'
 import { allocateId, type SimulationState } from './simulation'
@@ -61,9 +62,8 @@ export function createMovement(
     timeSinceRetarget: 0,
     disabledFor: 0,
     bonuses: { attack: 0, defence: 0, range: 0 },
-    attackMultiplier: scale,
-    hasteBonus: 0,
-    shield: 0,
+    levelScale: scale,
+    buffs: createBuffs(),
   }
 }
 
@@ -88,8 +88,7 @@ export function createChime(
     targetId: null,
     timeSinceRetarget: 0,
     disabledFor: 0,
-    attackMultiplier: scale,
-    hasteBonus: 0,
+    levelScale: scale,
   }
 }
 
@@ -145,6 +144,7 @@ export function mountChime(
  * Rules are combat-spec.md §2's table, in order.
  */
 export function recomputeBonuses(sim: SimulationState): void {
+  sim.formationVersion++
   const occupied = new Set(sim.movements.map((m) => slotKey(m.slot.ring, m.slot.slot)))
 
   const perRingCount = new Map<RingIndex, number>()

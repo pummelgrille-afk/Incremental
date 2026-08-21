@@ -4,6 +4,7 @@ import type { SlackInstance } from '../entities/Slack'
 import type { RingIndex, TargetingPolicy, Vec2 } from '../entities/types'
 import { RIM_RADIUS, RINGS, ringByIndex, slotAngle } from '../content/field'
 import type { SimulationState } from '../core/simulation'
+import { attackIntervalOf } from './buffs'
 
 /**
  * Targeting and attack timing for Movements and Chimes.
@@ -208,7 +209,7 @@ export function updateMovements(sim: SimulationState, dt: number): MovementAttac
     if (!target || movement.cooldownRemaining > 0) continue
 
     attacks.push({ movement, target })
-    movement.cooldownRemaining = movement.def.baseInterval / (1 + movement.hasteBonus)
+    movement.cooldownRemaining = attackIntervalOf(movement)
   }
 
   return attacks
@@ -285,7 +286,7 @@ export function updateChimes(sim: SimulationState, dt: number): ChimeShot[] {
     })
 
     chime.charge -= 1
-    chime.cooldownRemaining = chime.def.baseInterval / (1 + chime.hasteBonus)
+    chime.cooldownRemaining = chime.def.baseInterval
   }
 
   return shots
