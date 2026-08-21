@@ -209,9 +209,31 @@ Chimes do not rotate, so they are the player's stable reference frame while
 everything else turns. They cover the arcs the rotation leaves briefly thin.
 
 **Charge:** each Chime holds `maxCharge` (default 3), regenerating one per
-`chargeInterval` (default 4 s). Firing costs one. A Chime at zero charge is silent.
+`chargeInterval` (**6 s**). Firing costs one. A Chime at zero charge is silent.
 This makes Chimes burst-y and positionally strategic rather than a constant
 damage floor — and it is why they cannot simply replace Movements.
+
+`chargeInterval` is **the balance lever between the two unit classes**, tuned in
+Phase 14 by measuring the marginal value of ~120 Filings spent either way:
+
+| `chargeInterval` | +1 Chime | +2 Movements | |
+|---|---|---|---|
+| 4 s | +0.49 Tension | +0.33 | Chime dominant |
+| **6 s** | **+0.34** | **+0.33** | **balanced** |
+| 7 s | +0.22 | +0.33 | Movements dominant |
+
+At 6 s the Chime build clears *faster* while being equally robust — a genuine
+trade rather than a strictly better option. Retune this before touching Chime
+damage; damage barely moves the outcome, because clear time is floored by the
+wave spawn schedule.
+
+**Chimes cannot be damaged.** They sit on the rim, outside the field of fire:
+Slack spawn at that radius and travel inward, and so do their projectiles. A
+Chime's cost is that it contributes **no defence whatsoever** — it has no block
+arc, so nothing it does slows a Slack down — and that its output is gated by
+Charge. Measured consequence: **Chimes alone lose the stage.** Two Chimes and no
+Movements managed 8 kills before Tension hit zero, because nothing was stopping
+anything.
 
 **Predictive targeting:** lead the target by `distance / projectileSpeed`, so
 Chime shots connect on drifting enemies. Movements do not lead — they are melee or

@@ -16,6 +16,7 @@ import {
   updateMovements,
 } from '../src/lib/systems/ai'
 import { RINGS } from '../src/lib/content/field'
+import { findConjunctions } from '../src/lib/systems/synergy'
 import type { MovementDef } from '../src/lib/entities/Movement'
 import type { TargetingPolicy } from '../src/lib/entities/types'
 import type { SlackInstance } from '../src/lib/entities/Slack'
@@ -379,5 +380,107 @@ describe('rotation moves reach with the unit', () => {
       if (unit.targetId !== null) break
     }
     expect(unit.targetId).not.toBeNull()
+  })
+})
+
+/**
+ * combat-spec.md §4 lists five axes on which Chimes must differ from Movements.
+ * All five must survive balancing, or one class collapses into the other and
+ * the roster loses a dimension. Asserted here so a tuning pass cannot erode
+ * them quietly.
+ */
+describe('Chimes stay distinct from Movements on all five axes', () => {
+  it('1. position — Chimes are static, Movements rotate', () => {
+    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 2)
+    const movement = defender('nearest', 2)
+
+    const chimeBefore = chimePosition(chime)
+    const movementBefore = movementPosition(sim.state, movement)
+
+    for (let i = 0; i < 40; i++) sim.tick(TICK_SECONDS)
+
+    expect(chimePosition(chime)).toEqual(chimeBefore)
+    expect(movementPosition(sim.state, movement)).not.toEqual(movementBefore)
+  })
+
+  it('2. range — a Chime reaches what a Movement cannot', () => {
+    const movement = defender('nearest', 2)
+    mountChime(sim.state, chimeById('quarter-bell')!, 0)
+    // Opposite the units, near the centre: outside any annular band.
+    slackAt('burr', 45, Math.PI)
+
+    updateMovements(sim.state, TICK_SECONDS)
+    const shots = updateChimes(sim.state, TICK_SECONDS)
+
+    expect(movement.targetId).toBeNull()
+    expect(shots).toHaveLength(1)
+  })
+
+  it('3. resource — only Chimes are gated by a consumable', () => {
+    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
+    const movement = defender('nearest', 2)
+    const target = slackAt('burr', 160)
+    target.hp = 1e9
+
+    chime.charge = 0
+    chime.cooldownRemaining = 0
+    expect(updateChimes(sim.state, TICK_SECONDS)).toHaveLength(0)
+
+    // The Movement has no equivalent resource and fires regardless.
+    expect(updateMovements(sim.state, TICK_SECONDS)).toHaveLength(1)
+    void movement
+  })
+
+  it('4. conjunction — Chimes never participate', () => {
+    // Two Chimes aligned on the rim must not produce a conjunction, and must
+    // not contribute to one formed by Movements.
+    mountChime(sim.state, chimeById('quarter-bell')!, 0)
+    mountChime(sim.state, chimeById('quarter-bell')!, 4)
+    placeMovement(sim.state, movementById('hammer')!, 1, 0)
+    placeMovement(sim.state, movementById('hammer')!, 2, 0)
+
+    const found = findConjunctions(sim.state)
+    expect(found).toHaveLength(1)
+    // Exactly the two Movements — no Chime smuggled in.
+    expect(found[0].participants).toHaveLength(2)
+    expect(found[0].participants.every((p) => 'slot' in p)).toBe(true)
+  })
+
+  it('5. targeting — only Chimes lead a moving target', () => {
+    mountChime(sim.state, chimeById('quarter-bell')!, 0)
+    const movement = defender('nearest', 2)
+
+    const mover = slackAt('burr', 160)
+    mover.velocity = { x: 0, y: 200 }
+
+    const shots = updateChimes(sim.state, TICK_SECONDS)
+    const attacks = updateMovements(sim.state, TICK_SECONDS)
+
+    // The Chime aims ahead of the target.
+    expect(shots[0].aimPoint.y).toBeGreaterThan(mover.position.y)
+    // The Movement resolves against the target itself, with no aim point.
+    expect(attacks[0].target).toBe(mover)
+    expect(attacks[0]).not.toHaveProperty('aimPoint')
+    void movement
+  })
+})
+
+describe('Chimes cannot defend on their own', () => {
+  it('has no block arc, so nothing it does stops a Slack', () => {
+    // The measured consequence (Phase 14): two Chimes and no Movements lose
+    // the stage, because nothing is slowing anything down.
+    const chime = chimeById('quarter-bell')!
+    expect(chime).not.toHaveProperty('blockArc')
+  })
+
+  it('takes no damage, which is the trade for contributing no defence', () => {
+    const chime = mountChime(sim.state, chimeById('quarter-bell')!, 0)
+    const before = chime.hp
+
+    // Run a full stage's worth of hostile fire past the rim.
+    for (let i = 0; i < 600; i++) sim.tick(TICK_SECONDS)
+
+    expect(chime.hp).toBe(before)
+    expect(chime.disabledFor).toBe(0)
   })
 })

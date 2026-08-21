@@ -10,6 +10,17 @@ import type { SimulationState } from '../core/simulation'
  *
  * Implements combat-spec.md §2 and §4. Damage application lives in combat.ts —
  * this module decides *who* and *when*, never *how much*.
+ *
+ * **Why Chimes are not in a separate `supportAi.ts`** (PLAN.md Phase 14 offers
+ * the split): they share the scoring function, the retarget interval, and the
+ * overall update shape. What differs is roughly fifty lines — Charge, target
+ * leading, and unrestricted reach. Splitting now would separate two functions
+ * that are read against each other and duplicate the shared scorer's import for
+ * no gain.
+ *
+ * Revisit when Chimes need targeting policies Movements do not have, or an
+ * update shape that is genuinely different (Phase 25 could bring either, if
+ * ammo types or multi-target fire arrive).
  */
 
 const RETARGET_INTERVAL = 0.75

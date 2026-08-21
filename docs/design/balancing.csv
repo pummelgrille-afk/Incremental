@@ -36,7 +36,9 @@ conjunction,minor_multiplier,1.25,1.1,1.5,multiplier,5,2 units aligned
 conjunction,major_multiplier,1.6,1.4,2.0,multiplier,5,3 units aligned
 conjunction,grand_multiplier,2.2,1.8,3.0,multiplier,5,4+ units aligned
 chime,max_charge,3,2,6,count,5,Burst not sustained
-chime,charge_interval,4,2,8,s,5,Seconds to regain one charge
+chime,charge_interval,6,4,8,s,14,THE lever between Chimes and Movements; 4 makes Chimes dominant and 7 makes them irrelevant
+chime,attack,16,10,24,damage,14,Barely affects outcomes; clear time is floored by the spawn schedule. Tune charge_interval instead
+chime,projectile_speed,260,180,360,px/s,5,Also sets the lead distance for predictive aim
 patterns,min_telegraph,400,300,600,ms,5,Hard floor; never zero
 patterns,boss_telegraph,700,600,900,ms,5,
 budget,max_projectiles,600,300,1200,count,11,Runtime cap enforced by the pool; refusing a bullet degrades gracefully

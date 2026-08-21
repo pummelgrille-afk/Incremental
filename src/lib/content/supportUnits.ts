@@ -22,7 +22,10 @@ export const CHIMES: readonly ChimeDef[] = [
     defence: 6,
     baseInterval: 1.4,
     maxCharge: 3,
-    chargeInterval: 4,
+    // Phase 14 balance pass: 4 s made a Chime strictly better per Filing than
+    // the Movements it competes with. 6 s is the crossover where the marginal
+    // value of 120 Filings is the same either way. See docs/phases/phase-14.md.
+    chargeInterval: 6,
     targeting: 'highestThreat',
     projectileSpeed: 260,
     unlockCost: 4,

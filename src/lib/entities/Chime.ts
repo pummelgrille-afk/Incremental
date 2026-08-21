@@ -39,6 +39,20 @@ export interface ChimeDef extends ContentDef {
   readonly unlockCost: number
 }
 
+/**
+ * Live state.
+ *
+ * **Chimes cannot currently be damaged.** They are mounted on the rim, outside
+ * the field of fire — Slack spawn at that radius and move inward, and Slack
+ * projectiles travel inward toward the Mainspring, so nothing ever reaches a
+ * mount. That is deliberate: a Chime's cost is contributing *no defence at all*
+ * (it has no block arc) and being gated by Charge, not fragility.
+ *
+ * `hp`, `maxHp` and `disabledFor` are therefore inert today. They are kept
+ * because level scaling already writes `maxHp` and because Phase 25 may
+ * introduce durability; the recovery path in ai.ts is the mechanism that would
+ * carry it. Documented rather than deleted so the state is not silently a lie.
+ */
 export interface ChimeInstance {
   readonly id: EntityId
   readonly def: ChimeDef
