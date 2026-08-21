@@ -1,5 +1,5 @@
 import { Application, Container, Graphics } from 'pixi.js'
-import { RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
+import { BEAT, RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
 import { chimePosition } from '../systems/ai'
 import { TICK_SECONDS, type Simulation } from './loop'
 
@@ -47,6 +47,8 @@ export interface Renderer {
   render(simulation: Simulation): void
   resize(): void
   destroy(): void
+  /** Screen coordinates (clientX/clientY) to simulation world space. */
+  toWorld(clientX: number, clientY: number): { x: number; y: number }
   readonly canvas: HTMLCanvasElement
 }
 
@@ -103,6 +105,10 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
   const mainspring = new Graphics()
   world.addChild(mainspring)
+
+  // Strike feedback lives above everything, so it reads even in dense fire.
+  const strikeGraphic = new Graphics()
+  effectLayer.addChild(strikeGraphic)
 
   // Sprite registries, keyed by entity id so they survive across frames.
   const movementSprites = new Map<number, Graphics>()
@@ -323,6 +329,24 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
+  /**
+   * Show where a strike landed.
+   *
+   * An input with no feedback reads as a broken input, so this draws even when
+   * the strike hit nothing at all.
+   */
+  function drawStrike(simulation: Simulation) {
+    const strike = simulation.lastStrike
+    strikeGraphic.clear()
+    if (!strike) return
+
+    // Expand and fade over the strike's short life.
+    const t = Math.min(1, strike.age / 0.35)
+    strikeGraphic
+      .circle(strike.x, strike.y, BEAT.radius * (0.55 + 0.45 * t))
+      .stroke({ width: 3 * (1 - t) + 1, color: PALETTE.conjunction, alpha: 1 - t })
+  }
+
   return {
     canvas: app.canvas,
 
@@ -334,8 +358,18 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       drawSlack(simulation, alpha)
       drawProjectiles(simulation, alpha)
       drawMainspring(simulation)
+      drawStrike(simulation)
 
       app.render()
+    },
+
+    toWorld(clientX: number, clientY: number) {
+      const rect = app.canvas.getBoundingClientRect()
+      // Undo the centring and the fit scale applied in recentre().
+      return {
+        x: (clientX - rect.left - world.x) / world.scale.x,
+        y: (clientY - rect.top - world.y) / world.scale.y,
+      }
     },
 
     resize: recentre,

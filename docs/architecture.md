@@ -245,7 +245,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `entities/Wave.ts` | Spawn groups, wave and boss-wave defs | 8 |
 | `entities/Zone.ts` | Zone/stage defs, stage addressing | 8 |
 | `entities/index.ts` | The single type-only barrel | 8 |
-| `content/field.ts` | Ring geometry, nudge and conjunction constants | 8 |
+| `content/field.ts` | Ring geometry, Beat and conjunction constants | 8 |
 | `content/damageTypes.ts` | Type interaction matrix | 8 |
 | `content/enemies.ts` | Slack roster (placeholder) | 31 |
 | `content/zones.ts` | Progression map (placeholder) | 33 |
@@ -259,7 +259,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `core/simulation.ts` | `SimulationState` — the complete mutable stage state | 8 |
 | `core/stageLoader.ts` | Resolve, validate and initialize a stage | 8 |
 | `core/rng.ts` | Seeded PRNG; the simulation never calls Math.random | 10 |
-| `core/loop.ts` | Fixed-timestep tick in combat-spec §8 order; the ring nudge | 10 |
+| `core/loop.ts` | Fixed-timestep tick in combat-spec §8 order; the Beat | 10 |
 | `core/formation.ts` | Unit placement and cached formation bonuses | 10 |
 | `core/bootstrap.ts` | Wires simulation, renderer, input and autosave; owns rAF | 10 |
 | `core/render.ts` | Pixi scene reading simulation state | 7 → 10 |
@@ -271,7 +271,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `systems/synergy.ts` | Conjunction detection, effects, preview | 10 |
 | `utils/pool.ts` | Fixed-capacity object pool | 10 |
 | `stores/game.svelte.ts` | The reactive projection — the only Svelte bridge | 10 |
-| `ui/HUD.svelte` | Tension, Filings, wave, ring cooldowns, diagnostics | 10 → 42 |
+| `ui/HUD.svelte` | Tension, Filings, wave, Beat charge, diagnostics | 10 → 42 |
 
 ### Boundary enforcement
 

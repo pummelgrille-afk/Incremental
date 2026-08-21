@@ -3,6 +3,14 @@
 **Stage 0 — Concept & Design Foundation**
 Output: `docs/design/pillars.md`
 
+> **Superseded after the Phase 10 playtest.** The ring nudge described below was
+> removed. It required tracking three independent cooldowns under time pressure
+> — a dexterity test, which pillar P3 forbids — and it was *defensive*, so using
+> it badly meant taking damage. Rings are now permanently automatic and the live
+> input is **the Beat**, an instant area strike. See `combat-spec.md` §1 and
+> `docs/phases/phase-10.md`. This file is kept as the record of what was decided
+> at the time.
+
 ## Checklist
 
 - [x] One-page pitch built around the mechanical mix only (idle, auto-battle,

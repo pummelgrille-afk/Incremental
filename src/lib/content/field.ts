@@ -2,7 +2,7 @@ import type { RingIndex } from '../entities/types'
 
 /**
  * Field geometry. Mirrors docs/design/combat-spec.md §1 and the `field` and
- * `nudge` rows of docs/design/balancing.csv.
+ * `beat` rows of docs/design/balancing.csv.
  *
  * balancing.csv is the ground truth (economy-spec.md §8). When these disagree,
  * the CSV wins and this file is wrong.
@@ -26,7 +26,11 @@ export const RINGS: readonly RingConfig[] = [
  * Ring periods are deliberately non-integer ratios (8 : 14 : 22 = 4 : 7 : 11,
  * pairwise coprime) so alignments do not repeat on a short cycle. This is what
  * makes conjunction a planning problem rather than a metronome — see
- * narrative.md, "The Wander Rings".
+ * narrative.md, "The Wander Rings". Guarded by tests/simulation.test.ts.
+ *
+ * Rotation is **constant and never player-controllable** (combat-spec.md §1).
+ * No upgrade may grant steering; that was tried and removed after the Phase 10
+ * playtest.
  */
 
 /** Chime mounts. The rim does not rotate. */
@@ -36,13 +40,22 @@ export const RIM_MOUNTS = 8
 /** Slack spawn at the rim and move inward. */
 export const SPAWN_RADIUS = RIM_RADIUS
 
-export const NUDGE = {
-  /** Impulse is one slot-width, so the input means the same on every ring. */
-  impulseSlots: 1,
-  /** Seconds of eased travel. Not instant — see combat-spec.md §1. */
-  duration: 0.4,
-  /** Seconds, per ring, independent. */
-  cooldown: 2.5,
+/**
+ * The Beat — the Wright's manual strike, and the only live input.
+ *
+ * Instant and area-based on purpose: there is nothing to aim and nothing to
+ * miss, so its failure mode is *damage not dealt* rather than *damage taken*.
+ * See combat-spec.md §1.
+ */
+export const BEAT = {
+  maxCharges: 3,
+  /** Seconds to regain one charge. */
+  rechargeInterval: 3,
+  /** Minimum gap between strikes, so a double-click cannot waste one. */
+  cooldown: 0.25,
+  /** Blast radius in pixels. */
+  radius: 44,
+  baseDamage: 26,
 } as const
 
 export const CONJUNCTION = {

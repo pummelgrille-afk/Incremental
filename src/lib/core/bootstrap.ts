@@ -1,4 +1,3 @@
-import type { RingIndex } from '../entities/types'
 import { movementById, MOVEMENTS } from '../content/allies'
 import { CHIMES } from '../content/supportUnits'
 import { STARTING_ZONE_ID } from '../content/zones'
@@ -84,36 +83,22 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     return sim
   }
 
-  // --- Input: the ring nudge is the entire live control surface. -----------
-  let selectedRing: RingIndex = 2
+  // --- Input: the Beat is the entire live control surface. ------------------
+  //
+  // Click anywhere on the field to strike that point. Instant and area-based,
+  // so there is nothing to aim and nothing to miss (combat-spec.md §1).
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    switch (event.key) {
-      case '1':
-        selectedRing = 1
-        break
-      case '2':
-        selectedRing = 2
-        break
-      case '3':
-        selectedRing = 3
-        break
-      case 'ArrowLeft':
-        event.preventDefault()
-        simulation.nudge(selectedRing, -1)
-        break
-      case 'ArrowRight':
-        event.preventDefault()
-        simulation.nudge(selectedRing, 1)
-        break
-      case 'r':
-        session.restart()
-        break
-      default:
-        return
-    }
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.button !== 0) return
+    const world = renderer.toWorld(event.clientX, event.clientY)
+    simulation.strike(world.x, world.y)
   }
 
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'r') session.restart()
+  }
+
+  host.addEventListener('pointerdown', onPointerDown)
   window.addEventListener('keydown', onKeyDown)
 
   // Flush the save when the tab goes away. The autosaver itself stays DOM-free;
@@ -187,6 +172,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
     destroy() {
       cancelAnimationFrame(frame)
+      host.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('beforeunload', onHide)
       autosaver.flush('shutdown')

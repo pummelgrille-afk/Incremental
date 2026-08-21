@@ -7,7 +7,7 @@ import { movementById } from '../src/lib/content/allies'
 import { chimeById } from '../src/lib/content/supportUnits'
 import { computeDamage, mitigate } from '../src/lib/systems/combat'
 import { findConjunctions, timeToNextConjunction } from '../src/lib/systems/synergy'
-import { NUDGE, RINGS } from '../src/lib/content/field'
+import { BEAT, RINGS } from '../src/lib/content/field'
 import type { StageAddress } from '../src/lib/entities/Zone'
 import type { SimulationState } from '../src/lib/core/simulation'
 
@@ -78,47 +78,140 @@ describe('ring rotation', () => {
   })
 })
 
-describe('the ring nudge', () => {
-  it('applies exactly one slot-width', () => {
-    const ring = state.rings[1]
-    const before = ring.phase
-    sim.nudge(2, 1)
-
-    // Long enough for the eased travel to finish.
-    for (let i = 0; i < 12; i++) sim.tick(TICK_SECONDS)
-
-    const naturalDrift = ((Math.PI * 2) / RINGS[1].period) * (12 * TICK_SECONDS)
-    const applied = ring.phase - before - naturalDrift
-    expect(applied).toBeCloseTo((Math.PI * 2) / RINGS[1].slots, 4)
+describe('rings are not controllable', () => {
+  it('exposes no steering input at all', () => {
+    // Phase 10 playtest: steering was a dexterity test and violated P3.
+    // combat-spec.md §1 now forbids it outright, including via upgrades.
+    expect((sim as unknown as Record<string, unknown>).nudge).toBeUndefined()
   })
 
-  it('nudges in both directions', () => {
-    const ring = state.rings[1]
-    const before = ring.phase
-    sim.nudge(2, -1)
-    for (let i = 0; i < 12; i++) sim.tick(TICK_SECONDS)
+  it('rotates at a rate nothing in the simulation changes', () => {
+    const before = state.rings.map((r) => r.angularVelocity)
+    for (let i = 0; i < 200; i++) sim.tick(TICK_SECONDS)
+    sim.strike(0, 90)
+    for (let i = 0; i < 200; i++) sim.tick(TICK_SECONDS)
+    expect(state.rings.map((r) => r.angularVelocity)).toEqual(before)
+  })
+})
 
-    const naturalDrift = ((Math.PI * 2) / RINGS[1].period) * (12 * TICK_SECONDS)
-    expect(ring.phase - before - naturalDrift).toBeCloseTo(-(Math.PI * 2) / RINGS[1].slots, 4)
+describe('the Beat', () => {
+  it('starts fully charged', () => {
+    expect(state.beat.charge).toBe(BEAT.maxCharges)
   })
 
-  it('refuses a second nudge while on cooldown', () => {
-    expect(sim.nudge(2, 1)).toBe(true)
-    expect(sim.nudge(2, 1)).toBe(false)
+  it('spends one charge per strike', () => {
+    expect(sim.strike(100, 0)).toBe(true)
+    expect(state.beat.charge).toBe(BEAT.maxCharges - 1)
+    expect(state.beat.struck).toBe(1)
   })
 
-  it('accepts again once the cooldown expires', () => {
-    sim.nudge(2, 1)
-    for (let i = 0; i < Math.ceil(NUDGE.cooldown / TICK_SECONDS) + 1; i++) sim.tick(TICK_SECONDS)
-    expect(sim.nudge(2, 1)).toBe(true)
+  it('refuses a second strike inside the cooldown', () => {
+    expect(sim.strike(100, 0)).toBe(true)
+    expect(sim.strike(100, 0)).toBe(false)
   })
 
-  it('keeps ring cooldowns independent', () => {
-    expect(sim.nudge(1, 1)).toBe(true)
-    // A skilled player juggles three cooldowns, not one.
-    expect(sim.nudge(2, 1)).toBe(true)
-    expect(sim.nudge(3, 1)).toBe(true)
-    expect(sim.nudge(1, 1)).toBe(false)
+  it('allows another strike once the cooldown passes', () => {
+    sim.strike(100, 0)
+    for (let i = 0; i < Math.ceil(BEAT.cooldown / TICK_SECONDS) + 1; i++) {
+      sim.tick(TICK_SECONDS)
+    }
+    expect(sim.strike(100, 0)).toBe(true)
+  })
+
+  it('refuses when out of charge', () => {
+    for (let i = 0; i < BEAT.maxCharges; i++) {
+      expect(sim.strike(100, 0)).toBe(true)
+      for (let t = 0; t < Math.ceil(BEAT.cooldown / TICK_SECONDS) + 1; t++) {
+        sim.tick(TICK_SECONDS)
+      }
+    }
+    state.beat.charge = 0
+    expect(sim.strike(100, 0)).toBe(false)
+  })
+
+  it('regenerates charge on simulation time', () => {
+    state.beat.charge = 0
+    const seconds = BEAT.rechargeInterval
+    for (let i = 0; i < seconds / TICK_SECONDS; i++) sim.tick(TICK_SECONDS)
+    expect(state.beat.charge).toBeCloseTo(1, 1)
+  })
+
+  it('never exceeds its maximum charge', () => {
+    for (let i = 0; i < 600; i++) sim.tick(TICK_SECONDS)
+    expect(state.beat.charge).toBeLessThanOrEqual(BEAT.maxCharges)
+  })
+
+  it('damages Slack inside the blast radius', () => {
+    for (let i = 0; i < 60; i++) sim.tick(TICK_SECONDS)
+    const target = state.slack[0]
+    expect(target).toBeDefined()
+
+    const before = target.hp
+    sim.strike(target.position.x, target.position.y)
+    expect(target.hp).toBeLessThan(before)
+  })
+
+  it('leaves Slack outside the blast radius alone', () => {
+    for (let i = 0; i < 60; i++) sim.tick(TICK_SECONDS)
+    const target = state.slack[0]
+    const before = target.hp
+
+    // Well beyond the radius.
+    sim.strike(target.position.x + BEAT.radius * 4, target.position.y)
+    expect(target.hp).toBe(before)
+  })
+
+  it('hits several Slack at once, which is why it has a radius', () => {
+    // Percussive is unfavourable against Massed; the blast is what keeps the
+    // one manual action satisfying against the commonest armour class.
+    for (let i = 0; i < 80; i++) sim.tick(TICK_SECONDS)
+    const cluster = state.slack.slice(0, 3)
+    if (cluster.length < 2) return
+
+    // Move them together so a single strike covers them.
+    const point = { x: cluster[0].position.x, y: cluster[0].position.y }
+    for (const s of cluster) {
+      s.position.x = point.x
+      s.position.y = point.y
+    }
+    const before = cluster.map((s) => s.hp)
+    sim.strike(point.x, point.y)
+    cluster.forEach((s, i) => expect(s.hp).toBeLessThan(before[i]))
+  })
+
+  it('never costs Tension', () => {
+    // Its failure mode is damage not dealt, never damage taken.
+    const before = state.mainspring.hp
+    sim.strike(0, 0)
+    expect(state.mainspring.hp).toBe(before)
+  })
+
+  it('does nothing once the stage is resolved', () => {
+    state.phase = 'cleared'
+    expect(sim.strike(100, 0)).toBe(false)
+  })
+
+  it('is optional — a stage still clears without a single strike', () => {
+    // P1 held honestly: the machine really does run without you.
+    const s2 = build()
+    placeMovement(s2.state, movementById('detent')!, 1, 0)
+    placeMovement(s2.state, movementById('detent')!, 1, 3)
+    placeMovement(s2.state, movementById('hammer')!, 2, 0)
+    placeMovement(s2.state, movementById('hammer')!, 2, 5)
+    mountChime(s2.state, chimeById('quarter-bell')!, 0)
+
+    let cleared = false
+    for (let i = 0; i < 4000 && !cleared; i++) cleared = s2.tick(TICK_SECONDS).stageCleared
+
+    expect(cleared).toBe(true)
+    expect(s2.state.beat.struck).toBe(0)
+  })
+
+  it('reports the strike to the render layer even when it hits nothing', () => {
+    // An input with no feedback reads as a broken input.
+    sim.strike(500, 500)
+    expect(sim.lastStrike).not.toBeNull()
+    expect(sim.lastStrike!.x).toBe(500)
   })
 })
 

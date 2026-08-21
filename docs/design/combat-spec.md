@@ -39,21 +39,51 @@ sits at angle `(k / slots_r) * 2π + ringPhase_r`.
 angles, they store slot indices, and their angle is derived. That keeps rotation
 O(rings) rather than O(units).
 
-### The ring nudge — the player's only live input
+### Rings are not controllable
 
-Selecting a ring and pressing left/right applies an angular impulse:
+Ring rotation is **constant and automatic**. There is no input that steers it, at
+any point in the progression, and no upgrade grants one.
+
+> **Revised after the Phase 10 playtest.** The original design made a per-ring
+> "nudge" the player's live input. In play it required tracking three
+> independent cooldowns and reacting under time pressure — a dexterity test,
+> which is precisely what pillar P3 forbids. The spec contradicted the pillar and
+> the pillar was right. See `docs/phases/phase-10.md`.
+>
+> A second problem mattered as much: the nudge was **defensive**. Its purpose was
+> to avoid damage, so using it badly was punished. An input whose failure mode is
+> "you took a hit" generates pressure no amount of tuning removes.
+
+### The Beat — the player's only live input
+
+The Wright works the escapement by hand, releasing a measured beat of stored
+tension as a strike anywhere on the floor.
 
 | Property | Value |
 |----------|-------|
-| Impulse | ±`2π / slots_r` — exactly one slot-width |
-| Duration | 0.4 s eased, not instant |
-| Cooldown | 2.5 s per ring, independent |
-| Cost | None. Free, always. |
+| Aim | Click a point on the field |
+| Delivery | **Instant.** No projectile, no travel time, no leading |
+| Area | 44 px radius at the struck point |
+| Damage type | Percussive |
+| Resource | 3 Beats, one regenerating every 3 s |
+| Cooldown | 0.25 s between strikes, to stop double-click waste |
+| Cost | None beyond the resource. Never spends Tension. |
 
-Nudges are per-ring, so a skilled player is juggling three cooldowns. The impulse
-is a *slot-width* rather than a fixed angle so the input means the same thing on
-every ring. Input tolerance is ~250 ms (P3) — the eased 0.4 s travel means a nudge
-fired slightly late still clears most patterns.
+Four properties make this upside rather than pressure, and none of them are
+negotiable in tuning:
+
+1. **Instant delivery removes aiming skill entirely.** Nothing to lead, nothing
+   to miss with. The decision is *when* and *where*, never *how precisely*.
+2. **Failure is soft.** A badly spent Beat costs you damage you did not deal. It
+   never costs Tension, never opens a gap, never punishes. Compare the nudge,
+   where a mistimed input meant taking a hit.
+3. **Doing nothing is viable.** A player who never clicks still clears stages.
+   The Beat is a lever for someone who wants one, not a tax on everyone else.
+   This is P1 held honestly — the machine really does run without you.
+4. **Area damage keeps it satisfying off-type.** Percussive is unfavourable
+   against `Massed`, the most common armour class. Without a blast radius the
+   one manual action in the game would feel weakest against the enemies the
+   player sees most, which would be a poor joke to build in deliberately.
 
 ## 2. Auto-battle rules
 
@@ -276,7 +306,8 @@ requires.
 To answer with the vertical slice, not from the armchair:
 
 1. Is a 6° conjunction tolerance perceptible, or does it fire faster than it reads?
-2. Is a 2.5 s nudge cooldown per ring engaging or fidgety?
+2. ~~Is a 2.5 s nudge cooldown per ring engaging or fidgety?~~ **Answered in
+   Phase 10: fidgety, and a P3 violation. The nudge is removed; see §1.**
 3. Do rotating defenders read clearly at 200+ on-screen projectiles?
 4. Does the block-arc mechanic communicate itself without a tutorial?
 5. Are three rings the right number, or does the third add work without depth?

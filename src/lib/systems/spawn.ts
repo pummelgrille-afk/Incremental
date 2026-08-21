@@ -27,7 +27,7 @@ function spawnPosition(group: SpawnGroup, index: number, count: number, rng: Rng
   let angle: number
   if (group.arc) {
     // Spread the group evenly across its arc so a concentrated wave reads as a
-    // wall rather than a random smear — the shape a ring nudge answers.
+    // wall rather than a random smear, concentrating the threat on one arc.
     const t = count > 1 ? index / (count - 1) : 0.5
     angle = group.arc.centre + (t - 0.5) * group.arc.width
   } else {

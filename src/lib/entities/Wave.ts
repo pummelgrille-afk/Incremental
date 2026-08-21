@@ -20,7 +20,8 @@ export interface SpawnGroup {
 
   /**
    * Arc of the rim to spawn across, in radians. Omitted means the full circle.
-   * Concentrating a group on one arc is what makes a ring nudge meaningful.
+   * Concentrating a group on one arc creates a cluster worth spending a Beat
+   * on, and leaves the opposite arc briefly undefended.
    */
   readonly arc?: { centre: number; width: number }
 }

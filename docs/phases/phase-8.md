@@ -57,8 +57,9 @@ rather than thirty seconds into a wave.
 
 ### Field geometry moved into content
 
-`content/field.ts` now owns ring radii, slot counts, periods, nudge and
-conjunction constants, mirroring `balancing.csv`. The Phase 7 harness duplicated
+`content/field.ts` now owns ring radii, slot counts, periods, and the Beat and
+conjunction constants, mirroring `balancing.csv`. (It owned nudge constants when
+written; the nudge was removed after the Phase 10 playtest.) The Phase 7 harness duplicated
 these; it now imports them, so there is a single source of truth.
 
 ## A spec bug the tests caught

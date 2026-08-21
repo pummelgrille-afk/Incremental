@@ -67,9 +67,10 @@ Representative: *Vampire Survivors*, *Brotato*, *20 Minutes Till Dawn*,
 **Common failure mode:** execution demands gate the audience. Players who enjoy
 watching dense patterns resolve often cannot survive them.
 
-**Our answer:** we automate firing *and* coarsen positioning. The ring nudge moves
-an entire arc on a ~250 ms-tolerant input (P3). The spectacle survives; the
-dexterity requirement does not.
+**Our answer:** we automate firing *and* remove positioning from the player
+entirely. Rings turn on their own; the only live input is the Beat, which is
+instant and area-based, so there is nothing to aim and nothing to miss (P3). The
+spectacle survives; the dexterity requirement does not.
 
 ## The loop every one of them shares
 
@@ -86,7 +87,7 @@ The genres differ only in *where they put the player's hands*:
 | Incremental | the purchase order | invisible |
 | Auto-battler | pre-fight arrangement | a readout |
 | Bullet-hell | moment-to-moment position | the whole game |
-| **This game** | **arrangement + ring phase** | **a readout you can still steer** |
+| **This game** | **arrangement, plus one optional strike** | **a readout you can lean on** |
 
 That last row is the actual design thesis. We take the auto-battler's
 "commit before the fight" and add one coarse steering input during it, which is

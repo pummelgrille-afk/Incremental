@@ -45,7 +45,7 @@ export const ZONES: readonly ZoneDef[] = [
                 count: 10,
                 delay: 0,
                 interval: 0.5,
-                // Concentrated on one arc, so a ring nudge is the obvious answer.
+                // Concentrated on one arc, so one Beat covers several at once.
                 arc: { centre: 0, width: Math.PI / 3 },
               },
               { defId: 'drift', count: 1, delay: 6, interval: 0 },

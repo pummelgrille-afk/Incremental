@@ -1,9 +1,12 @@
 import type { Projectile } from '../entities/Projectile'
 import { isBossWave } from '../entities/Wave'
-import { CONJUNCTION, NUDGE, RINGS, ringByIndex } from '../content/field'
+import { BEAT, CONJUNCTION, RINGS } from '../content/field'
 import { patternById } from '../systems/patterns'
 import { updateProjectiles } from '../systems/collision'
 import {
+  computeDamage,
+  damageSlack,
+  reapSlack,
   resolveMovementAttacks,
   updateBuffs,
   updateMainspring,
@@ -19,7 +22,6 @@ import { createCooldowns, updateSynergy } from '../systems/synergy'
 import { Pool } from '../utils/pool'
 import type { Rng } from './rng'
 import { isOverwhelmed } from '../entities/Mainspring'
-import type { RingIndex } from '../entities/types'
 import type { SimulationState } from './simulation'
 
 /**
@@ -70,6 +72,12 @@ export class Simulation {
   totalSlackKilled = 0
   totalConjunctions = 0
   tickCount = 0
+
+  /** Most recent strike, for the render layer. Cleared after a short age. */
+  lastStrike: { x: number; y: number; age: number } | null = null
+
+  /** Filings from a strike, banked into the next tick's events. */
+  private pendingFilings = 0
 
   constructor(
     public state: SimulationState,
@@ -137,8 +145,14 @@ export class Simulation {
     this.advanceRings(dt)
 
     // 2. Cooldowns, charge, buffs.
+    this.advanceBeat(dt)
     updateBuffs(sim, dt)
     updateMainspring(sim, dt)
+
+    if (this.pendingFilings > 0) {
+      events.filingsDropped += this.pendingFilings
+      this.pendingFilings = 0
+    }
 
     // 3. Spawning.
     if (sim.phase === 'wave-active') {
@@ -188,59 +202,79 @@ export class Simulation {
   }
 
   /**
-   * Advance every ring's phase, applying any in-flight nudge.
+   * Advance every ring's phase.
    *
    * This is the entire rotation system: one write per ring, and every unit on
    * it moves. Rotation is O(rings), not O(units) — ADR-001.
+   *
+   * Rotation is constant and has no player input. See combat-spec.md §1.
    */
   private advanceRings(dt: number): void {
     const rings = this.state.rings
-
     for (let i = 0; i < rings.length; i++) {
-      const ring = rings[i]
-
-      if (ring.nudgeCooldown > 0) ring.nudgeCooldown = Math.max(0, ring.nudgeCooldown - dt)
-
-      let delta = ring.angularVelocity * dt
-
-      if (ring.nudgeRemaining > 0) {
-        const step = Math.min(dt, ring.nudgeRemaining)
-        // Ease-out: most of the travel happens early, so the nudge reads as a
-        // decisive shove rather than a slow slide.
-        const portion = step / ring.nudgeRemaining
-        const applied = ring.nudgeResidual * portion
-        delta += applied
-        ring.nudgeResidual -= applied
-        ring.nudgeRemaining -= step
-        if (ring.nudgeRemaining <= 0) {
-          delta += ring.nudgeResidual
-          ring.nudgeResidual = 0
-        }
-      }
-
-      ring.phase += delta
+      rings[i].phase += rings[i].angularVelocity * dt
     }
   }
 
   /**
-   * The player's one live input: shove a ring by a slot-width.
+   * The player's one live input: strike a point on the floor.
    *
-   * Returns false when the ring is still on cooldown, so the UI can react.
+   * Instant and area-based — nothing to lead, nothing to miss with. Returns
+   * false when out of charge or still cooling, so the UI can react without
+   * duplicating the rules.
    */
-  nudge(ringIndex: RingIndex, direction: 1 | -1): boolean {
-    const config = ringByIndex(ringIndex)
-    if (!config) return false
+  strike(x: number, y: number): boolean {
+    const sim = this.state
+    if (sim.phase !== 'wave-active' && sim.phase !== 'wave-gap') return false
 
-    const ring = this.state.rings[config.index - 1]
-    if (!ring || ring.nudgeCooldown > 0) return false
+    const beat = sim.beat
+    if (beat.charge < 1 || beat.cooldown > 0) return false
 
-    // A slot-width, so the input means the same thing on every ring.
-    const impulse = ((Math.PI * 2) / config.slots) * NUDGE.impulseSlots * direction
+    beat.charge -= 1
+    beat.cooldown = BEAT.cooldown
+    beat.struck++
 
-    ring.nudgeResidual = impulse
-    ring.nudgeRemaining = NUDGE.duration
-    ring.nudgeCooldown = NUDGE.cooldown
+    const dead = new Set<number>()
+    const radiusSq = BEAT.radius * BEAT.radius
+
+    for (const slack of sim.slack) {
+      const dx = slack.position.x - x
+      const dy = slack.position.y - y
+      if (dx * dx + dy * dy > radiusSq) continue
+
+      const damage = computeDamage(
+        BEAT.baseDamage,
+        1,
+        'percussive',
+        slack.def.armour,
+        slack.def.defence,
+      )
+      if (damageSlack(slack, damage)) dead.add(slack.id)
+    }
+
+    if (dead.size > 0) {
+      const reaped = reapSlack(sim, dead)
+      this.totalSlackKilled += reaped.slackKilled
+      this.pendingFilings += reaped.filingsDropped
+    }
+
+    // Surfaced to the render layer so the strike is visible even when it hits
+    // nothing — an input with no feedback reads as a broken input.
+    this.lastStrike = { x, y, age: 0 }
     return true
+  }
+
+  /** Advance Beat charge and cooldown on simulation time. */
+  private advanceBeat(dt: number): void {
+    const beat = this.state.beat
+    if (beat.cooldown > 0) beat.cooldown = Math.max(0, beat.cooldown - dt)
+    if (beat.charge < beat.maxCharge) {
+      beat.charge = Math.min(beat.maxCharge, beat.charge + dt / BEAT.rechargeInterval)
+    }
+    if (this.lastStrike) {
+      this.lastStrike.age += dt
+      if (this.lastStrike.age > 0.35) this.lastStrike = null
+    }
   }
 
   /** Slack telegraph, then emit. A pattern that kills without warning is a bug. */

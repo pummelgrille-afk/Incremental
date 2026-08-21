@@ -1,6 +1,5 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
-  import { NUDGE } from '../content/field'
 
   /**
    * Minimal always-on HUD: objective health, resources, wave indicator.
@@ -8,8 +7,6 @@
    */
 
   let { showDiagnostics = false }: { showDiagnostics?: boolean } = $props()
-
-  const RING_LABELS = ['Inner', 'Main', 'Outer']
 
   function format(n: number): string {
     if (n < 1000) return Math.floor(n).toString()
@@ -40,22 +37,16 @@
   </header>
 
   <footer>
-    <div class="rings">
-      {#each RING_LABELS as label, i (label)}
-        {@const cooldown = game.nudgeCooldowns[i] ?? 0}
-        <div class="ring" class:ready={cooldown <= 0}>
-          <span class="key">{i + 1}</span>
-          <span class="name">{label}</span>
-          <div class="cd">
-            <div class="cd-fill" style:width="{(1 - cooldown / NUDGE.cooldown) * 100}%"></div>
-          </div>
-        </div>
-      {/each}
+    <div class="beat" class:ready={game.canStrike}>
+      <span class="label">The Beat</span>
+      <div class="pips">
+        {#each Array(game.beatMaxCharge) as _, i (i)}
+          <span class="pip" class:filled={i < game.beatsReady}></span>
+        {/each}
+      </div>
     </div>
 
-    <p class="hint">
-      <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> select ring · <kbd>←</kbd><kbd>→</kbd> nudge
-    </p>
+    <p class="hint">Click the floor to strike · <kbd>R</kbd> restart</p>
   </footer>
 
   {#if showDiagnostics}
@@ -72,6 +63,7 @@
         {/if}
         <dt>killed</dt><dd>{game.slackKilled}</dd>
         <dt>conj.</dt><dd>{game.conjunctions}</dd>
+        <dt>beats</dt><dd>{game.beatsStruck}</dd>
       </dl>
     </aside>
   {/if}
@@ -164,49 +156,40 @@
     background: #f87171;
   }
 
-  .rings {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .ring {
+  .beat {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.2rem;
-    min-width: 4.5rem;
-    padding: 0.35rem 0.6rem;
+    gap: 0.3rem;
+    padding: 0.45rem 1rem;
     background: rgba(11, 10, 8, 0.8);
     border: 1px solid var(--brass-dim);
     border-radius: 0.3rem;
-    opacity: 0.5;
+    opacity: 0.55;
+    transition: opacity 120ms linear;
   }
 
-  .ring.ready {
+  .beat.ready {
     opacity: 1;
+    border-color: var(--brass);
   }
 
-  .key {
-    font-weight: 600;
-    color: var(--brass);
+  .pips {
+    display: flex;
+    gap: 0.3rem;
   }
 
-  .name {
-    font-size: 0.65rem;
-    color: var(--muted);
-  }
-
-  .cd {
-    width: 100%;
-    height: 3px;
+  .pip {
+    width: 10px;
+    height: 10px;
     background: #1c1a14;
-    border-radius: 2px;
-    overflow: hidden;
+    border: 1px solid var(--brass-dim);
+    border-radius: 50%;
   }
 
-  .cd-fill {
-    height: 100%;
+  .pip.filled {
     background: var(--brass);
+    border-color: var(--brass);
   }
 
   .hint {

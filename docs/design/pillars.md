@@ -16,8 +16,9 @@ and never fire a shot. Instead you:
   and formation).
 - **Mount** longer-ranged support units on the outer rim, covering the arcs your
   front line cannot (ranged support).
-- **Nudge** a ring's rotation — the one live input — sliding a whole arc of
-  defenders out of an incoming pattern (bullet-hell positioning, at macro scale).
+- **Strike** with the Beat — the one live input — releasing stored tension
+  instantly at a point on the floor. Optional: it adds damage when used and
+  costs nothing when ignored.
 - **Spend** what the wreckage drops on permanent upgrades, then reset the machine
   and go again, further (idle progression + permanent upgrades).
 
@@ -92,8 +93,15 @@ on a static grid is not pulling its weight.
 
 **P3 — Reward the plan, not the reflex.**
 Conjunction, ring phasing, and pattern timing pay off arrangements made in advance.
-The single live input (ring nudge) is a coarse, satisfying lever — never a
-dexterity test. This keeps the game playable one-handed and accessible.
+The single live input (the Beat) is instant and area-based, so there is no
+aiming skill and nothing to miss with — never a dexterity test. Its failure mode
+is *damage not dealt*, never *damage taken*, which is what keeps it a lever
+rather than a tax. This keeps the game playable one-handed and accessible.
+
+*Revised after the Phase 10 playtest: the original live input was a per-ring
+"nudge" that required tracking three cooldowns and reacting under pressure. It
+violated this pillar. Rings are now permanently automatic — see combat-spec.md
+§1.*
 
 **P4 — Legibility over spectacle.**
 Hundreds of projectiles must stay readable. Brass and warm light on a dark field,
@@ -117,8 +125,8 @@ paying out while they are elsewhere. Comfortable with numbers going up and with
 reading a tooltip.
 
 **Secondary audience.** Bullet-hell spectators — people who enjoy watching dense
-patterns resolve but bounce off the execution demands of the genre. The ring-nudge
-input is deliberately sized for them.
+patterns resolve but bounce off the execution demands of the genre. The Beat is
+deliberately sized for them: instant, area-based, and entirely optional.
 
 **Session shape.** 10–30 minutes of active arrangement per sitting, with meaningful
 offline accrual between sittings. Never require a session longer than one run.

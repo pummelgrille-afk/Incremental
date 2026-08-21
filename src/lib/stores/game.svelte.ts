@@ -37,8 +37,11 @@ class GameStore {
   slackKilled = $state(0)
   conjunctions = $state(0)
 
-  /** Seconds remaining on each ring's nudge cooldown. */
-  nudgeCooldowns = $state<number[]>([0, 0, 0])
+  // The Beat — the only live input
+  beatCharge = $state(0)
+  beatMaxCharge = $state(0)
+  beatCooldown = $state(0)
+  beatsStruck = $state(0)
 
   // Performance, shown when settings.showFps is on
   fps = $state(0)
@@ -51,6 +54,10 @@ class GameStore {
 
   /** True while the player can act — used to gate input and dim the field. */
   running = $derived(this.phase === 'wave-active' || this.phase === 'wave-gap')
+
+  /** Whole charges available. Fractional regeneration is not spendable. */
+  beatsReady = $derived(Math.floor(this.beatCharge))
+  canStrike = $derived(this.beatsReady >= 1 && this.beatCooldown <= 0 && this.running)
 
   /**
    * Copy the scalars out of the simulation. Called once per rendered frame.
@@ -83,8 +90,10 @@ class GameStore {
     this.projectilePeak = simulation.projectiles.peak
     this.projectileExhausted = simulation.projectiles.exhausted
 
-    // Assigning a new array is what makes the rune fire; mutating would not.
-    this.nudgeCooldowns = sim.rings.map((r) => r.nudgeCooldown)
+    this.beatCharge = sim.beat.charge
+    this.beatMaxCharge = sim.beat.maxCharge
+    this.beatCooldown = sim.beat.cooldown
+    this.beatsStruck = sim.beat.struck
   }
 
   reset(): void {

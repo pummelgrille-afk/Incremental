@@ -86,7 +86,7 @@ requires all its declared prerequisites.
 | **Winding** (offence) | Attack, haste, crit, conjunction potency | 6 | ~22 | The Manual, terse |
 | **Bracing** (defence) | Tension pool, Movement defence, block arc, recovery time | 6 | ~20 | The Undermaster |
 | **Salvage** (economy) | Filing drops, offline rate and cap, repair costs | 5 | ~16 | Sabel Ock, sardonic |
-| **Regulation** (utility) | Nudge cooldown, ring speed control, conjunction tolerance, preview quality | 5 | ~14 | The Manual's marginalia |
+| **Regulation** (utility) | Beat charges and regeneration, blast radius, conjunction tolerance, preview quality | 5 | ~14 | The Manual's marginalia |
 
 ~72 nodes total. Node cost within a branch:
 
@@ -94,10 +94,15 @@ requires all its declared prerequisites.
 cost = baseCost_tier * 1.9^(nodesPurchasedInBranch)
 ```
 
-**Regulation is the interesting branch.** It buys *control*, not numbers — a
-shorter nudge cooldown, a wider conjunction tolerance, the ability to slow a ring.
-It is the branch that changes how the game plays rather than how hard it hits, and
-Phase 34 should protect that identity when filling out content.
+**Regulation is the interesting branch.** It buys *reach and readability*, not
+numbers — extra Beat charges, a wider blast radius, a wider conjunction
+tolerance, a longer preview horizon. It is the branch that changes how the game
+plays rather than how hard it hits, and Phase 34 should protect that identity
+when filling out content.
+
+Note that Regulation must never grant control over ring rotation. Rings are
+permanently automatic (combat-spec.md §1); an upgrade that re-introduced
+steering would re-introduce the dexterity problem the Phase 10 playtest found.
 
 **Respec:** allowed, free, only between runs. Charging for respec would punish
 experimenting with formations, which is the game's main pleasure. The cost of a

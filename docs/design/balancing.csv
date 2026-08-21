@@ -10,9 +10,11 @@ field,rim_mounts,8,4,12,count,5,Chime mount points
 field,ring1_period,8,5,12,s,5,Seconds per revolution
 field,ring2_period,14,10,20,s,5,Non-integer ratio to ring1 on purpose
 field,ring3_period,22,16,30,s,5,Non-integer ratio to ring1 and ring2
-nudge,nudge_impulse_slots,1,1,2,slots,5,One slot-width so input reads the same on every ring
-nudge,nudge_duration,0.4,0.2,0.8,s,5,Eased not instant
-nudge,nudge_cooldown,2.5,1.5,5.0,s,5,Per ring independent
+beat,beat_max_charges,3,2,6,count,5,Wright's manual strike; Regulation branch raises this
+beat,beat_recharge_interval,3,1.5,6,s,5,Seconds to regain one Beat
+beat,beat_cooldown,0.25,0.1,0.5,s,5,Minimum gap between strikes so a double-click does not waste one
+beat,beat_radius,44,25,80,px,5,Blast radius; keeps it satisfying against Massed despite Percussive penalty
+beat,beat_damage,26,15,45,damage,5,Percussive; tuned so ignoring the Beat is still viable
 objective,mainspring_hitbox,28,20,40,px,5,Smaller than rendered sprite for fairness
 objective,tension_base,1000,500,2000,hp,6,Starting Tension pool
 objective,tension_per_bracing_tier,250,100,500,hp,6,Bracing branch scaling

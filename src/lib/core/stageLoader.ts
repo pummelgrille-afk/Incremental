@@ -3,7 +3,7 @@ import { isBossWave } from '../entities/Wave'
 import { parseStageAddress, type StageAddress, type StageDef, type ZoneDef } from '../entities/Zone'
 import { slackById } from '../content/enemies'
 import { zoneById } from '../content/zones'
-import { createRingStates, type SimulationState } from './simulation'
+import { createBeatState, createRingStates, type SimulationState } from './simulation'
 
 /**
  * Reads a zone/stage definition from content and initializes the simulation.
@@ -110,6 +110,7 @@ export function loadStage(
 
     mainspring: createMainspring(maxTension),
     rings: createRingStates(),
+    beat: createBeatState(),
 
     movements: [],
     chimes: [],

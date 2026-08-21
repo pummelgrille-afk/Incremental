@@ -23,9 +23,9 @@ flowchart TD
     B --> C[Slack close on the Mainspring and open fire]
     C --> D{Movements auto-engage}
     D --> E[Chimes cover uncovered arcs from the rim]
-    E --> F{Player nudges a ring?}
-    F -->|Yes| G[Whole arc slides clear of the pattern]
-    F -->|No| H[Rings continue at base rate]
+    E --> F{Player strikes with the Beat?}
+    F -->|Yes| G[Instant area damage at the struck point]
+    F -->|No| H[Rings turn on; the machine copes]
     G --> I{Conjunction aligned?}
     H --> I
     I -->|Yes| J[Alignment fires: burst effect]
@@ -51,8 +51,9 @@ is the unit of attention: a player should be able to put the tab down at any wav
 boundary without losing anything.
 
 **Where the decisions are.** Between waves the player re-slots Movements, re-mounts
-Chimes, and spends Filings. During a wave the only input is the ring nudge. This is
-the auto-battler's commit-then-watch rhythm with one steering lever added (P2, P3).
+Chimes, and spends Filings. During a wave the only input is the Beat, and it is
+optional — a player who never clicks still clears stages. This is the
+auto-battler's commit-then-watch rhythm with one lever of upside added (P2, P3).
 
 ## The session-to-session loop
 

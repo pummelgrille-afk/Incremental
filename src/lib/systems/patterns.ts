@@ -69,7 +69,7 @@ function spawnAt(
   }
 }
 
-/** *n* projectiles across an arc, centred on the target. Nudge out of the cone. */
+/** *n* projectiles across an arc, centred on the target. Absorbed by the line. */
 export function spread(count: number, arc: number, speed: number) {
   return (ctx: PatternContext): ProjectileSpawn[] => {
     const centre = aimAngle(ctx.origin, ctx.target)

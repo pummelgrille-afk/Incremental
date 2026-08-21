@@ -62,6 +62,10 @@ exactly as designed: fewer bullets, no allocation, no stutter, and
 **Answer to PLAN.md's question:** yes, comfortably. 60 fps is not in question;
 the budget has roughly 5× headroom before it is.
 
+*(These figures predate the nudge→Beat change. That change removed per-ring
+nudge bookkeeping and added one instant area query per click, so the cost is
+strictly lower. Not re-measured, because nothing in it could raise the number.)*
+
 ## combat-spec.md §9 — answers
 
 ### Q1 — Is a 6° conjunction tolerance perceptible, or does it fire faster than it reads?
@@ -77,13 +81,49 @@ the tolerance row is close to inert, the cooldown row is the live one.
 
 ### Q2 — Is a 2.5 s nudge cooldown per ring engaging or fidgety?
 
-**Mechanically exact, and three independent cooldowns is the right amount of
-juggling.** Verified the impulse applies 0.6283 rad on ring 2 — precisely
-2π/10, one slot-width — that a second nudge is refused while cooling, that it is
-accepted again after, and that the three rings are independent.
+**Fidgety — and the mechanic was removed because of it.**
 
-Whether it *feels* fidgety needs a human at the keyboard; the mechanism is
-correct and the timing matches the spec.
+The mechanism was verified exact: the impulse applied 0.6283 rad on ring 2,
+precisely 2π/10, one slot-width; a second nudge was refused while cooling and
+accepted after; the three rings were independent. It did what the spec said.
+
+The spec was wrong. Played by a human, tracking three independent cooldowns and
+reacting to incoming patterns under time pressure is **a dexterity test**, which
+pillar P3 explicitly forbids. The implementation contradicted the pillar and the
+pillar won.
+
+Player report: *"the selection thing feels kinda awkward — I have to think fast
+and much about what ring to rotate and when, to not get hit."*
+
+Two distinct faults, worth separating because only the first is obvious:
+
+1. **Cognitive load.** Three objects × two directions × timing, all live.
+2. **It was defensive.** Its purpose was to *avoid damage*, so a mistake was
+   punished with a hit. An input whose failure mode is loss generates pressure
+   that no amount of cooldown tuning removes. This is the deeper fault, and it
+   would have survived any rebalancing of the first.
+
+### The replacement: the Beat
+
+Rings are now **permanently constant and never controllable** — not by input,
+not by upgrade. The live input is the Beat: click a point, strike it instantly
+in a 44 px radius, 3 charges regenerating one per 3 s.
+
+| | Nudge (removed) | Beat |
+|---|---|---|
+| Purpose | Avoid damage | Deal damage |
+| Failure mode | **You take a hit** | You dealt less damage |
+| Objects to track | 3 rings × 2 directions | 1 |
+| Aiming skill | Timing against moving patterns | None — instant, area |
+| Ignoring it | Loses stages | Still clears stages |
+
+That last row is the test that matters, and it is enforced by
+`tests/simulation.test.ts`: a stage clears with `beat.struck === 0`. P1 says the
+machine runs without you; now it demonstrably does.
+
+Full write-up in `combat-spec.md` §1. `pillars.md`, `game-loop.md`,
+`market-research.md`, `economy-spec.md` and `balancing.csv` were updated in the
+same change, so no doc still describes the nudge as live.
 
 ### Q3 — Do rotating defenders read clearly at 200+ projectiles?
 
@@ -100,10 +140,17 @@ tracked and Movements take the damage they intercept), but whether a player
 
 ### Q5 — Are three rings the right number?
 
-**Provisionally yes.** Three rings give conjunction three distinct scales
-(minor/major/grand) and the nudge three independent cooldowns. Two rings would
-make `grand` unreachable; four would add a fourth cooldown to juggle, which
-starts to fight P3's "no dexterity test". Revisit at Phase 20.
+**Provisionally yes**, and the case is now cleaner than it was.
+
+Originally three rings were justified partly by giving the nudge three
+independent cooldowns. With the nudge gone, that argument disappears — and the
+answer does not change, which is a better sign than if it had.
+
+What remains: three rings give conjunction three distinct scales
+(minor/major/grand). Two would make `grand` unreachable and collapse the
+symmetric-versus-asymmetric trade below into something trivial. Four would add
+combinatorial depth the player has no interface to reason about yet. Revisit at
+Phase 20, once the formation editor exists.
 
 ## Two design findings
 
@@ -153,7 +200,7 @@ and a spatial grid built before the access patterns are known would be guesswork
 
 | File | Covers |
 |------|--------|
-| `tests/simulation.test.ts` | Fixed timestep, catch-up clamp, determinism, ring rotation, nudge mechanics, damage formulas, formation bonuses, conjunction rules, stage progression, telegraphs, budget degradation |
+| `tests/simulation.test.ts` | Fixed timestep, catch-up clamp, determinism, ring rotation, Beat mechanics, damage formulas, formation bonuses, conjunction rules, stage progression, telegraphs, budget degradation |
 | `tests/pool.test.ts` | Preallocation, exhaustion, reuse, churn, double-release safety |
 
 Two guards worth naming: the simulation is **deterministic for a given seed**
@@ -166,6 +213,6 @@ without a telegraph first**.
 |-------|------|
 | 11 | Pool instrumentation exists (`peak`, `exhausted`); needs budgets + a low-spec re-measure |
 | 15–17 | Full motion set, pattern set, spatial partitioning |
-| 20 | Q3 and Q5; tune conjunction **cooldown** not tolerance; keep ring periods coprime |
+| 20 | Q3 and Q5; tune conjunction **cooldown** not tolerance; keep ring periods coprime; tune Beat damage so ignoring it stays viable |
 | 24 | Formation editor should surface the symmetry trade-off |
 | 36 | Q4 — whether block-arc teaches itself |

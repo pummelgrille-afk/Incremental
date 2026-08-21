@@ -4,7 +4,7 @@ import type { MovementInstance } from '../entities/Movement'
 import type { Projectile } from '../entities/Projectile'
 import type { SlackInstance } from '../entities/Slack'
 import type { StageDef, ZoneDef } from '../entities/Zone'
-import { RINGS } from '../content/field'
+import { BEAT, RINGS } from '../content/field'
 
 /**
  * The complete mutable state of one loaded stage.
@@ -18,14 +18,25 @@ import { RINGS } from '../content/field'
 export interface RingState {
   /** Radians. The only per-ring mutable value — units derive angles from it. */
   phase: number
-  /** Radians per second, including any active nudge impulse. */
+  /** Radians per second. Constant; nothing in the game changes it. */
   angularVelocity: number
-  /** Seconds until this ring can be nudged again. */
-  nudgeCooldown: number
-  /** Remaining eased travel from an active nudge, in seconds. */
-  nudgeRemaining: number
-  /** Radians still to apply from the active nudge. */
-  nudgeResidual: number
+}
+
+/**
+ * The Wright's manual strike. combat-spec.md §1.
+ *
+ * Lives on the simulation rather than the UI because charge regenerates on
+ * simulation time, so it keeps accruing at the same rate regardless of frame
+ * rate and stops accruing when the stage is over.
+ */
+export interface BeatState {
+  /** Fractional so regeneration is smooth; floor before spending. */
+  charge: number
+  maxCharge: number
+  /** Seconds until another strike is allowed. */
+  cooldown: number
+  /** Cumulative, for statistics and achievements. */
+  struck: number
 }
 
 export type StagePhase =
@@ -52,6 +63,7 @@ export interface SimulationState {
 
   mainspring: MainspringState
   rings: RingState[]
+  beat: BeatState
 
   movements: MovementInstance[]
   chimes: ChimeInstance[]
@@ -73,10 +85,11 @@ export function createRingStates(): RingState[] {
   return RINGS.map((ring) => ({
     phase: 0,
     angularVelocity: (Math.PI * 2) / ring.period,
-    nudgeCooldown: 0,
-    nudgeRemaining: 0,
-    nudgeResidual: 0,
   }))
+}
+
+export function createBeatState(maxCharge = BEAT.maxCharges): BeatState {
+  return { charge: maxCharge, maxCharge, cooldown: 0, struck: 0 }
 }
 
 export function allocateId(sim: SimulationState): number {
