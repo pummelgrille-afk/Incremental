@@ -6,6 +6,9 @@ import { mountChime, placeMovement, removeMovement } from '../src/lib/core/forma
 import { movementById } from '../src/lib/content/allies'
 import { chimeById } from '../src/lib/content/supportUnits'
 import { computeDamage, mitigate } from '../src/lib/systems/combat'
+import { updateProjectiles } from '../src/lib/systems/collision'
+import { createSlack } from '../src/lib/systems/spawn'
+import { slackById } from '../src/lib/content/enemies'
 import { findConjunctions, timeToNextConjunction } from '../src/lib/systems/synergy'
 import { BEAT, RINGS } from '../src/lib/content/field'
 import type { StageAddress } from '../src/lib/entities/Zone'
@@ -55,6 +58,32 @@ describe('fixed timestep', () => {
     expect(a.state.slack.length).toBe(b.state.slack.length)
     expect(a.state.filingsEarned).toBeCloseTo(b.state.filingsEarned, 10)
     expect(a.totalSlackKilled).toBe(b.totalSlackKilled)
+
+    // Tension is the sensitive signal: counts survive small timing jitter but
+    // damage taken does not. A stray Math.random() in spawn.ts hid behind the
+    // coarser assertions above until Phase 12.
+    expect(a.state.mainspring.hp).toBe(b.state.mainspring.hp)
+    expect(a.state.mainspring.lowestFraction).toBe(b.state.mainspring.lowestFraction)
+  })
+
+  it('produces identical entity state across two seeded runs', () => {
+    const a = build()
+    const b = build()
+    for (let i = 0; i < 300; i++) {
+      a.tick(TICK_SECONDS)
+      b.tick(TICK_SECONDS)
+    }
+
+    const snapshot = (s: Simulation) =>
+      s.state.slack.map((x) => [
+        x.def.id,
+        x.hp.toFixed(6),
+        x.position.x.toFixed(6),
+        x.position.y.toFixed(6),
+        x.patternCooldown.toFixed(6),
+      ])
+
+    expect(snapshot(a)).toEqual(snapshot(b))
   })
 })
 
@@ -457,5 +486,93 @@ describe('ring period constraint', () => {
         expect(Math.max(reducedA, reducedB), `${a}:${b} repeats too fast`).toBeGreaterThan(2)
       }
     }
+  })
+})
+
+describe('every damage path goes through the type matrix', () => {
+  /**
+   * Regression guard. Chime projectiles and conjunction pulses originally
+   * applied raw damage, bypassing both the type multiplier and armour. That
+   * made "Chimes are always Resonant" (combat-spec.md §4) meaningless, since
+   * the entire reason they counter Erratic and struggle against Seized is the
+   * ×1.5 / ×0.75.
+   */
+  function slackAt(s: Simulation, defId: string, x: number, y: number) {
+    const instance = createSlack(s.state, slackById(defId)!, { x, y })
+    instance.velocity = { x: 0, y: 0 }
+    instance.hp = 100000
+    instance.maxHp = 100000
+    s.state.slack.push(instance)
+    return instance
+  }
+
+  function chimeShotDamage(defId: string): number {
+    const s = build()
+    s.state.movements.length = 0
+    const target = slackAt(s, defId, 200, 0)
+
+    const p = s.projectiles.acquire()!
+    p.faction = 'chime'
+    p.position = { x: 200, y: 0 }
+    p.velocity = { x: 0, y: 0 }
+    p.damage = 100
+    p.damageType = 'resonant'
+    p.radius = 4
+    p.lifetime = 5
+    p.angularVelocity = 0
+
+    const before = target.hp
+    updateProjectiles(s.state, s.projectiles, TICK_SECONDS)
+    return before - target.hp
+  }
+
+  it('applies the Resonant advantage against Erratic Slack', () => {
+    // backlash is Erratic — Resonant is favourable (×1.5).
+    const erratic = chimeShotDamage('backlash')
+    // drift is Seized — Resonant is unfavourable (×0.75).
+    const seized = chimeShotDamage('drift')
+
+    expect(erratic).toBeGreaterThan(0)
+    expect(seized).toBeGreaterThan(0)
+    expect(erratic).toBeGreaterThan(seized)
+  })
+
+  it('applies armour mitigation to Chime shots', () => {
+    // drift is Seized (Resonant ×0.75) with 8 defence. The type multiplier
+    // alone would give 75; mitigation must take it below that.
+    const damage = chimeShotDamage('drift')
+    expect(damage).toBeLessThan(75)
+    expect(damage).toBeGreaterThan(60)
+  })
+
+  it('leaves a neutral, unarmoured target at face value', () => {
+    // burr is Massed with 0 defence, and Resonant vs Massed is neutral — so
+    // exactly 100 is the correct answer here, not evidence of a bypass.
+    expect(chimeShotDamage('burr')).toBeCloseTo(100, 5)
+  })
+
+  it('makes conjunction pulses type-sensitive too', () => {
+    // An off-type build must not be strictly better at conjunctions.
+    function pulseDamage(defId: string): number {
+      const s = build()
+      s.state.movements.length = 0
+      // hammer is Percussive; its conjunction effect is a damagePulse.
+      placeMovement(s.state, movementById('hammer')!, 1, 0)
+      placeMovement(s.state, movementById('hammer')!, 2, 0)
+
+      const target = slackAt(s, defId, 90, 0)
+      const before = target.hp
+      // Run long enough for the synergy pass to fire.
+      for (let i = 0; i < 4; i++) s.tick(TICK_SECONDS)
+      return before - target.hp
+    }
+
+    // burr is Massed — Percussive is unfavourable (×0.75).
+    // backlash is Erratic — Percussive is neutral (×1.0).
+    const massed = pulseDamage('burr')
+    const erratic = pulseDamage('backlash')
+
+    expect(massed).toBeGreaterThan(0)
+    expect(erratic).toBeGreaterThan(massed)
   })
 })

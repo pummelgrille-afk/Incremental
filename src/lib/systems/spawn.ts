@@ -40,10 +40,19 @@ function spawnPosition(group: SpawnGroup, index: number, count: number, rng: Rng
   }
 }
 
+/**
+ * Build a Slack instance.
+ *
+ * `rng` is **optional and opting in to jitter**, not the reverse. Omitting it
+ * gives a fixed stagger, so a caller can never introduce nondeterminism by
+ * forgetting to thread a generator through — which is exactly how a stray
+ * `Math.random()` survived here until Phase 12.
+ */
 export function createSlack(
   sim: SimulationState,
   def: SlackDef,
   position: { x: number; y: number },
+  rng?: Rng,
 ): SlackInstance {
   const scalingIndex = sim.stage.scalingIndex
   const zoneMultiplier = sim.zone.scalingMultiplier
@@ -59,7 +68,8 @@ export function createSlack(
     maxHp,
     scaledAttack: scaleDamage(def.attack, scalingIndex, zoneMultiplier),
     // Stagger the first emission so a group does not fire in perfect unison.
-    patternCooldown: def.patternInterval * (0.4 + Math.random() * 0.6),
+    // Deterministic midpoint when no generator is supplied.
+    patternCooldown: def.patternInterval * (rng ? 0.4 + rng.next() * 0.6 : 0.7),
     telegraphRemaining: 0,
     shieldHitsRemaining: def.traits?.shieldHits ?? 0,
     hitFlash: 0,
@@ -86,7 +96,9 @@ export function updateSpawning(sim: SimulationState, rng: Rng, previousElapsed: 
       const due = group.delay + group.interval * i
       // Fire exactly once, on the tick that crosses the due time.
       if (due > previousElapsed && due <= sim.waveElapsed) {
-        sim.slack.push(createSlack(sim, def, spawnPosition(group, i, group.count, rng)))
+        sim.slack.push(
+          createSlack(sim, def, spawnPosition(group, i, group.count, rng), rng),
+        )
       }
     }
   }

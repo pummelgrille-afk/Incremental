@@ -3,7 +3,13 @@ import { ringByIndex, slotAngle } from '../content/field'
 import type { SimulationState } from '../core/simulation'
 import type { Pool } from '../utils/pool'
 import { angleDelta } from './ai'
-import { damageMainspring, damageMovement, damageSlack, reapSlack } from './combat'
+import {
+  computeDamage,
+  damageMainspring,
+  damageMovement,
+  damageSlack,
+  reapSlack,
+} from './combat'
 
 /**
  * Projectile integration and collision.
@@ -146,7 +152,19 @@ function resolveChimeProjectile(
     const radius = p.radius + 11
 
     if (dx * dx + dy * dy <= radius * radius) {
-      if (damageSlack(slack, p.damage)) dead.add(slack.id)
+      // Friendly projectiles go through the same formula as every other damage
+      // source. Applying raw damage here would make "Chimes are always
+      // Resonant" (combat-spec.md section 4) meaningless — the whole reason
+      // they counter Erratic and struggle against Seized is the type
+      // multiplier — and would let them ignore armour entirely.
+      const damage = computeDamage(
+        p.damage,
+        1,
+        p.damageType,
+        slack.def.armour,
+        slack.def.defence,
+      )
+      if (damageSlack(slack, damage)) dead.add(slack.id)
       return true
     }
   }

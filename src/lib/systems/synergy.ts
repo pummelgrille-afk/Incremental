@@ -3,7 +3,7 @@ import type { ConjunctionScale } from '../entities/types'
 import { CONJUNCTION, ringByIndex, slotAngle } from '../content/field'
 import type { SimulationState } from '../core/simulation'
 import { angleDelta } from './ai'
-import { damageSlack, reapSlack } from './combat'
+import { computeDamage, damageSlack, reapSlack } from './combat'
 
 /**
  * Conjunction — the signature mechanic (combat-spec.md §3).
@@ -148,7 +148,18 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
             if (dead.has(slack.id)) continue
             const slackAngle = Math.atan2(slack.position.y, slack.position.x)
             if (Math.abs(angleDelta(event.angle, slackAngle)) <= 0.5) {
-              if (damageSlack(slack, magnitude)) dead.add(slack.id)
+              // Carries the participating unit's damage type, so a conjunction
+              // is as type-sensitive as the unit that fired it. Raw damage here
+              // would make an off-type build strictly better at conjunctions
+              // than an on-type one.
+              const damage = computeDamage(
+                magnitude,
+                1,
+                movement.def.damageType,
+                slack.def.armour,
+                slack.def.defence,
+              )
+              if (damageSlack(slack, damage)) dead.add(slack.id)
             }
           }
           break

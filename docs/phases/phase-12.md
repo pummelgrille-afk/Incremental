@@ -69,10 +69,47 @@ The fix splits it: `updateObjective` handles recovery at step 2, and a separate
 `previousFraction` baseline stored on the Mainspring. `lowestFraction` moved into
 `damageMainspring`, which is the only path by which Tension falls.
 
-This is the second time this session that ordering inside the tick has produced a
-silent no-op. Worth noting as a pattern: **anything that observes change must run
-after the step that causes it**, and the numbered order in `combat-spec.md` §8 is
-the thing to check against.
+Worth noting as a pattern: **anything that observes change must run after the
+step that causes it**, and the numbered order in `combat-spec.md` §8 is the thing
+to check against.
+
+*(An earlier draft of this note claimed conjunctions had the same problem. They
+do not — rings advance at step 1 and conjunction evaluates at step 9, which is
+correct. The claim was checked and withdrawn.)*
+
+## Two further bugs found while checking that claim
+
+### Chime shots and conjunction pulses bypassed the type matrix
+
+`resolveChimeProjectile` and the conjunction `damagePulse` both applied **raw
+damage** — no type multiplier, no armour mitigation — while Movement melee and
+the Beat went through `computeDamage`.
+
+That made "Chimes are always Resonant" (`combat-spec.md` §4) meaningless: the
+entire reason they counter `Erratic` and struggle against `Seized` is the
+×1.5 / ×0.75, and none of it was applied. They also ignored armour completely.
+
+Conjunction pulses now carry the participating Movement's damage type, so an
+off-type build is no longer strictly better at conjunctions than an on-type one.
+
+Balance impact at stage 1 is small — clear time moved 35.5 s → 37.05 s — because
+early Slack have low defence and a narrow type spread. It will matter much more
+once Phase 31 fills out the tiered roster.
+
+### `Math.random()` in the simulation
+
+`spawn.ts` used `Math.random()` for pattern-cooldown stagger, directly
+contradicting the invariant `rng.ts` documents and Phase 10 claimed.
+
+The Phase 10 determinism test missed it because it compared kill counts and
+Filings, which survive small timing jitter. Tension does not: three identical
+runs gave lowest-Tension fractions of 0.972 / 0.976 / 0.972.
+
+`createSlack` now takes an **optional** `rng`. Omitting it yields a fixed
+stagger, so a caller can never introduce nondeterminism by forgetting to thread
+a generator through — the unsafe behaviour has to be opted into. The determinism
+test now compares Tension and a full per-entity snapshot; four consecutive runs
+are bit-identical.
 
 ## Verified in the browser
 
