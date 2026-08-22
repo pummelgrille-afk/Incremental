@@ -17,11 +17,17 @@ import type { ContactDef } from '../entities/Contact'
  * stage meets more bodies, never more set pieces — a stage whose two Shells
  * quietly became five is a different puzzle rather than a harder one.
  *
- * | Tier | Is | Answered by |
- * |------|-----|-------------|
- * | basic | fills waves | anything, in enough quantity |
- * | elite | a step up in body and bite | positioning and type |
- * | specialist | demands a specific answer | a particular unit or order |
+ * | Tier | Is | Answered by | Sprite |
+ * |------|-----|-------------|--------|
+ * | basic | fills waves | anything, in enough quantity | `contact-2` |
+ * | elite | a step up in body and bite | positioning and type | `contact-3` |
+ * | specialist | demands a specific answer | a particular unit or order | `contact-1` |
+ *
+ * **`assetKey` is per tier, not per craft, and that is interim.** Phase 38 owns
+ * per-unit art; until it lands, three silhouettes across ten craft is what the
+ * staged art supports, and it is what the player most needs to read anyway —
+ * tier is the thing that changes how a wave must be answered. Ten identical
+ * grey circles, which is what this replaces, communicated nothing at all.
  *
  * ## Coverage
  *
@@ -47,6 +53,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Small, and under power the whole way in. Individually trivial; they ' +
       'have never once arrived individually.',
     tier: 'basic',
+    assetKey: 'contact-2',
     armour: 'massed',
     motion: 'swarm',
     maxHp: 12,
@@ -66,6 +73,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Too small to be worth a line in the log, and logged anyway, because ' +
       'the count is the only thing about them that matters.',
     tier: 'basic',
+    assetKey: 'contact-2',
     armour: 'erratic',
     motion: 'swarm',
     // The frailest Contact in the game and the fastest of the basics. It exists
@@ -87,6 +95,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Carries something. Nobody has established what, and the Manual is ' +
       'content to describe the question as outside the scope of the post.',
     tier: 'basic',
+    assetKey: 'contact-2',
     armour: 'rigid',
     motion: 'drift',
     // Slow and stolid: the basic that cannot simply be swept aside, so a wave
@@ -110,6 +119,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Comes down the well nose-first and does not correct. Accelerates as it ' +
       'nears the centre, in the manner of everything the Manual warns about.',
     tier: 'elite',
+    assetKey: 'contact-3',
     armour: 'erratic',
     motion: 'charge',
     maxHp: 20,
@@ -129,6 +139,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Fires on the way in rather than on arrival, which is the entire ' +
       'difference between it and a Lance and rather more trouble than it sounds.',
     tier: 'elite',
+    assetKey: 'contact-3',
     armour: 'massed',
     motion: 'charge',
     maxHp: 26,
@@ -150,6 +161,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Slow, heavy, and entirely indifferent to being shot. Operator Ock ' +
       'records having watched one cross Earth orbit across a full shift.',
     tier: 'elite',
+    assetKey: 'contact-3',
     armour: 'seized',
     motion: 'drift',
     maxHp: 70,
@@ -173,6 +185,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Presents an angled face to whatever it is approaching, and is protected ' +
       'by the fact. Strike it square or do not bother.',
     tier: 'specialist',
+    assetKey: 'contact-1',
     armour: 'rigid',
     motion: 'drift',
     maxHp: 34,
@@ -199,6 +212,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Does not break so much as divide. The Manual notes that this was ' +
       'observed on the eleventh pass and recommends no change in procedure.',
     tier: 'specialist',
+    assetKey: 'contact-1',
     armour: 'massed',
     motion: 'drift',
     maxHp: 48,
@@ -223,6 +237,7 @@ export const CONTACT: readonly ContactDef[] = [
       'Takes a station at a distance and works away at the same spot ' +
       'indefinitely. Cannot be waited out; it has more time than the shift does.',
     tier: 'specialist',
+    assetKey: 'contact-1',
     armour: 'erratic',
     motion: 'orbit',
     maxHp: 40,
@@ -250,6 +265,7 @@ export const CONTACT: readonly ContactDef[] = [
       'put down, which the log records as an increase in workload rather ' +
       'than in danger.',
     tier: 'specialist',
+    assetKey: 'contact-1',
     armour: 'seized',
     motion: 'drift',
     maxHp: 44,

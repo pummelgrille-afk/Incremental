@@ -307,7 +307,7 @@
     align-items: center;
     gap: 1rem;
     padding: 0.9rem 1.25rem;
-    border-bottom: 1px solid var(--brass-dim);
+    border-bottom: 1px solid var(--corona-dim);
   }
 
   h2 {
@@ -315,7 +315,7 @@
     font-size: 0.85rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .balance {
@@ -348,12 +348,12 @@
   }
 
   .edges line.done {
-    stroke: var(--brass-dim);
+    stroke: var(--corona-dim);
     stroke-width: 1.5;
   }
 
   .edges line.planned {
-    stroke: var(--brass);
+    stroke: var(--corona);
     stroke-dasharray: 4 3;
   }
 
@@ -374,25 +374,25 @@
   }
 
   .node.available .star {
-    stroke: var(--brass);
+    stroke: var(--corona);
     fill: #241f14;
   }
 
   .node.unaffordable .star {
-    stroke: var(--brass-dim);
+    stroke: var(--corona-dim);
   }
 
   /* A purchased node is a lit star: filled, and the only thing on the canvas
      that glows. It is how an invested arm reads as invested from across the
      panel, without a legend. */
   .node.purchased .star {
-    fill: var(--brass);
+    fill: var(--corona);
     stroke: #f0e6c8;
     filter: drop-shadow(0 0 5px rgba(214, 178, 70, 0.75));
   }
 
   .node.planned .star {
-    stroke: var(--brass);
+    stroke: var(--corona);
     stroke-dasharray: 3 2;
   }
 
@@ -413,7 +413,7 @@
   }
 
   .node text.cost {
-    fill: var(--brass);
+    fill: var(--corona);
     font-size: 0.7rem;
     font-variant-numeric: tabular-nums;
   }
@@ -424,7 +424,7 @@
 
   .detail {
     padding: 1rem 1.1rem;
-    border-left: 1px solid var(--brass-dim);
+    border-left: 1px solid var(--corona-dim);
     overflow-y: auto;
     font-size: 0.78rem;
   }
@@ -457,7 +457,7 @@
   .effects {
     margin: 0 0 0.9rem;
     padding-left: 1rem;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .state {
@@ -466,7 +466,7 @@
   }
 
   .state.done {
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .note {
@@ -480,7 +480,7 @@
     padding: 0.5rem;
     font: inherit;
     color: var(--bg);
-    background: var(--brass);
+    background: var(--corona);
     border: none;
     border-radius: 0.25rem;
     cursor: pointer;
@@ -497,7 +497,7 @@
     padding: 0.3rem 0.7rem;
     background: transparent;
     color: var(--muted);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     font-size: 0.72rem;
   }
 
@@ -508,7 +508,7 @@
   kbd {
     display: inline-block;
     padding: 0 0.25rem;
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.2rem;
   }
 </style>

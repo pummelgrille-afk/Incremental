@@ -191,7 +191,7 @@
   .value.big {
     font-size: 1.4rem;
     font-weight: 600;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .stack {
@@ -208,7 +208,7 @@
     height: 6px;
     margin: 0.3rem 0 0.25rem;
     background: #1c1a14;
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 3px;
     overflow: hidden;
   }
@@ -223,7 +223,7 @@
 
   .gain {
     font-size: 0.7rem;
-    color: var(--brass);
+    color: var(--corona);
     animation: gain-fade 1.1s linear forwards;
   }
 
@@ -240,7 +240,7 @@
 
   .fill {
     height: 100%;
-    background: var(--brass);
+    background: var(--corona);
     transition: width 120ms linear;
   }
 
@@ -255,7 +255,7 @@
     gap: 0.3rem;
     padding: 0.45rem 1rem;
     background: rgba(11, 10, 8, 0.8);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.3rem;
     opacity: 0.55;
     transition: opacity 120ms linear;
@@ -263,7 +263,7 @@
 
   .flare.ready {
     opacity: 1;
-    border-color: var(--brass);
+    border-color: var(--corona);
   }
 
   .pips {
@@ -275,13 +275,13 @@
     width: 10px;
     height: 10px;
     background: #1c1a14;
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 50%;
   }
 
   .pip.filled {
-    background: var(--brass);
-    border-color: var(--brass);
+    background: var(--corona);
+    border-color: var(--corona);
   }
 
   /* Progress to the next strike: the cooldown, or the charge regenerating. */
@@ -295,7 +295,7 @@
 
   .charge .fill {
     height: 100%;
-    background: var(--brass-dim);
+    background: var(--corona-dim);
     /* Explicitly cancels the 120ms width transition the shared `.fill` rule
        applies. The value already updates every frame, and 120ms of easing on a
        250ms cooldown would leave the bar reporting a state the player has
@@ -304,11 +304,11 @@
   }
 
   .charge.ready .fill {
-    background: var(--brass);
+    background: var(--corona);
   }
 
   .banner .reward {
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .banner .next {
@@ -330,7 +330,7 @@
     font-size: 0.65rem;
     color: var(--text);
     background: #1c1a14;
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.2rem;
   }
 
@@ -346,7 +346,7 @@
     right: 1.25rem;
     padding: 0.6rem 0.8rem;
     background: rgba(11, 10, 8, 0.85);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.3rem;
   }
 
@@ -380,7 +380,7 @@
   .sep {
     margin-top: 0.35rem;
     padding-top: 0.35rem;
-    border-top: 1px solid var(--brass-dim);
+    border-top: 1px solid var(--corona-dim);
   }
 
   .banner {
@@ -395,12 +395,12 @@
     padding: 1rem 2rem;
     text-align: center;
     background: rgba(11, 10, 8, 0.92);
-    border: 1px solid var(--brass);
+    border: 1px solid var(--corona);
     border-radius: 0.4rem;
   }
 
   .banner strong {
-    color: var(--brass);
+    color: var(--corona);
     font-size: 1.1rem;
     letter-spacing: 0.06em;
   }

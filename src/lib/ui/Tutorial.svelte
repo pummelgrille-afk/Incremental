@@ -59,8 +59,8 @@
     width: min(22rem, calc(100vw - 2.5rem));
     padding: 0.9rem 1rem 0.8rem;
     background: rgba(11, 10, 8, 0.96);
-    border: 1px solid var(--brass-dim);
-    border-left: 2px solid var(--brass);
+    border: 1px solid var(--corona-dim);
+    border-left: 2px solid var(--corona);
     border-radius: 0.3rem;
     box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.55);
     font-size: 0.78rem;
@@ -87,8 +87,8 @@
     min-width: 1.3rem;
     padding: 0.05rem 0.35rem;
     text-align: center;
-    color: var(--brass);
-    border: 1px solid var(--brass-dim);
+    color: var(--corona);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.2rem;
     font-size: 0.7rem;
   }
@@ -123,7 +123,7 @@
     font: inherit;
     font-size: 0.72rem;
     color: var(--bg);
-    background: var(--brass);
+    background: var(--corona);
     border: none;
     border-radius: 0.2rem;
     cursor: pointer;

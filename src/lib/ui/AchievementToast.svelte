@@ -67,7 +67,7 @@
     max-width: 18rem;
     padding: 0.7rem 0.9rem;
     background: rgba(11, 10, 8, 0.96);
-    border: 1px solid var(--brass);
+    border: 1px solid var(--corona);
     border-radius: 0.3rem;
     font-size: 0.78rem;
     font-family: inherit;
@@ -92,7 +92,7 @@
     font-size: 0.58rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   strong {

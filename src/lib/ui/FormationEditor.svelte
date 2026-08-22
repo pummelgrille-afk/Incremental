@@ -516,7 +516,7 @@
     align-items: center;
     gap: 1rem;
     padding: 0.9rem 1.25rem;
-    border-bottom: 1px solid var(--brass-dim);
+    border-bottom: 1px solid var(--corona-dim);
   }
 
   h2 {
@@ -524,7 +524,7 @@
     font-size: 0.85rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .balance {
@@ -572,7 +572,7 @@
     place-items: center;
     font-size: 0.55rem;
     color: var(--muted);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
   }
 
   .slot {
@@ -594,7 +594,7 @@
 
   .slot.filled {
     border-style: solid;
-    border-color: var(--brass);
+    border-color: var(--corona);
     background: #241f14;
     cursor: grab;
   }
@@ -616,7 +616,7 @@
     bottom: -3px;
     font-size: 0.5rem;
     color: var(--bg);
-    background: var(--brass);
+    background: var(--corona);
     border-radius: 50%;
     padding: 0 3px;
   }
@@ -636,7 +636,7 @@
 
   .side {
     padding: 1rem 1.1rem;
-    border-left: 1px solid var(--brass-dim);
+    border-left: 1px solid var(--corona-dim);
     overflow-y: auto;
   }
 
@@ -656,7 +656,7 @@
   .value {
     font-size: 1.4rem;
     font-variant-numeric: tabular-nums;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .value.none {
@@ -719,7 +719,7 @@
   }
 
   .support .stats {
-    color: var(--brass-dim);
+    color: var(--corona-dim);
     font-size: 0.68rem;
     font-variant-numeric: tabular-nums;
   }
@@ -735,7 +735,7 @@
 
   .fieldcost {
     font-variant-numeric: tabular-nums;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .fieldcost::after {
@@ -755,7 +755,7 @@
     z-index: 30;
     padding: 0.7rem 0.8rem;
     background: var(--bg);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.3rem;
     box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.55);
     pointer-events: none;
@@ -780,7 +780,7 @@
 
   .card .role {
     margin: 0 0 0.4rem;
-    color: var(--brass);
+    color: var(--corona);
     line-height: 1.4;
   }
 
@@ -833,7 +833,7 @@
   }
 
   .maxed {
-    color: var(--brass);
+    color: var(--corona);
     font-size: 0.62rem;
   }
 
@@ -854,7 +854,7 @@
     font: inherit;
     color: var(--text);
     background: #14120e;
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.2rem;
   }
 
@@ -863,7 +863,7 @@
     font: inherit;
     font-size: 0.72rem;
     color: var(--bg);
-    background: var(--brass);
+    background: var(--corona);
     border: none;
     border-radius: 0.2rem;
     cursor: pointer;
@@ -878,13 +878,13 @@
   button.ghost {
     background: transparent;
     color: var(--muted);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
   }
 
   kbd {
     display: inline-block;
     padding: 0 0.25rem;
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.2rem;
   }
 </style>

@@ -106,7 +106,7 @@
     width: min(26rem, 92vw);
     padding: 1.4rem 1.5rem;
     background: var(--bg);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.4rem;
     font-size: 0.8rem;
   }
@@ -116,7 +116,7 @@
     font-size: 0.85rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .voice {
@@ -131,13 +131,13 @@
     align-items: baseline;
     gap: 0.5rem;
     padding: 0.7rem 0.9rem;
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.3rem;
   }
 
   .value {
     font-size: 1.7rem;
-    color: var(--brass);
+    color: var(--corona);
     font-variant-numeric: tabular-nums;
   }
 
@@ -178,7 +178,7 @@
     padding: 0.5rem;
     font: inherit;
     color: var(--bg);
-    background: var(--brass);
+    background: var(--corona);
     border: none;
     border-radius: 0.25rem;
     cursor: pointer;

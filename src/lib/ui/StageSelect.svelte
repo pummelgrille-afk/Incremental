@@ -108,7 +108,7 @@
     overflow-y: auto;
     padding: 1.2rem 1.4rem 1.4rem;
     background: rgba(11, 10, 8, 0.98);
-    border: 1px solid var(--brass);
+    border: 1px solid var(--corona);
     border-radius: 0.4rem;
   }
 
@@ -117,7 +117,7 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    border-bottom: 1px solid var(--brass-dim);
+    border-bottom: 1px solid var(--corona-dim);
     padding-bottom: 0.6rem;
     margin-bottom: 0.9rem;
   }
@@ -128,7 +128,7 @@
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .sub {
@@ -199,7 +199,7 @@
     gap: 0.45rem;
     padding: 0.4rem 0.55rem;
     background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.25rem;
     color: var(--text);
     font: inherit;
@@ -214,16 +214,16 @@
   }
 
   .stage:not(:disabled):hover {
-    border-color: var(--brass);
+    border-color: var(--corona);
   }
 
   .stage.current {
-    border-color: var(--brass);
+    border-color: var(--corona);
     background: rgba(255, 255, 255, 0.07);
   }
 
   .stage.boss .name {
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .index {
@@ -243,18 +243,18 @@
     font-size: 0.58rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .tick {
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .close {
     margin-top: 0.4rem;
     padding: 0.45rem 0.9rem;
     background: transparent;
-    border: 1px solid var(--brass);
+    border: 1px solid var(--corona);
     border-radius: 0.25rem;
     color: var(--text);
     font: inherit;

@@ -51,6 +51,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'maintenance requirement in one word: none.',
     role: 'damage',
     damageType: 'percussive',
+    assetKey: 'venus',
     maxHp: 60,
     attack: 14,
     defence: 4,
@@ -72,6 +73,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'complaint or notable incident.',
     role: 'tank',
     damageType: 'percussive',
+    assetKey: 'venus',
     maxHp: 160,
     attack: 6,
     defence: 22,
@@ -92,6 +94,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'that arrives in quantity, which is most things.',
     role: 'damage',
     damageType: 'shear',
+    assetKey: 'mercury',
     maxHp: 45,
     attack: 9,
     defence: 2,
@@ -112,6 +115,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'is not a procedure.',
     role: 'damage',
     damageType: 'thermal',
+    assetKey: 'mars',
     maxHp: 50,
     // Quicker and wider than a Bolt, and frailer. The first draft was strictly
     // worse than the free unit on every stat and carried a price of 4, which a
@@ -137,6 +141,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'as well and objects rather more.',
     role: 'tank',
     damageType: 'shear',
+    assetKey: 'mercury',
     maxHp: 145,
     /*
      * Raised from 7 in Phase 35. Its description calls it "an Anchor that
@@ -164,6 +169,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'thinly. Sabel Ock, in the margin: a wide light is still a light.',
     role: 'control',
     damageType: 'resonant',
+    assetKey: 'earth',
     maxHp: 70,
     attack: 8,
     defence: 6,
@@ -184,6 +190,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'four of anything else, which is the only argument a Shell understands.',
     role: 'damage',
     damageType: 'thermal',
+    assetKey: 'mars',
     maxHp: 90,
     // Big and slow on purpose: shieldHits discards a hit regardless of its
     // size, so hit *size* counters a Shell and hit *rate* does not.
@@ -208,6 +215,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'usually looks from the rail.',
     role: 'control',
     damageType: 'percussive',
+    assetKey: 'venus',
     maxHp: 100,
     attack: 12,
     defence: 10,
@@ -228,6 +236,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'for something else, and to put the line back together afterwards.',
     role: 'support',
     damageType: 'resonant',
+    assetKey: 'earth',
     /*
      * The largest body and the widest block arc in the roster, which is what
      * its description already claimed and its numbers did not deliver.
@@ -261,6 +270,7 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'is worth in alignment.',
     role: 'support',
     damageType: 'resonant',
+    assetKey: 'earth',
     maxHp: 55,
     attack: 7,
     defence: 4,

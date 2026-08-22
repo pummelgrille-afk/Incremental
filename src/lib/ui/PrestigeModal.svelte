@@ -128,7 +128,7 @@
     width: min(34rem, 92vw);
     padding: 1.4rem 1.5rem;
     background: var(--bg);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.4rem;
     font-size: 0.8rem;
   }
@@ -138,7 +138,7 @@
     font-size: 0.85rem;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .voice {
@@ -153,7 +153,7 @@
     align-items: baseline;
     gap: 0.6rem;
     padding: 0.6rem 0.8rem;
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
     border-radius: 0.3rem;
   }
 
@@ -170,7 +170,7 @@
 
   .value {
     font-size: 1.5rem;
-    color: var(--brass);
+    color: var(--corona);
     font-variant-numeric: tabular-nums;
   }
 
@@ -199,7 +199,7 @@
   }
 
   .keeps h3 {
-    color: var(--brass);
+    color: var(--corona);
   }
 
   .resets h3 {
@@ -243,7 +243,7 @@
     padding: 0.45rem 0.9rem;
     font: inherit;
     color: var(--bg);
-    background: var(--brass);
+    background: var(--corona);
     border: none;
     border-radius: 0.25rem;
     cursor: pointer;
@@ -258,7 +258,7 @@
   button.ghost {
     background: transparent;
     color: var(--muted);
-    border: 1px solid var(--brass-dim);
+    border: 1px solid var(--corona-dim);
   }
 
   button.danger {
