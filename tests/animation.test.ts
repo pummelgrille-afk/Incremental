@@ -4,8 +4,10 @@ import {
   CLIPS,
   clipDuration,
   contactState,
+  frameAt,
   frameIndex,
   MAX_ATTACK_FRAMES,
+  PROJECTILE_SECONDS_PER_FRAME,
   platformState,
 } from '../src/lib/core/animation'
 import { spriteFrames, hasClip, isFrameKey } from '../src/lib/core/assetLoader'
@@ -162,5 +164,46 @@ describe('resolving frames from the manifest', () => {
     expect(isFrameKey('bolt')).toBe(false)
     // Not a state, so it is a sprite whose name happens to have a number.
     expect(isFrameKey('contact-2')).toBe(false)
+  })
+})
+
+describe('a projectile in flight', () => {
+  /*
+   * A shot used to fly as a single frozen frame, which reads as a decal being
+   * dragged across the screen rather than as something burning.
+   */
+  it('has a real clip, not a single frame', () => {
+    for (const key of ['projectile-1', 'projectile-2']) {
+      expect(spriteFrames(key, 'idle').length, key).toBeGreaterThan(1)
+    }
+  })
+
+  it('completes a cycle well inside a shot lifetime', () => {
+    // A clip slower than the thing it is drawn on never repeats, so the
+    // animation is never seen. Contact patterns give a shot a few seconds; the
+    // shortest useful case is well under one.
+    const frames = spriteFrames('projectile-1', 'idle').length
+    expect(frames * PROJECTILE_SECONDS_PER_FRAME).toBeLessThanOrEqual(0.6)
+  })
+
+  it('runs faster than a craft idles', () => {
+    // CLIPS.idle is tuned for a unit sitting on a ring and is four times too
+    // slow for something crossing the field.
+    expect(PROJECTILE_SECONDS_PER_FRAME).toBeLessThan(CLIPS.idle.secondsPerFrame)
+  })
+
+  it('puts shots from one volley on different frames', () => {
+    /*
+     * The detail that decides whether this reads as several burning things or
+     * as a strobe. Projectiles fired on the same tick share a lifetime exactly,
+     * so the pool slot is what separates them.
+     */
+    const life = 0.3
+    const frames = 4
+    const indices = [28, 35, 42, 45, 46, 57].map((slot) =>
+      frameAt(life + slot * 0.031, frames, PROJECTILE_SECONDS_PER_FRAME, true),
+    )
+
+    expect(new Set(indices).size).toBeGreaterThan(1)
   })
 })

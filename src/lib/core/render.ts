@@ -10,8 +10,10 @@ import {
   ANIMATION_STATES,
   clipDuration,
   contactState,
+  frameAt,
   frameIndex,
   platformState,
+  PROJECTILE_SECONDS_PER_FRAME,
   type AnimationState,
 } from './animation'
 import { backdropGeometry, type BackdropLayerGeometry } from './backdrop'
@@ -186,6 +188,8 @@ interface AnimatedBody {
 interface ProjectileView {
   node: Sprite | null
   fallback: Graphics | null
+  /** Last frame assigned, so an unchanged frame costs a comparison. */
+  frame: number
 }
 
 interface ContactView {
@@ -727,6 +731,22 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
    * slot between factions, so the texture is set when a slot becomes visible
    * rather than at creation.
    */
+  /**
+   * Frames per faction, resolved once.
+   *
+   * A projectile has no state machine — it is always simply flying — so its
+   * clip is the `idle` one and there is nothing to switch between. Two
+   * factions, so two lookups, done here rather than per projectile per frame.
+   */
+  const projectileFrames: Record<'contact' | 'array', Texture[]> = {
+    contact: spriteFrames(PROJECTILE_SPRITES.contact, 'idle')
+      .map((key) => textures.get(key))
+      .filter((texture): texture is Texture => texture !== undefined),
+    array: spriteFrames(PROJECTILE_SPRITES.array, 'idle')
+      .map((key) => textures.get(key))
+      .filter((texture): texture is Texture => texture !== undefined),
+  }
+
   function drawProjectiles(simulation: Simulation, alpha: number) {
     const items = simulation.projectiles.items
     const lead = alpha * TICK_SECONDS
@@ -734,7 +754,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     // Sprites are allocated once and reused by index, matching the pool. No
     // per-frame allocation on the hot path.
     while (projectileSprites.length < items.length) {
-      const view: ProjectileView = { node: null, fallback: null }
+      const view: ProjectileView = { node: null, fallback: null, frame: -1 }
       projectileSprites.push(view)
     }
 
@@ -750,6 +770,8 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       }
 
       if (texture) {
+        const frames = projectileFrames[p.faction]
+
         if (!view.node) {
           view.node = new Sprite(texture)
           view.node.anchor.set(0.5)
@@ -761,6 +783,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         if (!sprite.visible) {
           sprite.visible = true
           sprite.texture = texture
+          view.frame = -1
           // Comets carry a tail, so they need more room than the hitbox they
           // stand for — sized on the diameter the collision uses, times two.
           const size = p.radius * 4
@@ -771,6 +794,30 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         sprite.y = p.position.y + p.velocity.y * lead
         // Pointed along the shot. A comet flying sideways is worse than a dot.
         sprite.rotation = Math.atan2(p.velocity.y, p.velocity.x) - COMET_HEADING
+
+        /*
+         * The tail gutters as it flies.
+         *
+         * Clocked on the projectile's own remaining lifetime, plus a small
+         * offset from its pool slot. Both halves matter: `lifetime` differs
+         * between shots fired at different moments, and the slot offset
+         * separates the ones fired on the *same* tick. Without either, a
+         * volley flickers in perfect unison, which reads as a strobe rather
+         * than as several burning things — worse than not animating at all.
+         */
+        if (frames.length > 1) {
+          const index = frameAt(
+            p.lifetime + i * 0.031,
+            frames.length,
+            PROJECTILE_SECONDS_PER_FRAME,
+            true,
+          )
+          if (index !== view.frame) {
+            view.frame = index
+            sprite.texture = frames[index]
+          }
+        }
+
         continue
       }
 

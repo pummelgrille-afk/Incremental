@@ -58,6 +58,19 @@ export const CLIPS: Readonly<Record<AnimationState, ClipSpec>> = Object.freeze({
  */
 export const MAX_ATTACK_FRAMES = 6
 
+/**
+ * How fast a projectile's loop runs.
+ *
+ * Four frames over half a second, which is what a shot needs to read as burning
+ * rather than as a decal being dragged across the screen. Faster reads as noise
+ * at 14px; slower and a shot that only lives half a second never completes a
+ * cycle.
+ *
+ * Its own rate rather than `CLIPS.idle`, which is tuned for a craft sitting on
+ * a ring and would be four times too slow for something crossing the field.
+ */
+export const PROJECTILE_SECONDS_PER_FRAME = 0.125
+
 /** How long a clip runs, given how many frames it has. */
 export function clipDuration(state: AnimationState, frameCount: number): number {
   return CLIPS[state].secondsPerFrame * Math.max(0, frameCount)
@@ -76,12 +89,33 @@ export function frameIndex(
   secondsInState: number,
   frameCount: number,
 ): number {
+  return frameAt(
+    secondsInState,
+    frameCount,
+    CLIPS[state].secondsPerFrame,
+    CLIPS[state].loop,
+  )
+}
+
+/**
+ * The same choice, for a clip that is not one of the four unit states.
+ *
+ * Projectiles loop at their own rate and have no state machine — they are
+ * always simply flying — so they call this directly rather than pretending to
+ * be idle.
+ */
+export function frameAt(
+  elapsedSeconds: number,
+  frameCount: number,
+  secondsPerFrame: number,
+  loop: boolean,
+): number {
   if (!(frameCount > 1)) return 0
 
-  const elapsed = Number.isFinite(secondsInState) ? Math.max(0, secondsInState) : 0
-  const raw = Math.floor(elapsed / CLIPS[state].secondsPerFrame)
+  const elapsed = Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds) : 0
+  const raw = Math.floor(elapsed / secondsPerFrame)
 
-  return CLIPS[state].loop ? raw % frameCount : Math.min(raw, frameCount - 1)
+  return loop ? raw % frameCount : Math.min(raw, frameCount - 1)
 }
 
 /**

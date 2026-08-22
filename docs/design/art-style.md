@@ -300,6 +300,21 @@ idle; idle with none uses the bare key. So art can arrive one clip at a time —
 give a unit an attack animation without owing it a death — and nothing has to
 land as a complete set.
 
+**A projectile has no state machine.** It is always simply flying, so its clip
+is `idle` and it runs at its own rate — 4 frames over 0.5s, against 0.16s a
+frame for a craft. A craft's idle is tuned for something sitting on a ring; a
+shot crossing the field at that rate would never complete a cycle.
+
+Two things must be true of a projectile clip, and both are tested:
+
+- **The silhouette does not change.** Only the tail gutters and the core pulses.
+  A shot whose outline moves stops being trackable, and the outline is what the
+  player dodges.
+- **Shots from one volley are on different frames.** Projectiles fired on the
+  same tick share a lifetime exactly, so the clock is offset by the pool slot.
+  Without it a volley flickers in unison, which reads as a strobe — worse than
+  not animating at all.
+
 **A death is drawn from the combat feed, not from the entity.** A Contact is
 removed from the field the instant it dies, so by the time anything could draw
 it, the entity and its def are gone. The feed outlives the kill and carries the

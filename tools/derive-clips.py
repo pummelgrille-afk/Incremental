@@ -7,14 +7,20 @@ Derive animation frames from a sprite that already exists.
 ## What this is, and what it is not
 
 It is **not** a substitute for drawn animation. It cannot invent a pose, a
-recoil or a limb, so it does not attempt `attack` or `idle` — those need a hand,
-and art-style.md §7 says what they need to satisfy.
+recoil or a limb, so it does not attempt an `attack` or a craft's `idle` —
+those need a hand, and art-style.md §7 says what they need to satisfy.
 
-It *is* the right tool for `death`, because a death is not a new drawing of the
-craft. It is the craft coming apart: the same pixels, lit, displaced outward and
-thinned. Every frame it writes is a transformation of the unit's own art, which
-is why the result still looks like that unit while it dies — the property a
-generated *replacement* sprite would lose immediately.
+It *is* the right tool for two clips whose motion is not a new drawing:
+
+**`death`**, because a death is the craft coming apart — the same pixels, lit,
+displaced outward and thinned. Every frame is a transformation of the unit's own
+art, which is why the result still looks like that unit while it dies, the
+property a generated *replacement* sprite would lose immediately.
+
+**A projectile's `idle`**, because a comet's motion is its tail guttering, not a
+change of pose. Dropping and dimming the sparse outer pixels frame to frame is
+literally what a burning thing does, and it is the difference between a shot
+that flies and a decal being dragged across the screen.
 
 Before this, a kill simply stopped existing. There was no death feedback on the
 field at all beyond a damage number, which art-style.md §6 rule 5's argument
@@ -44,6 +50,7 @@ is invisible anyway.
 
 from PIL import Image
 import numpy as np
+import math
 import os
 import sys
 
@@ -54,6 +61,25 @@ RAW = 'src/assets/sprites/raw'
 # Platform is disabled rather than destroyed (combat-spec.md §5), and a
 # disabled unit that shattered would be lying about what happened to it.
 DEATH_KEYS = ('contact-1', 'contact-2', 'contact-3')
+
+# Projectiles that get a guttering idle loop.
+FLICKER_KEYS = ('projectile-1', 'projectile-2')
+
+# Four frames, played over half a second by the renderer. Enough that no two
+# consecutive frames repeat; few enough that the shot still reads as one object
+# rather than as noise travelling in formation.
+FLICKER_FRAMES = 4
+
+# A pixel with fewer neighbours than this inside a 2px radius is tail rather
+# than body. The tail is what flickers; the body must not, or the projectile
+# changes silhouette mid-flight and stops being trackable.
+TAIL_NEIGHBOURS = 9
+
+# How much of the tail is missing on any given frame.
+TAIL_DROP = 0.3
+
+# How far the body's brightness swings across the loop, as a fraction.
+BODY_PULSE = 0.16
 
 # Five at 0.09s is 0.45s — long enough to read, short enough that a wave of
 # kills does not leave the field littered.
@@ -186,6 +212,68 @@ def derive_death(image: Image.Image, seed: int) -> list[Image.Image]:
     return frames
 
 
+def derive_flicker(image: Image.Image, seed: int) -> list[Image.Image]:
+    """
+    Make a comet gutter.
+
+    Two things move, and neither is the silhouette:
+
+    **The tail thins.** Sparse outer pixels — those with few neighbours — drop
+    out and return on a per-pixel, per-frame basis. That is what a trail of
+    burning material does, and it is cheap to read at 14px.
+
+    **The body pulses.** The dense core brightens and dims across the loop, so
+    the shot has a heartbeat even when the tail happens to be full.
+
+    Nothing is displaced. A projectile is drawn rotated to its heading and sized
+    to its hitbox; art that wandered inside the frame would drift off the thing
+    it represents, and at these speeds that reads as a bad hitbox rather than as
+    animation.
+    """
+    rgba = np.asarray(image).astype(np.int16)
+    height, width = rgba.shape[:2]
+    alpha = rgba[..., 3]
+    rng = np.random.default_rng(seed)
+
+    # Neighbour count per opaque pixel, which separates the body from the tail.
+    solid = (alpha > 0).astype(np.int16)
+    neighbours = np.zeros_like(solid)
+    for dy in range(-2, 3):
+        for dx in range(-2, 3):
+            neighbours += np.roll(np.roll(solid, dy, axis=0), dx, axis=1)
+
+    # A stable per-pixel phase, so a given pixel flickers on its own schedule
+    # rather than the whole tail blinking in unison.
+    phase = rng.random((height, width))
+
+    frames: list[Image.Image] = []
+
+    for index in range(FLICKER_FRAMES):
+        t = index / FLICKER_FRAMES
+        out = np.zeros((height, width, 4), np.int16)
+
+        pulse = 1.0 + BODY_PULSE * math.sin(2 * math.pi * t)
+
+        for y in range(height):
+            for x in range(width):
+                if alpha[y, x] == 0:
+                    continue
+
+                if neighbours[y, x] < TAIL_NEIGHBOURS:
+                    # Tail: present or not, on its own phase.
+                    if ((phase[y, x] + t) % 1.0) < TAIL_DROP:
+                        continue
+                    out[y, x, :3] = rgba[y, x, :3]
+                else:
+                    out[y, x, :3] = np.clip(rgba[y, x, :3] * pulse, 0, 255)
+
+                out[y, x, 3] = 255
+
+        frames.append(Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA'))
+
+    return frames
+
+
 def main() -> int:
     if not os.path.isdir(SPRITES):
         print(f'no sprites at {SPRITES}', file=sys.stderr)
@@ -205,6 +293,18 @@ def main() -> int:
             frame.save(path)
 
         print(f'{key}: {len(frames)} death frames at {image.size[0]}x{image.size[1]}')
+
+    for seed, key in enumerate(FLICKER_KEYS, start=100):
+        source = os.path.join(RAW, f'{key}.png')
+        if not os.path.exists(source):
+            print(f'skipping {key}: no sprite', file=sys.stderr)
+            continue
+
+        image = native(source)
+        for index, frame in enumerate(derive_flicker(image, seed), start=1):
+            frame.save(os.path.join(RAW, f'{key}-idle-{index}.png'))
+
+        print(f'{key}: {FLICKER_FRAMES} idle frames at {image.size[0]}x{image.size[1]}')
 
     print('\nnow run: python tools/normalise-sprites.py')
     return 0
