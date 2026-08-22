@@ -9,13 +9,15 @@ animated bodies in `render.ts`, `tests/animation.test.ts`, art-style.md §7
 - [x] An idle/attack/hit/death animation system, referenced from `content/*.ts`
       by asset key
 - [x] Silhouette rules held frame by frame (art-style.md §5 and §7)
-- [ ] **The frames themselves** — see "What this phase cannot do"
+- [~] **The frames themselves** — `death` derived for all three Contact tiers;
+      `idle`, `attack` and `hit` still need a hand. See below.
 
 ## What this phase cannot do
 
 Draw. PLAN.md asks for "idle/attack/hit/death animation sets ... all original
-designs", and no frames have been produced, so the checklist item stays open and
-every clip in the game is still one frame long.
+designs". `death` is now animated for all three Contact tiers, but derived
+rather than drawn — see "Death, derived" below — and `idle`, `attack` and `hit`
+are still one frame each, so the item stays open.
 
 What is done is everything *around* the frames: a unit's state machine, a frame
 clock, discovery by naming convention, per-state fallbacks, and the render
@@ -109,6 +111,40 @@ like one object.
 The frames were deleted afterwards. Committing placeholder art would have made
 the checklist item above look done.
 
+## Death, derived
+
+A death is the one clip a transformation can honestly produce, because it is not
+a new drawing of the craft: it is that craft coming apart. `tools/
+derive-clips.py` takes the unit's own pixels, lights them almost to white for a
+single flash frame, then breaks them into 2px blocks and throws each outward
+along its own bearing, thinning and cooling over five frames at 0.09s.
+
+The result still looks like *that* unit while it dies, which is the property a
+generated replacement sprite would lose immediately. What it replaces is
+nothing: a kill simply stopped existing, with no feedback on the field beyond a
+damage number.
+
+Two constraints shaped it, and the first attempt broke both:
+
+**Nothing may be drawn outside the base sprite's own bounds.** Frames of a unit
+share one box, so debris outside it grows the box, pads the base sprite to
+match, and silently redraws every unit ~15% smaller — the renderer scales by the
+longest edge. Pieces thrown past the edge are clipped instead. `contact-2` went
+33×32 → 39×38 before this was caught.
+
+**The last frame may not be empty.** A one-shot holds its final frame, so a clip
+that ends on a blank canvas ends early and the death reads as the unit blinking
+out. Piece lifetimes are drawn mostly beyond the clip's end, so about a quarter
+thin out and the rest are still there at the finish.
+
+The first pass also read wrong rather than being wrong: with the drift clipped
+tightly the craft dithered away in place instead of blowing apart. Raising the
+throw made it hollow out from the centre and leave a thinning ring, which is
+the read wanted. The silhouette survives to frame three, which §5 requires.
+
+Confirmed on the field: 198 lit pixels at the flash, then 83, 44, 43 as it
+cools, with the whole thing fading 458 → 279 px over the event's life.
+
 ## One bug the writing found
 
 Explaining the workflow surfaced a defect in the Phase 37 normaliser: it trims
@@ -124,15 +160,16 @@ existing sprites are byte-for-byte unaffected, each being a group of one.
 
 ## What is needed to close this phase
 
-Frames, to art-style.md §7's contract. In rough order of what the game gains
-most from:
+Drawn frames, to art-style.md §7's contract. In rough order of what the game
+gains most from:
 
 1. **`contact-2` idle** (basic tier, the craft the player sees most) — 2–4
    frames. This alone makes the field feel alive.
-2. **`contact-1` / `contact-2` / `contact-3` death** — 3–6 frames each. The
-   biggest single readability gain: a kill currently just stops existing.
-3. **Platform attack** for the four planets — up to 6 frames each.
-4. **Hit** for anything, 2–3 frames. Lowest value; the tint already reads.
+2. **Platform attack** for the four planets — up to 6 frames each.
+3. **Hit** for anything, 2–3 frames. Lowest value; the tint already reads.
+
+`death` is covered by derivation and can be replaced by drawn frames at any
+time — same filenames, same pipeline.
 
 Per-unit art rather than per-category is the phase's real goal — ten Contacts
 share three sprites and ten Platforms share four. That is a much larger ask, and

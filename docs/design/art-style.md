@@ -136,6 +136,13 @@ New art goes into `raw/` and the script is re-run by hand. It is not a build
 step — a TypeScript project has no business requiring Pillow to build — and the
 output is committed.
 
+`tools/derive-clips.py` is a second producer into the same `raw/` directory. It
+writes **death** frames by transforming a unit's own art — lighting it, breaking
+it into blocks and throwing them outward — and nothing else. A death is not a
+new drawing of a craft, it is that craft coming apart, so it is the one clip a
+transformation can honestly produce. `idle` and `attack` need a hand and the
+tool does not attempt them.
+
 ### What the normaliser does
 
 The ten sprites supplied with the reskin were JPEG-compressed *before* their
@@ -276,8 +283,8 @@ Things a clip must not do:
 
 - **Contacts share three sprites across ten craft, Platforms four across ten.**
   Interim, and better than the identical circles they replaced. Awaiting art.
-- **Every clip is one frame long**, because no frames have been drawn yet. The
-  system is in place and exercised; §7 is the brief for filling it.
+- **Only `death` is animated**, and derived rather than drawn. `idle`, `attack`
+  and `hit` are one frame each; §7 is the brief for filling them.
 - **No atlas.** Ten sprites inline into the bundle; a hundred frames will not.
   Phase 39 owns atlasing, and it is what makes a full frame set affordable.
 - **Arrays have no art at all** and no `assetKey`. They also never take damage —

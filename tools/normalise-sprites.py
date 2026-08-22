@@ -67,6 +67,23 @@ ALPHA_CUTOFF = 128
 
 def normalise(path: str) -> Image.Image:
     source = Image.open(path).convert('RGBA')
+
+    # Already at or below the native grid: nothing to resample, and resampling
+    # anyway would be destructive — mapping 40 cells across 33 pixels gives
+    # cells narrower than a pixel, and the ones that round to zero width drop
+    # out entirely. Art that arrives at native resolution (a derived clip, a
+    # hand-drawn frame) still gets its colours quantised and its alpha hardened
+    # below, which is the rest of what this does.
+    if max(source.size) <= NATIVE:
+        a = np.asarray(source).astype(np.float32)
+        solid = a[..., 3] >= ALPHA_CUTOFF
+        rgb = a[..., :3] * solid[..., None]
+        small = Image.fromarray(
+            np.dstack([rgb.round().astype(np.uint8), (solid * 255).astype(np.uint8)]),
+            'RGBA',
+        )
+        return quantise(small)
+
     a = np.asarray(source).astype(np.float32)
 
     rgb, alpha = a[..., :3], a[..., 3]
@@ -104,16 +121,23 @@ def normalise(path: str) -> Image.Image:
         'RGBA',
     )
 
-    # Quantise the colours only, with the alpha put back afterwards: Pillow's
-    # quantiser works in RGB, and letting it see the alpha channel spends
-    # palette entries describing transparency that is already binary.
-    mask = small.getchannel('A')
-    flat = small.convert('RGB').quantize(colors=PALETTE_SIZE, method=Image.MEDIANCUT)
-    result = flat.convert('RGBA')
-    result.putalpha(mask)
-
     # Not trimmed here — see `trim_together`. A frame cropped to its own bounds
     # is a frame that moves.
+    return quantise(small)
+
+
+def quantise(image: Image.Image) -> Image.Image:
+    """
+    Collapse to the palette size, colours only.
+
+    The alpha is lifted off and put back rather than quantised with the rest:
+    Pillow's quantiser works in RGB, and letting it see the alpha channel spends
+    palette entries describing transparency that is already binary.
+    """
+    mask = image.getchannel('A')
+    flat = image.convert('RGB').quantize(colors=PALETTE_SIZE, method=Image.MEDIANCUT)
+    result = flat.convert('RGBA')
+    result.putalpha(mask)
     return result
 
 
