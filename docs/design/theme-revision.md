@@ -305,3 +305,32 @@ notes for Phase 37, neither blocking:
 - A regular pixel grid is still detectable in all ten, so this is **recoverable**
   by snapping to the grid and quantising rather than by redrawing. Phase 37 owns
   the pipeline and should do it there, not by hand.
+
+### The Almanac, as constellations
+
+The tree's layout was already derived rather than authored — four branches
+taking a quadrant each, tiers stepping outward — and at seventy-two nodes that
+reads as four perfect arcs. Arcs were right for the orrery, where every arm was
+a piece of a mechanism; under a solar sky they read as a timetable.
+
+The fix is the same layout, loosened. Each node is nudged off its exact position
+by a fixed amount derived from a hash of its id: at most 0.06 rad around the arc
+and 24px along the radius. Everything the arc communicated survives — branches
+stay inside their quadrants, tiers stay in radius order, nothing needs re-nudging
+when a node is added — while the arms stop being arcs. The prerequisite edges,
+already drawn, become the lines joining the stars, which is what makes the
+result read as a constellation rather than as scatter.
+
+Two bounds are load-bearing and are pinned by `tests/upgradeTree.test.ts`:
+
+- **Angular drift stays well inside the 15% margin** each quadrant leaves free,
+  so no two branches ever touch.
+- **The closest pair on the board stays clear.** Same-tier siblings are the
+  tightest pair at 47px, and drift can only take that away; at these figures the
+  authored tree's closest pair is 38.7px, comfortably clear at the 13px star
+  radius the view draws.
+
+The drift is seeded from the node id rather than from a run of random numbers so
+a node sits in the same place in every session and on every machine. A
+constellation that reshuffled on reload would be worse than a perfect arc — the
+player navigates this panel by shape and by memory.

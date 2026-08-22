@@ -4,7 +4,11 @@ import { STARTING_ZONE_ID, ZONES } from '../content/zones'
 import { game } from '../stores/game.svelte'
 import { applyStageClear, earnSalvage, recordDepth } from '../progression/currencies'
 import { isRewindUnlocked, rewind as rewindRun, rewindPreview } from '../progression/prestige'
-import { calculateOffline, isWorthReporting } from '../systems/offlineProgress'
+import {
+  calculateOffline,
+  isWorthReporting,
+  updateEarningRate,
+} from '../systems/offlineProgress'
 import { evaluate as evaluateAchievements } from '../progression/achievements'
 import {
   buyTrack,
@@ -49,7 +53,7 @@ import {
   recomputeBonuses,
   removePlatform,
 } from './formation'
-import { Simulation } from './loop'
+import { MAX_CATCHUP_SECONDS, Simulation } from './loop'
 import { createRenderer, type Renderer } from './render'
 import { createRng, seedFrom } from './rng'
 import { SaveManager } from './save'
@@ -149,19 +153,29 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   grantStartingLoadout(saveData)
 
-  /*
-   * Offline progress, settled before the run starts.
+  /**
+   * Settle an absence, and report it if it was long enough to be worth saying.
    *
-   * Applied here rather than in the frame loop because it is a single
-   * transaction against a save that has just been read — the elapsed time is
-   * `now - savedAt`, and both are known exactly once.
+   * Called for two kinds of absence, because from the player's side they are
+   * the same absence:
+   *
+   *   1. The game was closed. Elapsed time is `now - savedAt`, known exactly
+   *      once, which is why this runs as a single transaction at startup
+   *      rather than from the frame loop.
+   *   2. **The tab was left open in the background.** This one paid nothing at
+   *      all before: `requestAnimationFrame` is throttled to a stop in a hidden
+   *      tab, so the simulation does not run, and offline progress was only
+   *      ever calculated at startup — so the commonest way to idle an idle game
+   *      produced no Salvage and no summary.
    */
-  const offline = calculateOffline({
-    elapsedSeconds: (Date.now() - saveData.savedAt) / 1000,
-    salvagePerSecond: saveData.run.salvagePerSecond,
-    effects: effectsOf(saveData),
-  })
-  if (isWorthReporting(offline)) {
+  const settleAbsence = (elapsedSeconds: number): void => {
+    const offline = calculateOffline({
+      elapsedSeconds,
+      salvagePerSecond: saveData.run.salvagePerSecond,
+      effects: effectsOf(saveData),
+    })
+    if (!isWorthReporting(offline)) return
+
     earnSalvage(saveData, offline.salvage)
     game.offlineSummary = {
       elapsedSeconds: offline.effectiveSeconds + offline.wastedSeconds,
@@ -173,6 +187,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       activeEquivalent: Math.floor(offline.activeEquivalent),
     }
   }
+
+  settleAbsence((Date.now() - saveData.savedAt) / 1000)
 
   if (loaded.notices.length > 0) {
     console.info('[perihelion] save notices:', loaded.notices)
@@ -282,7 +298,18 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     game.currentStage = currentStage
   }
 
+  /**
+   * The Clearance balance the roster's affordability was last computed for.
+   *
+   * `rosterOf` bakes `canUnlock` and `canLevel` in at publish time, and the
+   * roster is only published on edits — so Clearance awarded by a stage clear
+   * left every buy button disabled until some *unrelated* edit happened to
+   * republish it. The currency was spendable; the panel had not been told.
+   */
+  let publishedClearance = -1
+
   const publishRoster = (): void => {
+    publishedClearance = saveData.meta.clearance
     game.platformRoster = rosterOf(saveData, 'platform')
     game.arrayRoster = rosterOf(saveData, 'array')
 
@@ -464,6 +491,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   }
 
   publishRoster()
+  // Before the first frame, not on it. The loop is what usually publishes the
+  // balance, and it does not run in a backgrounded tab — so a save with a
+  // healthy balance showed zero Salvage until the tab was looked at.
+  game.primeSalvage(saveData.run.salvage)
 
   // State-shaped triggers — "has cleared a stage", "has Rewound" — need one
   // evaluation on load, or a save from before this phase would never earn them.
@@ -476,9 +507,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   let currentStage: StageAddress = saveData.run.currentStage ?? DEFAULT_STAGE
   if (!PLAY_ORDER.includes(currentStage)) currentStage = DEFAULT_STAGE
   saveData.run.currentStage = currentStage
-
-  /** How long the earning-rate average takes to follow a change. */
-  const RATE_WINDOW_SECONDS = 90
 
   /** Seconds the clear banner holds before the next stage loads. */
   const STAGE_GAP_SECONDS = 3
@@ -549,9 +577,39 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   // this is the app layer's job (Phase 9).
   const onHide = () => autosaver.flush('shutdown')
   window.addEventListener('beforeunload', onHide)
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') onHide()
-  })
+
+  /** Wall-clock time the tab was hidden, or null while it is on screen. */
+  let hiddenAt: number | null = null
+
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now()
+      onHide()
+      return
+    }
+
+    if (hiddenAt === null) return
+    const away = (Date.now() - hiddenAt) / 1000
+    hiddenAt = null
+
+    settleAbsence(away)
+    publishRoster()
+    game.primeSalvage(saveData.run.salvage)
+
+    /*
+     * Restart the frame clock.
+     *
+     * `previous` is only written by the RAF callback, so after a throttled
+     * absence the first frame back would otherwise be handed hours of elapsed
+     * time. The simulation clamps that (MAX_CATCHUP_SECONDS), but the earning
+     * rate and the playtime statistic are computed from the raw figure — and
+     * an hour-long frame drove `salvagePerSecond` to nearly zero, which is
+     * precisely the number the next absence is paid from.
+     */
+    previous = performance.now()
+    autosaver.request('purchase')
+  }
+  document.addEventListener('visibilitychange', onVisibilityChange)
 
   // --- The frame loop. ------------------------------------------------------
   let previous = performance.now()
@@ -679,14 +737,29 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
      * still be reporting their first minute an hour later. The window is long
      * enough that a wave gap does not read as a collapse in output.
      */
-    if (elapsed > 0 && game.running) {
-      const perSecond = events.salvageDropped / elapsed
-      const smoothing = Math.min(1, elapsed / RATE_WINDOW_SECONDS)
-      saveData.run.salvagePerSecond +=
-        (perSecond - saveData.run.salvagePerSecond) * smoothing
+    /*
+     * Both figures below measure *simulated* time, not wall-clock time.
+     *
+     * `advance` runs at most MAX_CATCHUP_SECONDS of simulation per call, so a
+     * frame that covers an hour still only plays half a second of it. Billing
+     * the hour to either of these was wrong in the same way twice: the playtime
+     * statistic counted time nobody played — its own doc comment says offline
+     * time is not counted — and the earning rate divided half a second of drops
+     * by an hour, which is the rate the *next* absence is then paid at. One
+     * backgrounded tab was enough to make offline progress pay nothing
+     * thereafter. See `updateEarningRate`.
+     */
+    const simulated = Math.min(elapsed, MAX_CATCHUP_SECONDS)
+
+    if (game.running) {
+      saveData.run.salvagePerSecond = updateEarningRate(
+        saveData.run.salvagePerSecond,
+        events.salvageDropped,
+        simulated,
+      )
     }
 
-    saveData.statistics.playtimeSeconds += elapsed
+    saveData.statistics.playtimeSeconds += simulated
     autosaver.tick(elapsed)
 
     const renderStart = performance.now()
@@ -702,6 +775,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // The spendable balance lives in the save, not the field. Published here
     // for the same reason as the permanent currencies.
     game.publishSalvage(saveData.run.salvage, simulation.state.elapsed)
+
+    // Clearance can arrive from a stage clear, which is not an edit — so the
+    // roster has to be told, or what it says is affordable goes stale.
+    if (saveData.meta.clearance !== publishedClearance) {
+      publishedClearance = saveData.meta.clearance
+      publishRoster()
+    }
     game.simMs = simMs
     game.renderMs = renderMs
     game.frameMs = elapsedMs
@@ -739,6 +819,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       host.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('beforeunload', onHide)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       autosaver.flush('shutdown')
       renderer.destroy()
     },

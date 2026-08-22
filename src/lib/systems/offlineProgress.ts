@@ -104,6 +104,38 @@ export function calculateOffline({
   }
 }
 
+/** How long the earning-rate average takes to follow a change, in seconds. */
+export const RATE_WINDOW_SECONDS = 90
+
+/**
+ * Fold one frame's earnings into the rate offline progress is paid from.
+ *
+ * A slow exponential average rather than a lifetime mean: the player's earning
+ * power changes as they buy slots, and a lifetime figure would still be
+ * reporting their first minute an hour later.
+ *
+ * **`seconds` must be time that was actually simulated, not wall-clock time
+ * between frames.** The two part company whenever the loop stalls — a
+ * backgrounded tab, a sleeping machine — and `Simulation.advance` clamps its
+ * catch-up, so a frame covering an hour plays half a second of it. Billing the
+ * hour divides half a second of drops by 3600 *and* sets the smoothing to 1,
+ * which does not decay the rate towards zero so much as assign it: one
+ * backgrounded tab was enough to make every subsequent absence pay nothing.
+ * `tests/offlineProgress.test.ts` pins both halves of that.
+ */
+export function updateEarningRate(
+  current: number,
+  salvageDropped: number,
+  seconds: number,
+  windowSeconds = RATE_WINDOW_SECONDS,
+): number {
+  if (seconds <= 0) return current
+
+  const perSecond = salvageDropped / seconds
+  const smoothing = Math.min(1, seconds / windowSeconds)
+  return current + (perSecond - current) * smoothing
+}
+
 /** Below this, an absence is not worth interrupting the player to report. */
 export const MIN_REPORTABLE_SECONDS = 60
 

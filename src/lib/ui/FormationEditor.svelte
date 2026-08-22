@@ -132,6 +132,57 @@
     presetName = ''
   }
 
+  // --- The unit card. ------------------------------------------------------
+  //
+  // A roster row says a name, a level and a price, none of which answers "what
+  // does this one *do*". The card does, on hover and on keyboard focus.
+  //
+  // Positioned by measurement rather than by CSS: the panel it lives in scrolls
+  // and clips its overflow, so a card anchored inside a row would be cut off at
+  // the top and bottom of the list. Fixed positioning takes it out of that box.
+
+  const CARD_WIDTH = 260
+  const CARD_ESTIMATED_HEIGHT = 250
+
+  let inspecting = $state<{ unit: RosterView; x: number; y: number } | null>(null)
+
+  function inspect(event: { currentTarget: EventTarget | null }, unit: RosterView) {
+    const row = event.currentTarget as HTMLElement | null
+    if (!row) return
+    const rect = row.getBoundingClientRect()
+
+    inspecting = {
+      unit,
+      x: Math.max(8, rect.left - CARD_WIDTH - 12),
+      y: Math.min(Math.max(8, rect.top - 8), window.innerHeight - CARD_ESTIMATED_HEIGHT),
+    }
+  }
+
+  const ROLE_COPY: Record<string, string> = {
+    tank: 'Tank — soaks hits and blocks the widest arc.',
+    damage: 'Damage — its whole case is the number it puts out.',
+    support: 'Support — improves what the rest of the formation does.',
+    control: 'Control — slows, disables and buys the line time.',
+  }
+
+  const TARGETING_COPY: Record<string, string> = {
+    nearest: 'shoots whatever is closest',
+    lowestHp: 'finishes the most wounded',
+    highestThreat: 'answers the biggest threat',
+    deepest: 'takes whatever is furthest in',
+    none: 'never attacks',
+  }
+
+  const CONJUNCTION_COPY: Record<string, string> = {
+    damagePulse: 'a damage pulse across the field',
+    shield: 'a shield on itself',
+    haste: 'attack speed on itself',
+    repair: 'repairs on every participant',
+  }
+
+  /** One decimal for the small numbers, none for the large ones. */
+  const stat = (value: number) => (value >= 10 ? Math.round(value) : value.toFixed(1))
+
   const PAIRING_COPY = {
     matched: 'One damage type throughout. Conjunction effects are amplified.',
     interference: 'Opposed types aligned. Effects are weaker but reach further.',
@@ -274,11 +325,19 @@
       <h3>Roster</h3>
       <ul class="roster">
         {#each [...game.platformRoster, ...game.arrayRoster] as unit (unit.kind + unit.id)}
+          {@const fieldCost = unit.kind === 'array' ? game.nextMountCost : game.nextSlotCost}
           <li
             class:locked={!unit.unlocked}
             draggable={unit.unlocked}
-            ondragstart={() => (carried = { kind: 'roster', unit })}
+            ondragstart={() => {
+              carried = { kind: 'roster', unit }
+              inspecting = null
+            }}
             ondragend={() => (carried = null)}
+            onmouseenter={(e) => inspect(e, unit)}
+            onmouseleave={() => (inspecting = null)}
+            onfocusin={(e) => inspect(e, unit)}
+            onfocusout={() => (inspecting = null)}
           >
             <span class="name">
               {unit.name}
@@ -286,6 +345,21 @@
             </span>
 
             {#if unit.unlocked}
+              <!-- What fielding it costs, where the decision is made. The
+                   price is the formation's next slot rather than the unit —
+                   the summary under the ring says so — but a player reading a
+                   roster wants the number beside the thing they are about to
+                   drag, not underneath the diagram. -->
+              <span
+                class="fieldcost"
+                class:short={game.salvage < fieldCost}
+                title="Fielding this costs {fieldCost} Salvage — the price of your next {unit.kind ===
+                'array'
+                  ? 'rim mount'
+                  : 'ring slot'}. Moving a fielded unit is free."
+              >
+                {fieldCost}
+              </span>
               <span class="level">lv {unit.level}</span>
               {#if unit.atMaxLevel}
                 <span class="maxed">max</span>
@@ -377,6 +451,49 @@
         {/each}
       </ul>
     </aside>
+
+    {#if inspecting}
+      {@const unit = inspecting.unit}
+      <div
+        class="card"
+        role="tooltip"
+        style:left="{inspecting.x}px"
+        style:top="{inspecting.y}px"
+        style:width="{CARD_WIDTH}px"
+      >
+        <span class="card-kind">
+          {unit.kind === 'array' ? 'Array · rim mount' : 'Platform · ring slot'} ·
+          {unit.profile.damageType}
+        </span>
+        <h4>{unit.name}{#if unit.unlocked}<span class="level">lv {unit.level}</span>{/if}</h4>
+        <p class="role">{ROLE_COPY[unit.profile.role] ?? unit.profile.role}</p>
+        <p class="voice">{unit.profile.description}</p>
+
+        <ul class="statline">
+          <li><span>Attack</span><span>{stat(unit.profile.attack)}</span></li>
+          <li><span>Every</span><span>{unit.profile.interval.toFixed(1)}s</span></li>
+          <li><span>Integrity</span><span>{stat(unit.profile.maxHp)}</span></li>
+          <li><span>Defence</span><span>{stat(unit.profile.defence)}</span></li>
+        </ul>
+
+        <p class="note">
+          It {TARGETING_COPY[unit.profile.targeting] ?? unit.profile.targeting}.
+          {#if unit.profile.conjunction}
+            In a conjunction it contributes {CONJUNCTION_COPY[unit.profile.conjunction.kind] ??
+              unit.profile.conjunction.kind}.
+          {:else}
+            Arrays never join a conjunction.
+          {/if}
+        </p>
+
+        {#if !unit.unlocked}
+          <p class="note locked-note">
+            Locked. {unit.unlockCost} Clearance to add it to the roster; the stats above
+            are what it opens at.
+          </p>
+        {/if}
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -614,6 +731,100 @@
   .kind {
     color: var(--muted);
     font-size: 0.62rem;
+  }
+
+  .fieldcost {
+    font-variant-numeric: tabular-nums;
+    color: var(--brass);
+  }
+
+  .fieldcost::after {
+    content: ' slv';
+    font-size: 0.6rem;
+    color: var(--muted);
+  }
+
+  /* Dimmed rather than hidden when it cannot be paid: the price is the thing
+     the player is deciding against, so it has to stay readable. */
+  .fieldcost.short {
+    color: #7a6a48;
+  }
+
+  .card {
+    position: fixed;
+    z-index: 30;
+    padding: 0.7rem 0.8rem;
+    background: var(--bg);
+    border: 1px solid var(--brass-dim);
+    border-radius: 0.3rem;
+    box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+  }
+
+  .card-kind {
+    display: block;
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .card h4 {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0.2rem 0 0.35rem;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  .card .role {
+    margin: 0 0 0.4rem;
+    color: var(--brass);
+    line-height: 1.4;
+  }
+
+  .card .voice {
+    margin: 0 0 0.6rem;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.45;
+  }
+
+  .statline {
+    margin: 0 0 0.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.1rem 0.8rem;
+  }
+
+  .statline li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0;
+    border: none;
+  }
+
+  .statline span:first-child {
+    color: var(--muted);
+    font-size: 0.68rem;
+  }
+
+  .statline span:last-child {
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  .card .note {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  .card .locked-note {
+    margin-top: 0.5rem;
+    color: #f0b06c;
   }
 
   .level {

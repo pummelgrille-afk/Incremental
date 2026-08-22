@@ -7,6 +7,8 @@ import {
   MIN_REPORTABLE_SECONDS,
   offlineCap,
   offlineEfficiency,
+  RATE_WINDOW_SECONDS,
+  updateEarningRate,
 } from '../src/lib/systems/offlineProgress'
 import { noUpgradeEffects, type UpgradeEffects } from '../src/lib/entities/Upgrade'
 import { createDefaultSave } from '../src/lib/core/saveSchema'
@@ -181,5 +183,56 @@ describe('the Recovery nodes are wired', () => {
     const bought = effectsOf(save)
     expect(offlineCap(bought)).toBeGreaterThan(OFFLINE.capSeconds)
     expect(offlineEfficiency(bought)).toBeGreaterThan(OFFLINE.efficiency)
+  })
+})
+
+describe('the earning rate offline progress is paid from', () => {
+  /** A steady earner: 2 Salvage a second, sampled a frame at a time. */
+  const settle = (seconds: number, perSecond = 2): number => {
+    let rate = 0
+    for (let t = 0; t < seconds; t += 1 / 60) {
+      rate = updateEarningRate(rate, perSecond / 60, 1 / 60)
+    }
+    return rate
+  }
+
+  it('follows a steady earner', () => {
+    // Not all the way there — the window is deliberately slow — but most of it.
+    expect(settle(RATE_WINDOW_SECONDS * 3)).toBeGreaterThan(1.8)
+  })
+
+  it('leaves the rate alone when no time passed', () => {
+    expect(updateEarningRate(1.5, 0, 0)).toBe(1.5)
+  })
+
+  it('moves slowly enough that a wave gap does not read as a collapse', () => {
+    const settled = settle(RATE_WINDOW_SECONDS * 3)
+    let rate = settled
+
+    // Four seconds between waves, earning nothing.
+    for (let t = 0; t < 4; t += 1 / 60) rate = updateEarningRate(rate, 0, 1 / 60)
+
+    expect(rate).toBeGreaterThan(settled * 0.9)
+  })
+
+  /*
+   * The trap this function exists to name.
+   *
+   * `Simulation.advance` clamps its catch-up, so a frame covering an hour plays
+   * a fraction of a second of it. Handing the hour to this — which is what the
+   * frame loop did until the caller was fixed — divides that fraction's drops
+   * by 3600 and sets the smoothing to 1, replacing the rate outright. The next
+   * absence is then paid at nearly zero, which is what "offline progress stopped
+   * working after I left the tab in the background" looks like from the inside.
+   */
+  it('is destroyed by wall-clock time and survives simulated time', () => {
+    const settled = settle(RATE_WINDOW_SECONDS * 3)
+    const droppedWhileCatchingUp = 2 * 0.5
+
+    const billedWallClock = updateEarningRate(settled, droppedWhileCatchingUp, 3600)
+    expect(billedWallClock).toBeLessThan(settled * 0.01)
+
+    const billedSimulated = updateEarningRate(settled, droppedWhileCatchingUp, 0.5)
+    expect(billedSimulated).toBeGreaterThan(settled * 0.9)
   })
 })

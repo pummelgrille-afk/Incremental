@@ -40,6 +40,25 @@ export interface TreeActions {
   preview(nodeId: string): { ids: string[]; total: number; affordable: boolean }
 }
 
+/**
+ * What a unit is and does, for the roster panel's hover card.
+ *
+ * Mirrors `progression/roster.ts`'s `UnitProfile` rather than importing it —
+ * `stores/` is the bridge into Svelte and does not depend on `progression/`,
+ * the same rule that keeps `SupportTrackView.track` a plain string.
+ */
+export interface UnitProfileView {
+  description: string
+  role: string
+  damageType: string
+  targeting: string
+  attack: number
+  maxHp: number
+  defence: number
+  interval: number
+  conjunction: { kind: string; magnitude: number } | null
+}
+
 /** A unit in the roster panel. */
 export interface RosterView {
   kind: 'platform' | 'array'
@@ -52,6 +71,7 @@ export interface RosterView {
   atMaxLevel: boolean
   canUnlock: boolean
   canLevel: boolean
+  profile: UnitProfileView
 }
 
 /** One occupied ring slot or rim mount. */
@@ -459,6 +479,24 @@ class GameStore {
 
   /** How long a gain stays on screen. */
   private static readonly GAIN_WINDOW = 1.1
+
+  /**
+   * Publish a starting balance without it reading as a gain.
+   *
+   * The projection starts at zero and the save does not, so the first
+   * `publishSalvage` of a session sees the whole balance as a delta and flashes
+   * it as though it had just been earned. Worse, until that first frame lands
+   * the HUD shows **zero Salvage** for a save that has plenty — which in a
+   * throttled or backgrounded tab, where `requestAnimationFrame` may not run
+   * for a long time, reads as a save that was wiped.
+   *
+   * Called once by `bootstrap` before the loop starts.
+   */
+  primeSalvage(balance: number): void {
+    this.salvage = balance
+    this.salvageGain = 0
+    this.gainExpiresAt = 0
+  }
 
   /**
    * Publish the spendable Salvage balance and age the pooled gain.

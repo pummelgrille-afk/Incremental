@@ -1,6 +1,7 @@
 import { ROSTER } from '../content/economy'
 import { PLATFORMS, platformById, STARTING_PLATFORM_ID } from '../content/platforms'
 import { ARRAYS, arrayById } from '../content/arrays'
+import type { DamageType, TargetingPolicy, UnitRole } from '../entities/types'
 import type { SaveData } from '../core/saveSchema'
 
 /**
@@ -18,9 +19,26 @@ import type { SaveData } from '../core/saveSchema'
 /** A Platform or a Array — the two are levelled identically. */
 export type UnitKind = 'platform' | 'array'
 
+/**
+ * The slice of a PlatformDef or ArrayDef the roster panel reads.
+ *
+ * Structural rather than a union of the two def types, so this module still
+ * needs to know nothing about the difference between them. `conjunctionEffect`
+ * is optional because only a Platform has one — an Array never joins a
+ * conjunction (combat-spec.md §4).
+ */
 export interface UnitDefLike {
   readonly id: string
   readonly name: string
+  readonly description: string
+  readonly role: UnitRole
+  readonly damageType: DamageType
+  readonly maxHp: number
+  readonly attack: number
+  readonly defence: number
+  readonly baseInterval: number
+  readonly targeting: TargetingPolicy
+  readonly conjunctionEffect?: { readonly kind: string; readonly magnitude: number }
   readonly unlockCost: number
 }
 
@@ -111,6 +129,28 @@ export function levelUp(save: SaveData, kind: UnitKind, id: string): boolean {
   return true
 }
 
+/**
+ * What a unit is and does, at the level it is currently at.
+ *
+ * Stats are the **effective** ones, not the authored ones: a levelled unit is
+ * described by what it will do when fielded, or the panel is quoting a number
+ * the player will never see. `levelScale` is the same multiplier the stage
+ * loader applies.
+ */
+export interface UnitProfile {
+  description: string
+  role: UnitRole
+  damageType: DamageType
+  targeting: TargetingPolicy
+  attack: number
+  maxHp: number
+  defence: number
+  /** Seconds between attacks, before haste. */
+  interval: number
+  /** What it contributes to a conjunction, or null for an Array. */
+  conjunction: { kind: string; magnitude: number } | null
+}
+
 export interface RosterEntry {
   kind: UnitKind
   id: string
@@ -124,6 +164,32 @@ export interface RosterEntry {
   atMaxLevel: boolean
   canUnlock: boolean
   canLevel: boolean
+  profile: UnitProfile
+}
+
+/**
+ * Describe a unit at a level.
+ *
+ * Level 0 — not yet unlocked — is described at level 1, which is what the
+ * player would get if they bought it. Quoting zeroes for a unit on sale would
+ * be worse than quoting its opening stats.
+ */
+function profileOf(def: UnitDefLike, level: number): UnitProfile {
+  const scale = levelScale(Math.max(1, level))
+
+  return {
+    description: def.description,
+    role: def.role,
+    damageType: def.damageType,
+    targeting: def.targeting,
+    attack: def.attack * scale,
+    maxHp: def.maxHp * scale,
+    defence: def.defence * scale,
+    interval: def.baseInterval,
+    conjunction: def.conjunctionEffect
+      ? { kind: def.conjunctionEffect.kind, magnitude: def.conjunctionEffect.magnitude }
+      : null,
+  }
 }
 
 /** Every authored unit with its state, for the formation editor. */
@@ -144,6 +210,7 @@ export function rosterOf(save: SaveData, kind: UnitKind): RosterEntry[] {
       atMaxLevel: unlocked && level >= ROSTER.maxLevel,
       canUnlock: !unlocked && save.meta.clearance >= def.unlockCost,
       canLevel: cost !== null && save.meta.clearance >= cost,
+      profile: profileOf(def, level),
     }
   })
 }

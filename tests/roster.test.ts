@@ -208,6 +208,55 @@ describe('levelling', () => {
   })
 })
 
+describe('the roster panel profile', () => {
+  /*
+   * The panel used to say a name, a level and a price, and nothing about what
+   * a unit *is* — so a player picking between ten Platforms was picking on the
+   * strength of the name. `profile` is what the hover card reads.
+   */
+  it('describes every unit, locked or not', () => {
+    for (const entry of rosterOf(save, 'platform')) {
+      expect(entry.profile.description.length, entry.id).toBeGreaterThan(0)
+      expect(entry.profile.attack, entry.id).toBeGreaterThanOrEqual(0)
+      expect(entry.profile.maxHp, entry.id).toBeGreaterThan(0)
+      expect(entry.profile.interval, entry.id).toBeGreaterThan(0)
+    }
+  })
+
+  it('quotes a locked unit at what it would open at, not at zero', () => {
+    const locked = rosterOf(save, 'platform').find((e) => !e.unlocked)!
+    const def = PLATFORMS.find((p) => p.id === locked.id)!
+
+    expect(locked.level).toBe(0)
+    expect(locked.profile.maxHp).toBeCloseTo(def.maxHp)
+  })
+
+  it('quotes an owned unit at the level it is actually at', () => {
+    grantStartingLoadout(save)
+    save.meta.clearance = 1000
+    const id = STARTING_PLATFORM_ID
+    const def = PLATFORMS.find((p) => p.id === id)!
+
+    expect(levelUp(save, 'platform', id)).toBe(true)
+    const entry = rosterOf(save, 'platform').find((e) => e.id === id)!
+
+    expect(entry.level).toBe(2)
+    expect(entry.profile.attack).toBeCloseTo(def.attack * levelScale(2))
+    expect(entry.profile.attack).toBeGreaterThan(def.attack)
+  })
+
+  it('gives Platforms a conjunction and Arrays none', () => {
+    // An Array never joins a conjunction — combat-spec.md §4. The card says so,
+    // and a def that grew one by accident should fail here rather than there.
+    for (const entry of rosterOf(save, 'platform')) {
+      expect(entry.profile.conjunction, entry.id).not.toBeNull()
+    }
+    for (const entry of rosterOf(save, 'array')) {
+      expect(entry.profile.conjunction, entry.id).toBeNull()
+    }
+  })
+})
+
 describe('the slot economy', () => {
   beforeEach(() => {
     grantStartingLoadout(save)

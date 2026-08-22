@@ -231,6 +231,26 @@ The "welcome back" summary (Phase 27) reports elapsed time, Salvage earned, and 
 honestly — what was missed. Telling the player they lost nothing when they did is
 the kind of thing that erodes trust in an idle game's numbers.
 
+### What counts as being away
+
+**Any stretch where the simulation was not running**, not only a closed game.
+A tab left open in the background is the commonest way people idle an idle game,
+and `requestAnimationFrame` is throttled to a stop there — so those hours ran no
+waves *and*, until this was fixed, paid no offline progress either. The absence
+is settled on the way back in, from `visibilitychange`, on exactly the terms
+above.
+
+Two consequences follow, and both are deliberate:
+
+- `salvagePerSecond` is sampled from **simulated** time, never from wall-clock
+  time between frames. The simulation clamps how much it will catch up after a
+  stall, so a frame covering an hour plays a fraction of a second of it; billing
+  the hour would divide that fraction's drops by 3600 and set the rate — the
+  rate the *next* absence is paid from — to nearly zero.
+- The playtime statistic is sampled the same way, which is what its own
+  definition ("seconds of active play; offline time is not counted") already
+  claimed.
+
 ## 5. Wave scaling
 
 ```

@@ -133,4 +133,21 @@ describe('the Salvage counter', () => {
     game.publishSalvage(50, 5)
     expect(game.salvageGain).toBe(0)
   })
+
+  it('primes a starting balance without it reading as income', () => {
+    // The projection starts at zero and a loaded save does not, so the first
+    // publish of a session would otherwise flash the entire balance as though
+    // it had just been earned.
+    game.primeSalvage(880)
+
+    expect(game.salvage).toBe(880)
+    expect(game.salvageGain).toBe(0)
+  })
+
+  it('reports a gain against a primed balance, not against zero', () => {
+    game.primeSalvage(880)
+    game.publishSalvage(890, 0.5)
+
+    expect(game.salvageGain).toBe(10)
+  })
 })

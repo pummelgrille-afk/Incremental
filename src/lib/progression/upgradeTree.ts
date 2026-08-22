@@ -10,6 +10,7 @@ import { TREE } from '../content/economy'
 import { parseStageAddress } from '../entities/Zone'
 import { zoneById } from '../content/zones'
 import { isBossStage } from '../systems/scaling'
+import { fnv1a } from '../utils/hash'
 import type { SaveData } from '../core/saveSchema'
 
 /**
@@ -337,6 +338,38 @@ const TIER_SPACING = 110
 const FIRST_TIER_RADIUS = 130
 
 /**
+ * How far a node may wander off its arc, and off its tier's radius.
+ *
+ * Both are the constellation, and both are **bounded by what the shape has to
+ * keep saying**. Siblings spread across `BRANCH_ARC * 0.7`, leaving 15% of the
+ * quadrant free at each edge — 0.235 rad — so 0.06 keeps neighbouring branches
+ * well clear of each other. Tiers stand 110px apart, so 24px cannot reorder
+ * them, and a reader can still see which ring a node belongs to.
+ *
+ * The angular figure is the tighter of the two for a second reason: same-tier
+ * siblings are the closest pair on the board, 47px apart at the densest tier,
+ * and drift can only take that away. At 0.06 the closest pair in the authored
+ * tree is 38.7px — a clear gap at the 13px star radius the view draws, and the
+ * `tests/upgradeTree.test.ts` spacing assertion is what keeps it one.
+ */
+const ANGULAR_DRIFT = 0.06
+const RADIAL_DRIFT = 24
+
+/**
+ * A stable pseudo-random value in [-1, 1] for a node, per axis.
+ *
+ * Seeded from the node id so a node sits in the same place in every session and
+ * on every machine — a constellation that reshuffled on reload would be worse
+ * than a perfect arc, because the player navigates this by shape and memory.
+ *
+ * The axis salt keeps a node's two offsets independent; hashing the id alone
+ * would correlate them and tilt every star along one diagonal.
+ */
+function drift(nodeId: string, axis: string): number {
+  return (fnv1a(`${axis}:${nodeId}`) / 0xffffffff) * 2 - 1
+}
+
+/**
  * Where each node sits, derived rather than authored.
  *
  * **Radial, because the game is an perihelion.** Branches take a quadrant each and
@@ -347,6 +380,15 @@ const FIRST_TIER_RADIUS = 130
  * Hand-placing coordinates in content was the alternative. It would look better
  * for twelve nodes and become a liability at seventy-two, where every insertion
  * means re-nudging its neighbours.
+ *
+ * **The constellation is that arc, loosened.** Seventy-two nodes on four
+ * perfect arcs read as a bus timetable, not a sky, and the setting is now a
+ * solar one. Each node is nudged off its exact position by a fixed amount
+ * derived from its id, which buys the irregularity a constellation needs while
+ * keeping every property the arc had: branches stay in their quadrants, tiers
+ * stay in radius order, and nothing has to be re-nudged when a node is added.
+ * The prerequisite edges then draw the lines between the stars, which is what
+ * makes it read as a constellation rather than as scatter.
  */
 export function treeLayout(nodes: readonly UpgradeNodeDef[] = UPGRADE_NODES): NodeLayout[] {
   const layout: NodeLayout[] = []
@@ -375,11 +417,12 @@ export function treeLayout(nodes: readonly UpgradeNodeDef[] = UPGRADE_NODES): No
           tierNodes.length === 1
             ? 0
             : (index / (tierNodes.length - 1) - 0.5) * usable
-        const angle = centre + offset
+        const angle = centre + offset + drift(node.id, 'angle') * ANGULAR_DRIFT
+        const distance = radius + drift(node.id, 'radius') * RADIAL_DRIFT
         layout.push({
           nodeId: node.id,
-          x: Math.cos(angle) * radius,
-          y: Math.sin(angle) * radius,
+          x: Math.cos(angle) * distance,
+          y: Math.sin(angle) * distance,
           branch,
         })
       })

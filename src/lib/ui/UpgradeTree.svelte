@@ -9,6 +9,11 @@
    * radial, because the game is an perihelion, and because the layout has to stay
    * legible when Phase 34 grows it from twelve nodes to seventy-two.
    *
+   * Each arm is drawn as a **constellation**: stars where the nodes sit, the
+   * prerequisite edges as the lines between them. The irregularity is in the
+   * layout rather than here — this file only decides that a node looks like a
+   * star and that a purchased one is lit.
+   *
    * Drawn as SVG rather than Pixi: this is a menu, not the field. It wants
    * crisp text and hit-testing at any zoom, and it must never compete with the
    * simulation for the render budget.
@@ -200,7 +205,20 @@
             transform="translate({node.x}, {node.y})"
             role="button"
             tabindex="0"
-            onclick={(e) => {
+            aria-label={node.name}
+            onpointerdown={(e) => {
+              /*
+               * Selection happens on pointer*down*, and the event stops here.
+               *
+               * The canvas calls `setPointerCapture` on itself to pan, which
+               * retargets every following mouse event — including the `click`
+               * — to the canvas. A click on a node therefore never reached the
+               * node, and the only way to select one was to tab to it and
+               * press Enter. Stopping the event before the canvas sees it
+               * fixes the cause rather than the symptom; the cost is that a
+               * drag cannot start on top of a node, which is a fair trade for
+               * a node that can be clicked.
+               */
               e.stopPropagation()
               selectedId = node.id
             }}
@@ -208,10 +226,18 @@
               if (e.key === 'Enter' || e.key === ' ') selectedId = node.id
             }}
           >
-            <circle r="18" />
-            <text class="label" y="34">{node.name}</text>
+            <!-- A star, not a disc: four points on the axes with a soft waist,
+                 which is the shape the eye reads as a star at this size. The
+                 wide invisible disc under it keeps the click target generous
+                 without drawing a circle around every point. -->
+            <circle class="hit" r="18" />
+            <path
+              class="star"
+              d="M 0 -13 Q 2.6 -2.6 13 0 Q 2.6 2.6 0 13 Q -2.6 2.6 -13 0 Q -2.6 -2.6 0 -13 Z"
+            />
+            <text class="label" y="30">{node.name}</text>
             {#if !node.purchased}
-              <text class="cost" y="5">{node.cost}</text>
+              <text class="cost" y="-19">{node.cost}</text>
             {/if}
           </g>
         {/each}
@@ -314,13 +340,16 @@
     cursor: grabbing;
   }
 
+  /* Thin, so the lines read as the joins of a constellation rather than as
+     pipework. A purchased chain is the one that brightens. */
   .edges line {
     stroke: #2a2620;
-    stroke-width: 2;
+    stroke-width: 1;
   }
 
   .edges line.done {
     stroke: var(--brass-dim);
+    stroke-width: 1.5;
   }
 
   .edges line.planned {
@@ -332,31 +361,42 @@
     cursor: pointer;
   }
 
-  .node circle {
+  /* The hit target. Invisible, and wider than the star it sits under. */
+  .node circle.hit {
+    fill: transparent;
+    stroke: none;
+  }
+
+  .node .star {
     fill: #14120e;
     stroke: #3a352a;
     stroke-width: 2;
   }
 
-  .node.available circle {
+  .node.available .star {
     stroke: var(--brass);
+    fill: #241f14;
   }
 
-  .node.unaffordable circle {
+  .node.unaffordable .star {
     stroke: var(--brass-dim);
   }
 
-  .node.purchased circle {
+  /* A purchased node is a lit star: filled, and the only thing on the canvas
+     that glows. It is how an invested arm reads as invested from across the
+     panel, without a legend. */
+  .node.purchased .star {
     fill: var(--brass);
-    stroke: var(--brass);
+    stroke: #f0e6c8;
+    filter: drop-shadow(0 0 5px rgba(214, 178, 70, 0.75));
   }
 
-  .node.planned circle {
+  .node.planned .star {
     stroke: var(--brass);
     stroke-dasharray: 3 2;
   }
 
-  .node.selected circle {
+  .node.selected .star {
     stroke: #f0e6c8;
     stroke-width: 3;
   }

@@ -415,6 +415,39 @@ describe('the layout', () => {
     }
   })
 
+  it('keeps constellation drift clear of a collision', () => {
+    // The drift that makes the arms read as constellations rather than as arcs
+    // can only take spacing away, and the closest pair on the board is a pair
+    // of same-tier siblings. 26px is the star radius doubled — below it, two
+    // nodes touch and the tree gains a shape nothing authored.
+    const layout = treeLayout()
+    let closest = Infinity
+    let pair = ''
+
+    for (let i = 0; i < layout.length; i++) {
+      for (let j = i + 1; j < layout.length; j++) {
+        const distance = Math.hypot(layout[i].x - layout[j].x, layout[i].y - layout[j].y)
+        if (distance < closest) {
+          closest = distance
+          pair = `${layout[i].nodeId} / ${layout[j].nodeId}`
+        }
+      }
+    }
+
+    expect(closest, pair).toBeGreaterThan(30)
+  })
+
+  it('scatters nodes off their tier radius', () => {
+    // The point of the drift: siblings on one tier must not share a radius, or
+    // the arm is an arc with extra steps.
+    const layout = treeLayout()
+    const radii = layout.map((l) => Math.round(Math.hypot(l.x, l.y)))
+
+    // Not every node: rounding to the pixel collides a few by coincidence, and
+    // asserting on all of them would be asserting on the rounding.
+    expect(new Set(radii).size).toBeGreaterThan(layout.length * 0.8)
+  })
+
   it('never places a node on the origin', () => {
     // The centre is reserved, and a node there would sit under the labels.
     for (const l of treeLayout()) {
