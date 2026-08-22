@@ -37,12 +37,15 @@ game draws about thirty pixels across.
      that were never authored; collapsing them is what makes the result read as
      pixel art rather than as a photograph of pixel art.
   4. **Trim** fully transparent borders, so the sprite's own bounds are its art
-     and the renderer can anchor on the centre.
+     and the renderer can anchor on the centre — but trim **every frame of a
+     unit to the same box**, which is the whole reason this step is not inside
+     `normalise`. See `trim_together`.
 """
 
 from PIL import Image
 import numpy as np
 import os
+import re
 import sys
 
 SOURCE = 'src/assets/sprites/raw'
@@ -109,7 +112,50 @@ def normalise(path: str) -> Image.Image:
     result = flat.convert('RGBA')
     result.putalpha(mask)
 
-    return result.crop(result.getbbox() or (0, 0, NATIVE, NATIVE))
+    # Not trimmed here — see `trim_together`. A frame cropped to its own bounds
+    # is a frame that moves.
+    return result
+
+
+FRAME_SUFFIX = re.compile(r'-(idle|attack|hit|death)-\d+$')
+
+
+def clip_group(name: str) -> str:
+    """
+    The unit a file belongs to.
+
+    `bolt-attack-2.png`, `bolt-idle-1.png` and `bolt.png` are all one group.
+    Grouping by *unit* rather than by clip is deliberate: the renderer sizes a
+    sprite once, from its idle frame, and then swaps textures underneath that
+    scale. Frames of different dimensions would be drawn at different sizes, so
+    a unit would change size when it attacked.
+    """
+    return FRAME_SUFFIX.sub('', os.path.splitext(name)[0])
+
+
+def trim_together(images: dict[str, Image.Image]) -> dict[str, Image.Image]:
+    """
+    Crop every frame of a unit to one shared box.
+
+    Trimming each frame to its own bounds — which is what a single-image
+    pipeline naturally does — makes the art jitter: frame two is two pixels
+    narrower, so it is centred differently and scaled differently, and a
+    stationary unit appears to shuffle on the spot. The union of the frames'
+    bounds is the smallest box that holds all of them, so the unit stays put and
+    the animation is the only thing moving.
+    """
+    boxes = [image.getbbox() for image in images.values()]
+    boxes = [box for box in boxes if box is not None]
+    if not boxes:
+        return images
+
+    union = (
+        min(box[0] for box in boxes),
+        min(box[1] for box in boxes),
+        max(box[2] for box in boxes),
+        max(box[3] for box in boxes),
+    )
+    return {name: image.crop(union) for name, image in images.items()}
 
 
 def main() -> int:
@@ -118,23 +164,28 @@ def main() -> int:
         return 1
 
     os.makedirs(TARGET, exist_ok=True)
+
+    groups: dict[str, list[str]] = {}
     for name in sorted(os.listdir(SOURCE)):
-        if not name.endswith('.png'):
-            continue
+        if name.endswith('.png'):
+            groups.setdefault(clip_group(name), []).append(name)
 
-        source_path = os.path.join(SOURCE, name)
-        target_path = os.path.join(TARGET, name)
+    for group, names in sorted(groups.items()):
+        normalised = {name: normalise(os.path.join(SOURCE, name)) for name in names}
+        trimmed = trim_together(normalised)
 
-        image = normalise(source_path)
-        image.save(target_path, optimize=True)
+        for name, image in trimmed.items():
+            target_path = os.path.join(TARGET, name)
+            image.save(target_path, optimize=True)
 
-        before = os.path.getsize(source_path)
-        after = os.path.getsize(target_path)
-        colours = len(image.convert('RGB').getcolors(1 << 16) or [])
-        print(
-            f'{name:16} {image.size[0]:>2}x{image.size[1]:<2}  '
-            f'{colours:>3} colours  {before // 1024:>4}KB -> {after / 1024:5.1f}KB'
-        )
+            before = os.path.getsize(os.path.join(SOURCE, name))
+            after = os.path.getsize(target_path)
+            colours = len(image.convert('RGB').getcolors(1 << 16) or [])
+            shared = f'  (shared box, {len(names)} frames)' if len(names) > 1 else ''
+            print(
+                f'{name:24} {image.size[0]:>2}x{image.size[1]:<2}  '
+                f'{colours:>3} colours  {before // 1024:>4}KB -> {after / 1024:5.1f}KB{shared}'
+            )
 
     return 0
 

@@ -109,6 +109,19 @@ like one object.
 The frames were deleted afterwards. Committing placeholder art would have made
 the checklist item above look done.
 
+## One bug the writing found
+
+Explaining the workflow surfaced a defect in the Phase 37 normaliser: it trims
+each image to its own bounds. Correct for single sprites, wrong for frames — a
+frame two pixels narrower is centred and scaled differently, so a stationary
+unit shuffles on the spot, and the renderer sizes a sprite once from its idle
+frame and swaps textures underneath that scale.
+
+It now groups files by **unit** and crops the group to the union of its bounds.
+Checked with two frames of deliberately different extent — one planet at full
+size, the same planet at 70% — which come out at identical dimensions. The ten
+existing sprites are byte-for-byte unaffected, each being a group of one.
+
 ## What is needed to close this phase
 
 Frames, to art-style.md §7's contract. In rough order of what the game gains

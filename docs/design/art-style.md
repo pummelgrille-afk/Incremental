@@ -243,6 +243,14 @@ Two of those numbers are constraints rather than suggestions:
 - **Idle is slow on purpose.** It is on screen permanently, and a fast idle
   reads as agitation rather than as life.
 
+**Every frame of a unit is trimmed to one shared box.** The normaliser groups
+files by unit — `bolt.png`, `bolt-idle-1.png` and `bolt-attack-3.png` are one
+group — and crops them all to the union of their bounds. Trimming each frame to
+its own bounds, which is what a single-image pipeline naturally does, makes a
+stationary unit shuffle on the spot: a frame two pixels narrower is centred and
+scaled differently. This is also why frames may be drawn on a full canvas
+without care for margins; the tool finds the box.
+
 **States fall back rather than failing.** A state with no frames of its own uses
 idle; idle with none uses the bare key. So art can arrive one clip at a time —
 give a unit an attack animation without owing it a death — and nothing has to
@@ -256,7 +264,9 @@ sprite key for this reason.
 Things a clip must not do:
 
 - **Do not move the unit.** Position is the simulation's. A frame that walks
-  the art across the cell desynchronises the sprite from its own hitbox.
+  the art across the cell desynchronises the sprite from its own hitbox. Small
+  motion *within* the box — a bob, a recoil, a limb — is the point; travel is
+  not.
 - **Do not change the silhouette's read.** §5 still applies frame by frame: a
   unit must be identifiable on any frame of any clip, including mid-death.
 - **Do not encode a number.** §4 still applies. A health-shaded death frame is
