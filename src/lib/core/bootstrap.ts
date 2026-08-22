@@ -10,6 +10,8 @@ import {
   updateEarningRate,
 } from '../systems/offlineProgress'
 import { evaluate as evaluateAchievements } from '../progression/achievements'
+import { evaluate as evaluateTutorial } from '../progression/tutorial'
+import type { TutorialEvent } from '../entities/Tutorial'
 import {
   buyTrack,
   supportRoster,
@@ -417,6 +419,39 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     autosaver.request('purchase')
   }
 
+  /**
+   * Raise the next onboarding card, if one is due.
+   *
+   * Evaluated on the same moments as achievements, and for the same reason —
+   * these questions change a handful of times per run. At most one card is
+   * raised per moment; `progression/tutorial.ts` owns which.
+   *
+   * The two gates are read from `progression/` rather than from the store,
+   * which widens both in a dev build: a card announcing the Almanac to a
+   * player who cannot yet reach it would be worse than no card at all.
+   */
+  const checkTutorial = (event: TutorialEvent, largestConjunction = 0): void => {
+    const step = evaluateTutorial(saveData, event, {
+      nextSlotCost: nextSlotCost(saveData),
+      largestConjunction,
+      treeRevealed: isTreeRevealed(saveData),
+      rewindWorthwhile:
+        isRewindUnlocked(saveData) && rewindPreview(saveData).award > 0,
+    })
+    if (!step) return
+
+    game.tutorialQueue = [
+      ...game.tutorialQueue,
+      {
+        id: step.id,
+        name: step.name,
+        description: step.description,
+        key: step.key,
+      },
+    ]
+    autosaver.request('purchase')
+  }
+
   /** The parts of a moment the triggers read. */
   const achievementSnapshot = () => ({
     distinctPlatformsSlotted: new Set(Object.values(saveData.run.formation)).size,
@@ -499,6 +534,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   // State-shaped triggers — "has cleared a stage", "has Rewound" — need one
   // evaluation on load, or a save from before this phase would never earn them.
   checkAchievements('load')
+  checkTutorial('load')
 
   /**
    * The stage in play. Restored from the save so a reload resumes where the
@@ -651,10 +687,12 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       checkAchievements('conjunction', {
         largestConjunction: events.largestConjunction,
       })
+      checkTutorial('conjunction', events.largestConjunction)
     }
 
     if (events.stageLost) {
       checkAchievements('stage-lost', achievementSnapshot())
+      checkTutorial('stage-lost')
     }
 
     if (events.stageCleared) {
@@ -679,6 +717,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
         clearedUntouched: simulation.state.sun.lowestFraction >= 1,
         zoneCompleted: reward.zoneCompleted,
       })
+
+      checkTutorial('stage-cleared')
 
       pendingStage = nextStageAfter(address)
       advanceIn = pendingStage ? STAGE_GAP_SECONDS : 0

@@ -59,6 +59,21 @@ export interface UnitProfileView {
   conjunction: { kind: string; magnitude: number } | null
 }
 
+/**
+ * One onboarding card, projected for the view.
+ *
+ * Mirrors `TutorialStepDef` rather than importing it, the same rule that keeps
+ * `SupportTrackView.track` a plain string: `stores/` is the bridge into Svelte
+ * and does not depend on `content/` or `progression/`.
+ */
+export interface TutorialCardView {
+  id: string
+  name: string
+  description: string
+  /** The key that opens what the card is about, or null. */
+  key: string | null
+}
+
 /** A unit in the roster panel. */
 export interface RosterView {
   kind: 'platform' | 'array'
@@ -287,6 +302,17 @@ class GameStore {
    * predecessor would swallow one.
    */
   achievementQueue = $state<{ id: string; name: string; description: string }[]>([])
+
+  /**
+   * Onboarding cards waiting to be read.
+   *
+   * A queue for the same reason the achievement one is: `progression/tutorial`
+   * shows at most one card per moment, but two moments can land close enough
+   * together — a conjunction firing on the tick a stage clears — that a single
+   * slot would silently drop one. A card nobody read is a step the player was
+   * charged for and never got.
+   */
+  tutorialQueue = $state<TutorialCardView[]>([])
 
   /** The Rewind modal. Toggled with P, once unlocked. */
   showPrestige = $state(false)

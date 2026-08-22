@@ -120,6 +120,44 @@ Progression past that point is open-ended: the wave curve keeps scaling, and
 Recollection keeps buying depth. See `economy-spec.md` for the endless-scaling
 formula.
 
+## Onboarding (Phase 36)
+
+The loop above is five systems deep, and a first-time player meets **one at a
+time** — economy-spec.md §3 already sets that pace for the reveals, and
+onboarding follows it rather than running ahead of it.
+
+There is no tutorial mode, no scripted first stage and no forced sequence. What
+exists is a set of cards in `content/tutorial.ts`, each attached to the moment
+its system becomes *relevant*:
+
+| # | Card | Arrives when |
+|---|------|--------------|
+| 1 | Standing Watch | first load of a new save |
+| 2 | The Flare | first stage cleared |
+| 3 | The Formation | a clear where the next slot is affordable |
+| 4 | Conjunction | the first conjunction of two or more fires |
+| 5 | Clearance | the first Clearance is banked |
+| 6 | The Arrays | Clearance covers the cheapest Array |
+| 7 | The Ladder | a second zone opens |
+| 8 | The Almanac | the tree is revealed — first boss clear |
+| 9 | The Rewind | a Rewind is available *and* would pay |
+
+Three rules hold the whole thing together, and each is enforced in code rather
+than by authoring discipline:
+
+1. **At most one card per moment**, taken in authored order. A late clear can
+   satisfy four triggers at once, and four cards at once teaches none of them.
+2. **A card waits for its system to be reachable.** Explaining Clearance before
+   any has been earned is explaining an abstraction; the same words as the first
+   one lands are about the number that just appeared in the HUD.
+3. **Nothing blocks.** The card does not dim the field, take focus, pause the
+   wave, or gate a next button. The Flare stays clickable underneath the card
+   that explains the Flare.
+
+Order 3 → 4 is not guaranteed and does not need to be: a conjunction fires on
+its own moment and may well precede the formation card. Every other pair is
+ordered by the array.
+
 ## Loop health checks
 
 Questions to re-ask at Phases 10, 20 and 35. If any answer turns to "no", the loop

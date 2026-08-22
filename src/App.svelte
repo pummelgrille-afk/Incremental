@@ -9,6 +9,7 @@
   import PrestigeModal from './lib/ui/PrestigeModal.svelte'
   import WelcomeBack from './lib/ui/WelcomeBack.svelte'
   import AchievementToast from './lib/ui/AchievementToast.svelte'
+  import Tutorial from './lib/ui/Tutorial.svelte'
 
   /**
    * Phase 10 vertical slice. The default view, so `npm run dev` shows the game
@@ -57,6 +58,7 @@
   <PrestigeModal open={game.showPrestige} />
   <WelcomeBack />
   <AchievementToast />
+  <Tutorial />
 {/if}
 
 <style>

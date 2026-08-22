@@ -111,7 +111,66 @@ function remapValues(
 const strings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
 
+/**
+ * The onboarding steps as they stood when schema 7 was written.
+ *
+ * A literal rather than an import from `content/tutorial.ts`, for the reason
+ * the file comment above gives: a migration speaks the vocabulary of the
+ * version it produces. If Phase 40 adds a tenth step, a save migrated by *this*
+ * step must not retroactively be marked as having seen it — it never existed
+ * when that save was upgraded, and a genuinely new system is worth explaining
+ * once even to a returning player.
+ */
+const TUTORIAL_IDS_AT_SCHEMA_7 = [
+  'standing-watch',
+  'the-flare',
+  'the-formation',
+  'conjunction',
+  'clearance',
+  'the-arrays',
+  'the-ladder',
+  'the-almanac',
+  'the-rewind',
+]
+
 export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
+  /**
+   * 6 → 7: onboarding remembers what it has already said.
+   *
+   * The addition is `meta.tutorialSeen`. The interesting part is what it is
+   * seeded with: **a save that has cleared anything is marked as having seen
+   * every step**, and only a save that has never cleared a stage starts the
+   * sequence.
+   *
+   * Without that, every existing player would be met by a card explaining what
+   * Salvage is, then one explaining Clearance, then one explaining the panel
+   * they have had open for six hours — an onboarding sequence delivered to
+   * someone who is demonstrably onboarded. The condition is `clearedStages`
+   * rather than playtime because it is the one signal that cannot be produced
+   * by leaving the game open on a menu.
+   *
+   * A save that has genuinely never cleared a stage keeps the sequence, which
+   * is right: they are mid-onboarding whether or not the tutorial existed when
+   * they started.
+   */
+  6: (save) => {
+    const meta = (save.meta ?? {}) as Record<string, unknown>
+    const cleared = Array.isArray(meta.clearedStages) ? meta.clearedStages.length : 0
+
+    return {
+      ...save,
+      schemaVersion: 7,
+      meta: {
+        ...meta,
+        tutorialSeen: Array.isArray(meta.tutorialSeen)
+          ? meta.tutorialSeen
+          : cleared > 0
+            ? [...TUTORIAL_IDS_AT_SCHEMA_7]
+            : [],
+      },
+    }
+  },
+
   /**
    * 5 → 6: the solar reskin renames every persisted field and every content id.
    *

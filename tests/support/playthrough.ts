@@ -258,6 +258,19 @@ export interface PlayOptions {
   /** Strike with the Flare whenever a charge is banked. Default true. */
   useFlare?: boolean
   seed?: number
+
+  /**
+   * Called after each stage resolves, with the save as it stands.
+   *
+   * Exists so Phase 36 can trace **when** an onboarding card would fire during
+   * a real first run rather than asserting the triggers against a save built by
+   * hand. A hand-built save proves the predicate; only the harness proves the
+   * pacing, which is the part a tutorial can get wrong.
+   *
+   * Called after the clear has been recorded, so a hook asking "has a second
+   * zone opened" sees the answer the player would.
+   */
+  onStageResolved?: (save: SaveData, result: StageResult) => void
 }
 
 /** Play one stage to a clear or a loss. */
@@ -352,10 +365,14 @@ export function playRun(save: SaveData, rewindNumber: number, options: PlayOptio
     seconds += result.seconds + OVERHEAD_PER_STAGE
     save.run.salvage += result.salvage
 
-    if (!result.cleared) break
+    if (!result.cleared) {
+      options.onStageResolved?.(save, result)
+      break
+    }
 
     recordDepth(save, result.scalingIndex)
     applyStageClear(save, address)
+    options.onStageResolved?.(save, result)
   }
 
   const deepest = save.run.deepestScalingIndex

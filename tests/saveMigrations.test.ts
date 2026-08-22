@@ -458,3 +458,68 @@ describe('5 → 6: the solar reskin', () => {
     expect(JSON.stringify(original)).toBe(snapshot)
   })
 })
+
+describe('6 → 7: onboarding', () => {
+  /** A save exactly as schema 6 wrote it, with no `tutorialSeen` field. */
+  const schemaSix = (cleared: string[]): RawSave => ({
+    schemaVersion: 6,
+    savedAt: 0,
+    run: { salvage: 40, formation: {}, mounts: {} },
+    meta: {
+      recollection: 0,
+      clearance: 3,
+      purchasedNodes: [],
+      platforms: { bolt: 1 },
+      arrays: {},
+      presets: [],
+      arrayUpgrades: {},
+      unlockedZones: ['service-floor'],
+      clearedStages: cleared,
+      achievements: [],
+      rewindCount: 0,
+    },
+    settings: {},
+    statistics: {},
+  })
+
+  it('opts an existing player out of the whole sequence', () => {
+    /*
+     * The point of the step. Without it, a player with hours behind them is met
+     * on their next load by a card explaining what Salvage is, then one
+     * explaining the panel they have had open all evening.
+     */
+    const meta = migrate(schemaSix(['service-floor:first-shift'])).save.meta as Record<
+      string,
+      unknown
+    >
+
+    expect(Array.isArray(meta.tutorialSeen)).toBe(true)
+    expect((meta.tutorialSeen as string[]).length).toBeGreaterThan(0)
+    expect(meta.tutorialSeen).toContain('the-formation')
+  })
+
+  it('leaves the sequence intact for a save that has never cleared anything', () => {
+    // Mid-onboarding whether or not the tutorial existed when they started.
+    const meta = migrate(schemaSix([])).save.meta as Record<string, unknown>
+    expect(meta.tutorialSeen).toEqual([])
+  })
+
+  it('keeps a list that is already there', () => {
+    const save = schemaSix([])
+    ;(save.meta as Record<string, unknown>).tutorialSeen = ['standing-watch']
+
+    const meta = migrate(save).save.meta as Record<string, unknown>
+    expect(meta.tutorialSeen).toEqual(['standing-watch'])
+  })
+
+  it('survives a save with nothing in it', () => {
+    expect(() => migrate({ schemaVersion: 6 })).not.toThrow()
+  })
+
+  it('leaves the original save untouched', () => {
+    const original = schemaSix(['service-floor:first-shift'])
+    const snapshot = JSON.stringify(original)
+    migrate(original)
+    expect(JSON.stringify(original)).toBe(snapshot)
+  })
+})

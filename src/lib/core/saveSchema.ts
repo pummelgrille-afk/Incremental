@@ -14,7 +14,7 @@ import { STARTING_ZONE_ID } from '../content/zones'
  * def object — content changes between versions, saves must not.
  */
 
-export const SCHEMA_VERSION = 6
+export const SCHEMA_VERSION = 7
 
 /** Discarded on Rewinding. */
 export interface RunState {
@@ -111,6 +111,16 @@ export interface MetaState {
   /** Unlocked achievement ids. */
   achievements: string[]
 
+  /**
+   * Tutorial step ids already shown. Added in schema 7.
+   *
+   * In `meta` rather than `run` for the obvious reason and one less obvious
+   * one: onboarding is a thing that happened to the *player*, not to a run, and
+   * a Rewind explaining the formation panel a second time would be the game
+   * forgetting who it was talking to.
+   */
+  tutorialSeen: string[]
+
   /** Number of completed Rewindings. Gates tutorial and UI reveals. */
   rewindCount: number
 }
@@ -175,6 +185,7 @@ export function createDefaultSave(now = Date.now()): SaveData {
       unlockedZones: [STARTING_ZONE_ID],
       clearedStages: [],
       achievements: [],
+      tutorialSeen: [],
       rewindCount: 0,
     },
     settings: {
@@ -355,6 +366,7 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
       unlockedZones: strArray(meta.unlockedZones),
       clearedStages: strArray(meta.clearedStages) as StageAddress[],
       achievements: strArray(meta.achievements),
+      tutorialSeen: strArray(meta.tutorialSeen),
       rewindCount: num(meta.rewindCount, 0, 0),
     },
     settings: {
