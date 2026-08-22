@@ -7,6 +7,8 @@ import {
   spriteUrl,
   unusedSprites,
 } from '../src/lib/core/assetLoader'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { CONTACT } from '../src/lib/content/contacts'
 import { PLATFORMS } from '../src/lib/content/platforms'
 import { ARRAYS } from '../src/lib/content/arrays'
@@ -119,5 +121,55 @@ describe('content and art agree', () => {
     // that uses it, this is the reminder — it is meant to be edited when that
     // happens, not deleted.
     expect(unusedSprites(referenced)).toEqual([])
+  })
+})
+
+
+describe('what the player has to download', () => {
+  /*
+   * PLAN.md Phase 39: "watch total bundle/asset size for load time, not just
+   * runtime perf."
+   *
+   * At this size Vite inlines every sprite as a data URI in the main chunk,
+   * which is the right trade — 26 files became 39.5KB of bundle and zero round
+   * trips. It stops being the right trade once frame sets land: base64 inflates
+   * by a third, the main chunk is parse-blocking, and inlined art cannot be
+   * split per zone or cached apart from the code.
+   *
+   * A full set is on the order of 320 frames, which would roughly double the
+   * JavaScript the player downloads to start playing. This is the tripwire, so
+   * that decision is forced by a number rather than found late: when it fails,
+   * atlasing or lowering `build.assetsInlineLimit` is due — not before, since
+   * an atlas built for art that does not exist is a guess.
+   */
+  const INLINE_BUDGET_KB = 120
+
+  it('keeps the sprite payload inside the inlining budget', () => {
+    const dir = 'src/assets/sprites'
+    const files = readdirSync(dir).filter((name) => name.endsWith('.png'))
+    const bytes = files.reduce((sum, name) => sum + statSync(join(dir, name)).size, 0)
+
+    // Base64 is what actually ships, and it is a third larger again.
+    const shipped = (bytes * 4) / 3 / 1024
+
+    expect(files.length).toBeGreaterThan(0)
+    expect(shipped, `${files.length} sprites, ${shipped.toFixed(1)}KB base64`)
+      .toBeLessThan(INLINE_BUDGET_KB)
+  })
+
+  it('never ships an original', () => {
+    // The supplied art is ~130KB apiece against ~1KB for what replaces it.
+    // One of these reaching the bundle undoes the whole normalising step.
+    for (const name of readdirSync('src/assets/sprites')) {
+      if (!name.endsWith('.png')) continue
+      expect(statSync(join('src/assets/sprites', name)).size, name).toBeLessThan(8 * 1024)
+    }
+  })
+
+  it('generates the backdrops rather than shipping them', () => {
+    // Six painted skies would be the single largest asset in the game. The
+    // starfield is a rule, so it costs nothing and is sharp at any viewport.
+    const source = readFileSync('src/lib/content/backdrop.ts', 'utf-8')
+    expect(source).not.toContain('.png')
   })
 })

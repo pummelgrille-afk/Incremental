@@ -279,7 +279,60 @@ Things a clip must not do:
 - **Do not encode a number.** §4 still applies. A health-shaded death frame is
   a readout, and the overlay owns those.
 
-## 8. Open, and owned by later phases
+## 8. The background
+
+**Generated, not painted.** The sky is a rule in `content/backdrop.ts` and
+`core/backdrop.ts`, not an image: it costs no bytes, it is sharp at any
+viewport, and — the reason that matters most here — its contrast can be
+*asserted* rather than eyeballed. §6 rule 1 makes the background the one thing
+that must never compete with incoming fire, and `tests/backdrop.test.ts` is that
+rule made executable.
+
+Four constraints, all tested:
+
+| | Rule | Why |
+|---|------|-----|
+| Brightness | ≤ 0.5 alpha | Lands near 0.3 luminance; hostile green sits near 0.7 |
+| Hue | never within 45° of the hostile green, or 30° of telegraph red | A shared hue must be ruled out before the field can be read |
+| Motion | < 4.5°/s, an order below the fastest ring | A backdrop you can watch move is competing for attention |
+| Position | nothing inside 1.05 × the rim | The playable disc is where the player is looking; no dimming makes a distractor there acceptable |
+
+**Parallax is rotational**, because that is how this game moves. Nothing
+scrolls — the arena is fixed and circular — so the layers turn instead, the
+further ones slower, which is what distance does to apparent motion.
+
+**The ladder darkens outward.** The Service Floor is "the only part of the
+Perihelion that looks lived-in"; the Unlit Orbit has "been dark for nine
+generations". Leaving a sun means less light. It is also what legibility wants,
+since the late zones carry the densest patterns — the fiction and the rule
+agreeing is the only reason to trust either.
+
+The Veil is the deliberate exception: dense and dim rather than sparse, because
+"nothing is seen through it" describes a sky full of something you cannot
+resolve, not an empty one.
+
+### Tuned by rendering, not by argument
+
+The first pass at these numbers satisfied every rule above and was **invisible**
+— the brightest star sat barely above the background. It was found by rendering
+a real 1280×720 viewport and looking, not by reasoning about the values, and the
+lesson generalises: a contrast rule can only tell you when something is too
+loud.
+
+### Delivery
+
+At 26 sprites and no background images, Vite inlines the entire art payload as
+data URIs — 39.5KB, 8% of the main chunk, zero round trips. That stops being the
+right trade once frame sets land: base64 inflates by a third, the main chunk is
+parse-blocking, and inlined art cannot be split per zone or cached apart from
+the code. A full frame set is on the order of 320 frames and would roughly
+double the JavaScript needed to start playing.
+
+`tests/assets.test.ts` holds a 120KB tripwire on the payload so that decision is
+forced by a number. Atlasing is due when it fails and not before — an atlas
+built for art that does not exist is a guess.
+
+## 9. Open, and owned by later phases
 
 - **Contacts share three sprites across ten craft, Platforms four across ten.**
   Interim, and better than the identical circles they replaced. Awaiting art.

@@ -14,6 +14,7 @@ import {
   platformState,
   type AnimationState,
 } from './animation'
+import { backdropGeometry, type BackdropLayerGeometry } from './backdrop'
 import { SPRITE_MANIFEST, spriteFrames } from './assetLoader'
 import { TICK_SECONDS, type Simulation } from './loop'
 
@@ -272,6 +273,11 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   const world = new Container()
   app.stage.addChild(world)
 
+  // First child, so the sky is under the ring tracks as well as under the
+  // field. Its contents are built later, once a zone is known.
+  const backdropLayer = new Container()
+  world.addChild(backdropLayer)
+
   // --- Static furniture: drawn once, never touched again. -------------------
   const trackLayer = new Container()
   world.addChild(trackLayer)
@@ -300,6 +306,48 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   })
 
   const textures = await loadTextures()
+
+  /*
+   * The sky, under everything including the ring tracks.
+   *
+   * One Graphics per parallax layer, built once when the zone changes and then
+   * never touched again except for its rotation — a few hundred sub-pixel
+   * circles cost nothing to keep on screen and would cost real time to rebuild
+   * per frame. Rotation is one write per layer.
+   */
+  interface BackdropView {
+    graphic: Graphics
+    degreesPerSecond: number
+  }
+
+  let backdropViews: BackdropView[] = []
+  let backdropZone = ''
+
+  function drawBackdrop(simulation: Simulation) {
+    const zoneId = simulation.state.zone.id
+
+    if (zoneId !== backdropZone) {
+      backdropZone = zoneId
+      for (const view of backdropViews) view.graphic.destroy()
+      backdropViews = backdropGeometry(zoneId).map((layer: BackdropLayerGeometry) => {
+        const graphic = new Graphics()
+        for (const star of layer.stars) {
+          graphic
+            .circle(star.x, star.y, star.radius)
+            .fill({ color: layer.tint, alpha: star.alpha })
+        }
+        backdropLayer.addChild(graphic)
+        return { graphic, degreesPerSecond: layer.degreesPerSecond }
+      })
+    }
+
+    // Driven by simulation time rather than by a wall clock, so a paused or
+    // stalled sim leaves the sky where it was instead of jumping on resume.
+    const elapsed = simulation.state.elapsed
+    for (const view of backdropViews) {
+      view.graphic.rotation = (view.degreesPerSecond * elapsed * Math.PI) / 180
+    }
+  }
 
   const contactLayer = new Container()
   const projectileLayer = new Container()
@@ -944,6 +992,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     render(simulation: Simulation) {
       const alpha = simulation.alpha
 
+      drawBackdrop(simulation)
       drawPlatforms(simulation, alpha)
       drawArrays(simulation)
       drawContact(simulation, alpha)
@@ -985,6 +1034,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       arraySprites.clear()
       projectileSprites.length = 0
       deathSprites.length = 0
+      backdropViews = []
       popups.length = 0
     },
   }
