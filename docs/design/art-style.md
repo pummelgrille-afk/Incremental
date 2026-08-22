@@ -212,10 +212,64 @@ the player cannot tell what will hit them.
    motion are player settings (Phase 43); nothing may depend on movement to be
    understood.
 
-## 7. Open, and owned by later phases
+## 7. Animation
+
+Frames are ordinary sprites under a naming convention, not a new kind of asset:
+
+```
+<key>-<state>-<n>.png      bolt-attack-1.png, contact-2-death-3.png
+```
+
+1-based, no zero padding, and they go through the same `raw/` → normaliser →
+manifest → bundle path as everything else. A unit with no frames at all keeps
+using its bare `<key>.png`, so nothing has to be authored to keep working.
+
+**Four states, and each one is a question the field has to answer.**
+
+| State | Plays | Frames | Shown when |
+|-------|-------|--------|------------|
+| `idle` | loops, 0.16s/frame | 2–8 | nothing else applies |
+| `attack` | once, 0.05s/frame | **≤ 6** | a Contact is telegraphing; a Platform has just fired |
+| `hit` | once, 0.05s/frame | 2–4 | damage landed |
+| `death` | once, 0.09s/frame, holds last | 3–8 | a Contact died; a Platform is disabled |
+
+Two of those numbers are constraints rather than suggestions:
+
+- **Six attack frames, maximum.** Rake attacks every 0.65s and haste cuts it
+  further, so a wind-up has about a third of a second before the next one
+  starts. A clip that cannot finish reads as a stutter rather than as an
+  action. `tests/animation.test.ts` holds the budget against the fastest
+  authored interval, so raising it means faster frames or a slower roster.
+- **Idle is slow on purpose.** It is on screen permanently, and a fast idle
+  reads as agitation rather than as life.
+
+**States fall back rather than failing.** A state with no frames of its own uses
+idle; idle with none uses the bare key. So art can arrive one clip at a time —
+give a unit an attack animation without owing it a death — and nothing has to
+land as a complete set.
+
+**A death is drawn from the combat feed, not from the entity.** A Contact is
+removed from the field the instant it dies, so by the time anything could draw
+it, the entity and its def are gone. The feed outlives the kill and carries the
+sprite key for this reason.
+
+Things a clip must not do:
+
+- **Do not move the unit.** Position is the simulation's. A frame that walks
+  the art across the cell desynchronises the sprite from its own hitbox.
+- **Do not change the silhouette's read.** §5 still applies frame by frame: a
+  unit must be identifiable on any frame of any clip, including mid-death.
+- **Do not encode a number.** §4 still applies. A health-shaded death frame is
+  a readout, and the overlay owns those.
+
+## 8. Open, and owned by later phases
 
 - **Contacts share three sprites across ten craft, Platforms four across ten.**
-  Interim, and better than the identical circles they replaced. Phase 38.
-- **No animation yet.** The pipeline loads single textures; frames, atlases and
-  an animation clock are Phase 38's, and Phase 39's atlasing is what makes them
-  affordable.
+  Interim, and better than the identical circles they replaced. Awaiting art.
+- **Every clip is one frame long**, because no frames have been drawn yet. The
+  system is in place and exercised; §7 is the brief for filling it.
+- **No atlas.** Ten sprites inline into the bundle; a hundred frames will not.
+  Phase 39 owns atlasing, and it is what makes a full frame set affordable.
+- **Arrays have no art at all** and no `assetKey`. They also never take damage —
+  nothing writes their HP or `disabledFor` — so `hit` and `death` would be dead
+  clips today regardless.

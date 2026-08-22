@@ -86,6 +86,7 @@ export function damagePlatform(
   remaining -= absorb(platform.buffs.shield, remaining)
 
   platform.hp -= remaining
+  platform.hitFlash = 0.12
   telemetry?.took(platform.def.id, amount)
 
   if (platform.hp <= 0) {
@@ -153,6 +154,9 @@ export function resolvePlatformAttacks(
       target.position.x,
       target.position.y,
       before - target.hp,
+      // Only a kill needs it: a death is the one event that outlives what it
+      // happened to, so it is the only one with nothing left to read a key off.
+      died ? (target.def.assetKey ?? '') : '',
     )
 
     /*

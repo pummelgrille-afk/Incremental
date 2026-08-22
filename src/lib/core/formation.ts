@@ -62,6 +62,7 @@ export function createPlatform(
     targetId: null,
     timeSinceRetarget: 0,
     disabledFor: 0,
+    hitFlash: 0,
     bonuses: { attack: 0, defence: 0, range: 0 },
     levelScale: scale,
     buffs: createBuffs(),

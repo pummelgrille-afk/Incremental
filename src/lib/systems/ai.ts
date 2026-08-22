@@ -197,6 +197,11 @@ export function updatePlatforms(sim: SimulationState, dt: number): PlatformAttac
   const attacks: PlatformAttack[] = []
 
   for (const platform of sim.platforms) {
+    // Above the disabled branch, which `continue`s: a flash that stopped
+    // decaying the moment a unit went down would still be lit when it came
+    // back twelve seconds later.
+    if (platform.hitFlash > 0) platform.hitFlash = Math.max(0, platform.hitFlash - dt)
+
     if (platform.disabledFor > 0) {
       platform.disabledFor -= dt
       if (platform.disabledFor <= 0) {

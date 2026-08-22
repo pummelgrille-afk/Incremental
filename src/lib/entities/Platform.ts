@@ -98,6 +98,16 @@ export interface PlatformInstance {
    */
   disabledFor: number
 
+  /**
+   * Set on hit so the render layer can react without polling the sim.
+   *
+   * The same field a Contact has carried since Phase 17, and absent here for
+   * the same reason it was absent there: nothing had asked for it. Phase 38's
+   * `hit` clip is what asks. Presentation only — no system reads it, and a
+   * renderer that ignored it would change nothing about a fight.
+   */
+  hitFlash: number
+
   /** Cached formation bonuses. Recomputed on formation change, not per tick. */
   bonuses: FormationBonuses
 

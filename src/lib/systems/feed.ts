@@ -44,6 +44,17 @@ export interface CombatEvent {
   y: number
   /** Damage dealt, rounded for display. Zero for events without a number. */
   amount: number
+
+  /**
+   * The sprite key of whatever this happened to, or empty.
+   *
+   * Carried so a **death** can be animated. A Contact is removed from the field
+   * the instant it dies — `reapContact` filters it out of `sim.contact` — so by
+   * the time anything could draw it, the entity and its def are gone. The feed
+   * is the one thing that outlives a kill, which is what it was built for, and
+   * a key is the smallest thing that lets the render layer finish the job.
+   */
+  spriteKey: string
   /** Seconds since the event fired. The render layer fades on this. */
   age: number
 }
@@ -74,6 +85,7 @@ export class CombatFeed {
       x: 0,
       y: 0,
       amount: 0,
+      spriteKey: '',
       age: 0,
     }))
   }
@@ -94,7 +106,13 @@ export class CombatFeed {
    * damage becomes a display value, and the simulation keeps its float
    * (combat-spec.md §6).
    */
-  emit(kind: CombatEventKind, x: number, y: number, amount = 0): void {
+  emit(
+    kind: CombatEventKind,
+    x: number,
+    y: number,
+    amount = 0,
+    spriteKey = '',
+  ): void {
     const event = this.pool.acquire()
     if (!event) {
       this.dropped++
@@ -105,6 +123,7 @@ export class CombatFeed {
     event.x = x
     event.y = y
     event.amount = Math.round(amount)
+    event.spriteKey = spriteKey
     event.age = 0
   }
 

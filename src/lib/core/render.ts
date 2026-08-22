@@ -3,9 +3,18 @@ import { FLARE, RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/fie
 import type { ContactInstance } from '../entities/Contact'
 import type { DamageType } from '../entities/types'
 import { arrayPosition } from '../systems/ai'
+import { attackIntervalOf } from '../systems/buffs'
 import { EVENT_LIFETIME } from '../systems/feed'
 import { TRACER_LIFETIME } from '../systems/tracers'
-import { SPRITE_MANIFEST } from './assetLoader'
+import {
+  ANIMATION_STATES,
+  clipDuration,
+  contactState,
+  frameIndex,
+  platformState,
+  type AnimationState,
+} from './animation'
+import { SPRITE_MANIFEST, spriteFrames } from './assetLoader'
 import { TICK_SECONDS, type Simulation } from './loop'
 
 /**
@@ -153,6 +162,26 @@ function spriteAt(texture: Texture, size: number): Sprite {
   return sprite
 }
 
+/**
+ * A unit's sprite plus where it is in its animation.
+ *
+ * `clips` is resolved once when the view is created, because the frames a key
+ * has cannot change at runtime — the manifest is built at module load. What
+ * moves per frame is the state, the clock, and a texture assignment when the
+ * index actually changes.
+ */
+interface AnimatedBody {
+  /** The asset key it was built from, so a pooled slot can tell it apart. */
+  key: string
+  sprite: Sprite
+  clips: Record<AnimationState, Texture[]>
+  state: AnimationState
+  /** Simulation time the current state began. */
+  since: number
+  /** Last frame assigned, so an unchanged frame costs a comparison. */
+  frame: number
+}
+
 interface ProjectileView {
   node: Sprite | null
   fallback: Graphics | null
@@ -160,8 +189,69 @@ interface ProjectileView {
 
 interface ContactView {
   node: Container
-  body: Sprite | null
+  body: AnimatedBody | null
   overlay: Graphics
+}
+
+/**
+ * Build an animated body for a key, or null when nothing is staged under it.
+ *
+ * Every state resolves to at least one texture where the key exists at all —
+ * `spriteFrames` falls back through idle to the bare key — so the render loop
+ * never has to handle an empty clip.
+ */
+function animatedBody(
+  textures: Map<string, Texture>,
+  key: string | undefined,
+  size: number,
+): AnimatedBody | null {
+  if (!key) return null
+
+  const clips = {} as Record<AnimationState, Texture[]>
+  for (const state of ANIMATION_STATES) {
+    clips[state] = spriteFrames(key, state)
+      .map((frame) => textures.get(frame))
+      .filter((texture): texture is Texture => texture !== undefined)
+  }
+
+  if (clips.idle.length === 0) return null
+
+  return {
+    key,
+    sprite: spriteAt(clips.idle[0], size),
+    clips,
+    state: 'idle',
+    since: 0,
+    frame: -1,
+  }
+}
+
+/**
+ * Advance a body to the state it should be in, and to the frame of it.
+ *
+ * The state clock restarts only when the state *changes*, which is what makes a
+ * one-shot clip play from its first frame every time rather than from wherever
+ * a shared clock happened to be.
+ *
+ * A texture is assigned only when the index moves. At 60fps against a 0.16s
+ * idle frame that is one assignment in ten, and the other nine cost an integer
+ * comparison.
+ */
+function advanceBody(body: AnimatedBody, state: AnimationState, elapsed: number): void {
+  if (state !== body.state) {
+    body.state = state
+    body.since = elapsed
+    body.frame = -1
+  }
+
+  const frames = body.clips[state]
+  if (frames.length === 0) return
+
+  const index = frameIndex(state, elapsed - body.since, frames.length)
+  if (index === body.frame) return
+
+  body.frame = index
+  body.sprite.texture = frames[index]
 }
 
 export async function createRenderer(host: HTMLElement): Promise<Renderer> {
@@ -319,15 +409,13 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       let view = platformSprites.get(platform.id)
       if (!view) {
         const node = new Container()
-        const key = platform.def.assetKey
-        const texture = key ? textures.get(key) : undefined
         // 22px across against an 8px body radius, so a planet reads as a body
         // rather than as a dot — the same "art wider than the hitbox" rule the
         // Sun and the Contacts follow.
-        const body = texture ? spriteAt(texture, 22) : null
+        const body = animatedBody(textures, platform.def.assetKey, 22)
         const overlay = new Graphics()
 
-        if (body) node.addChild(body)
+        if (body) node.addChild(body.sprite)
         node.addChild(overlay)
 
         view = { node, body, overlay }
@@ -365,10 +453,22 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       sprite.clear()
 
       if (view.body) {
+        advanceBody(
+          view.body,
+          platformState({
+            disabledFor: platform.disabledFor,
+            hitFlash: platform.hitFlash,
+            cooldownRemaining: platform.cooldownRemaining,
+            attackInterval: attackIntervalOf(platform, sim.effects),
+            attackFrames: view.body.clips.attack.length,
+          }),
+          sim.elapsed,
+        )
+
         // A disabled unit dims rather than recolouring: the planet is the
         // unit's identity and must stay recognisable while it is out.
-        view.body.tint = disabled ? PALETTE.platformDisabled : 0xffffff
-        view.body.alpha = disabled ? 0.4 : 1
+        view.body.sprite.tint = disabled ? PALETTE.platformDisabled : 0xffffff
+        view.body.sprite.alpha = disabled ? 0.4 : 1
       } else {
         sprite.circle(0, 0, 8).fill({ color: colour, alpha: disabled ? 0.4 : 1 })
       }
@@ -472,14 +572,12 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       let view = contactSprites.get(contact.id)
       if (!view) {
         const node = new Container()
-        const key = contact.def.assetKey
-        const texture = key ? textures.get(key) : undefined
         // Art wider than the hitbox, on the same argument the Sun's own
         // comment makes: a near miss should read as a miss.
-        const body = texture ? spriteAt(texture, size * 2.6) : null
+        const body = animatedBody(textures, contact.def.assetKey, size * 2.6)
         const overlay = new Graphics()
 
-        if (body) node.addChild(body)
+        if (body) node.addChild(body.sprite)
         node.addChild(overlay)
 
         view = { node, body, overlay }
@@ -492,9 +590,18 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       view.node.x = contact.position.x + contact.velocity.x * lead
       view.node.y = contact.position.y + contact.velocity.y * lead
 
-      // A flash on the art is a tint, every frame, for free.
       if (view.body) {
-        view.body.tint = contact.hitFlash > 0 ? PALETTE.contactFlash : 0xffffff
+        advanceBody(
+          view.body,
+          contactState({
+            hitFlash: contact.hitFlash,
+            telegraphRemaining: contact.telegraphRemaining,
+          }),
+          simulation.state.elapsed,
+        )
+        // The flash is a tint on top of whatever frame is showing, so a unit
+        // with no `hit` clip still reads as hit.
+        view.body.sprite.tint = contact.hitFlash > 0 ? PALETTE.contactFlash : 0xffffff
       }
 
       const telegraphing = contact.telegraphRemaining > 0
@@ -722,6 +829,67 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
+  /**
+   * Death animations, driven by the combat feed.
+   *
+   * Not by the entity, because there is no entity: `reapContact` removes a
+   * Contact the instant it dies, and the def goes with it. The feed is the one
+   * thing that outlives a kill — it was built to, so a kill popup could survive
+   * the death that produced it — and Phase 38 adds the sprite key to it for
+   * exactly this.
+   *
+   * Pooled against the feed by index, like the popups. A kill that the feed
+   * dropped for capacity simply has no death animation, which is the same trade
+   * `systems/feed.ts` already makes: unreadable is unreadable.
+   */
+  const deathSprites: (AnimatedBody | null)[] = []
+
+  function drawDeaths(simulation: Simulation) {
+    const events = simulation.state.feed.items
+
+    for (let i = 0; i < events.length; i++) {
+      const event = events[i]
+      const existing = deathSprites[i] ?? null
+
+      if (!event.active || event.kind !== 'kill' || event.spriteKey === '') {
+        if (existing) existing.sprite.visible = false
+        continue
+      }
+
+      // A pooled slot is reused by whatever died into it, so the body is
+      // rebuilt only when the key changes — a wave of one Contact type reuses
+      // the same sprite for every death in it.
+      let body = existing
+      if (!body || body.key !== event.spriteKey) {
+        existing?.sprite.destroy()
+        body = animatedBody(textures, event.spriteKey, 22)
+        deathSprites[i] = body
+        if (body) effectLayer.addChild(body.sprite)
+      }
+      if (!body) continue
+
+      body.sprite.visible = true
+      body.sprite.x = event.x
+      body.sprite.y = event.y
+
+      // The clock is the event's own age, so the clip starts at the death
+      // rather than wherever a shared simulation clock happened to be.
+      body.state = 'death'
+      const frames = body.clips.death
+      const index = frameIndex('death', event.age, frames.length)
+      if (index !== body.frame) {
+        body.frame = index
+        body.sprite.texture = frames[index]
+      }
+
+      // Fades over whatever the clip does not cover, so a single-frame death —
+      // which is every unit until its art arrives — still reads as a death
+      // rather than as a Contact that stopped moving.
+      const life = Math.max(clipDuration('death', frames.length), EVENT_LIFETIME)
+      body.sprite.alpha = Math.max(0, 1 - event.age / life)
+    }
+  }
+
   const FEED_COLOURS: Record<string, number> = {
     damage: 0xe8e2d4,
     kill: PALETTE.sun,
@@ -783,6 +951,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       drawTracers(simulation)
       drawSun(simulation)
       drawStrike(simulation)
+      drawDeaths(simulation)
       drawFeed(simulation)
 
       app.render()
@@ -815,6 +984,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       contactSprites.clear()
       arraySprites.clear()
       projectileSprites.length = 0
+      deathSprites.length = 0
       popups.length = 0
     },
   }

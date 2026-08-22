@@ -195,6 +195,7 @@ function hitContact(
     contact.position.x,
     contact.position.y,
     before - contact.hp,
+    died ? (contact.def.assetKey ?? '') : '',
   )
   if (died) dead.add(contact.id)
 }
