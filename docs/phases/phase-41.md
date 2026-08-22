@@ -181,6 +181,56 @@ engine: `stores/` is the only bridge into Svelte and it carries state, not
 events. Rather than inventing a channel to announce a page turn, the frame loop
 notices the queue has got shorter. The shrinking *is* the event.
 
+## The score, from a measured reference
+
+The first music was five sustained tones on one chord, forever. That was a
+deliberate choice — "a tune has a beginning and would need an end" — and the
+result was a filtered fridge hum. A reference track was supplied as a **file**,
+which is a different proposition from a link: a file can be measured.
+
+What the analysis found, and what was taken from it:
+
+| Measured | Taken as |
+|---|---|
+| Transients every 0.221s when busy | eighth notes at ~134 BPM (132 is used) |
+| Spectral change 0.32 busy vs 0.12 calm | plucked when busy, sustained when calm |
+| Sub-bass 2.1% calm → 15.2% busy | the bass is a layer that *arrives* |
+| Chroma peaking on C, then F, A, G | the C major / A minor family |
+| Loud section 33s–83s of 118s | arrangement by section, not by volume |
+
+What was **not** taken is the music. A tempo, a mode and "the bass enters when
+it opens up" are the vocabulary of a genre; the tune is the piece. The
+progression, the voicings and the arpeggio figure are written from scratch
+against those parameters.
+
+The last row turned out to be the useful one. That track changes its
+*arrangement* rather than its volume — which is exactly what an adaptive score
+should do, and what the mix here had been reaching for by opening a filter and
+nothing else. Now:
+
+| Intensity | Layers | Measured level |
+|-----------|--------|----------------|
+| calm | pad | 0.008 – 0.078, swelling once a bar |
+| busy (0.26) | + bass | peak 0.131 |
+| overwhelmed (0.97) | + arp | peak 0.136, median 0.070 |
+
+Layers arrive with **hysteresis** rather than on a threshold: `combatIntensity`
+sits near a boundary for long stretches by design, and a layer blinking in and
+out is worse than either state it blinks between.
+
+Notes are **scheduled ahead of the clock**, not fired from the frame loop. Web
+Audio's clock is sample-accurate and the frame loop is not; eighth notes
+triggered per frame arrive with whatever jitter the browser had that moment,
+which is plainly audible as an unsteady pulse. Each frame places everything due
+in the next 350 ms at exact times, and the browser stops being able to affect
+the timing.
+
+`core/music.ts` holds the part that can be wrong without anyone hearing why — a
+progression that walks off its array, an arpeggio landing outside its chord, a
+layer that flickers. The arpeggio indexes the *chord's voicing* rather than the
+scale, which is what keeps it consonant as the harmony moves underneath it
+without anyone exercising taste, and a test walks every bar to prove it.
+
 ## What could not be verified
 
 **Whether any of it sounds good.** There is no audio device in the environment
@@ -198,7 +248,8 @@ The specific things to listen for, and the likely first complaints:
 
 - **The hit cue may still be too frequent** even limited to Arrays. Its
   `minInterval` is the one number to raise.
-- **The bed may be too present** in a long session. `DRONE_GAIN` is one number.
+- **The score may be too present** in a long session, or too sparse.
+  `LAYER_GAIN` is three numbers and `PROGRESSION` is eight chords.
 - **The conjunction bell fires up to three times a second** at its rate limit,
   with a 1.6s release — overlapping bells may wash. If so, the limit wants to be
   nearer the release length.

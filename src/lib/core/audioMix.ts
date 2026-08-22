@@ -1,4 +1,4 @@
-import { DRONE_CUTOFF } from '../content/audio'
+import { MUSIC_CUTOFF } from '../content/audio'
 import type { Settings } from './saveSchema'
 
 /**
@@ -103,17 +103,17 @@ export function approachIntensity(current: number, target: number, dt: number): 
 }
 
 /**
- * Where the music bed's filter sits at a given intensity.
+ * Where the music's filter sits at a given intensity.
  *
- * The bed does not get *louder* with intensity, it gets **brighter**. Raising
- * the volume of a drone under a dense wave would bury the cues that matter —
- * the Sun hit above all — which is the one thing the mix must never do. Opening
- * the filter makes it feel present without taking any headroom from the top
- * end, where every cue lives.
+ * The score does not get *louder* with intensity, it gets **brighter** — and
+ * it gains layers, which `content/music.ts` owns. Raising the volume under a
+ * dense wave would bury the cues that matter, the Sun hit above all, which is
+ * the one thing the mix must never do. Opening the filter makes it present
+ * without taking headroom from the top end, where every cue lives.
  */
-export function droneCutoff(intensity: number): number {
+export function musicCutoff(intensity: number): number {
   const t = clamp01(intensity)
-  return DRONE_CUTOFF.calm + (DRONE_CUTOFF.busy - DRONE_CUTOFF.calm) * t
+  return MUSIC_CUTOFF.calm + (MUSIC_CUTOFF.busy - MUSIC_CUTOFF.calm) * t
 }
 
 function clamp01(value: number): number {

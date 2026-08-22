@@ -2,8 +2,6 @@ import {
   CONJUNCTION_BELL,
   CONJUNCTION_CHORD,
   CUES,
-  DRONE_GAIN,
-  DRONES,
   type CueDef,
   type CueName,
 } from '../content/audio'
@@ -11,8 +9,21 @@ import {
   approachIntensity,
   busGains,
   combatIntensity,
-  droneCutoff,
+  musicCutoff,
 } from './audioMix'
+import {
+  activeLayers,
+  arpFrequency,
+  bassFrequency,
+  chordAtBar,
+  chordFrequencies,
+} from './music'
+import {
+  LAYER_GAIN,
+  LAYER_RELEASE,
+  SECONDS_PER_EIGHTH,
+  type LayerName,
+} from '../content/music'
 import { BUDGETS } from '../content/budgets'
 import type { Settings } from './saveSchema'
 import type { ConjunctionScale } from '../entities/types'
@@ -138,29 +149,95 @@ export function createAudio(settings: Settings): AudioEngine {
   musicBus.connect(master)
   sfxBus.connect(master)
 
-  // --- The bed. ------------------------------------------------------------
+  // --- The score. ----------------------------------------------------------
+  //
+  // Scheduled ahead of the clock rather than fired from the frame loop. Web
+  // Audio's own clock is sample-accurate and the frame loop is not: notes
+  // triggered per frame arrive with whatever jitter the browser had that
+  // moment, which at eighth notes is plainly audible as an unsteady pulse.
+  // So each frame schedules everything due in the next window, at exact times,
+  // and the browser stops being able to affect the timing.
 
-  const droneFilter = context.createBiquadFilter()
-  droneFilter.type = 'lowpass'
-  droneFilter.frequency.value = droneCutoff(0)
-  droneFilter.connect(musicBus)
+  const musicFilter = context.createBiquadFilter()
+  musicFilter.type = 'lowpass'
+  musicFilter.frequency.value = musicCutoff(0)
+  musicFilter.connect(musicBus)
 
-  const droneGain = context.createGain()
-  droneGain.gain.value = DRONE_GAIN
-  droneGain.connect(droneFilter)
+  /** How far ahead notes are placed. Comfortably more than a slow frame. */
+  const LOOKAHEAD_SECONDS = 0.35
 
-  const droneOscillators = DRONES.map((drone) => {
+  /** Context time the score started, or null until audio is running. */
+  let scoreStart: number | null = null
+  /** The next eighth note to be scheduled. */
+  let nextEighth = 0
+  let layers: Set<LayerName> = new Set(['pad'])
+
+  /**
+   * One scheduled note.
+   *
+   * Separate from `fire` because a music note is placed at a time rather than
+   * played now, and because it goes to the music bus and does not count
+   * against the SFX voice ceiling — the score is not allowed to starve the
+   * game's own sounds, and it cannot be starved by them either.
+   */
+  function note(
+    frequency: number,
+    at: number,
+    gain: number,
+    release: number,
+    wave: OscillatorType,
+  ): void {
     const oscillator = context.createOscillator()
-    oscillator.type = drone.wave === 'noise' ? 'triangle' : drone.wave
-    oscillator.frequency.value = drone.frequency
+    oscillator.type = wave
+    oscillator.frequency.value = frequency
 
-    const gain = context.createGain()
-    gain.gain.value = drone.gain
-    oscillator.connect(gain).connect(droneGain)
-    oscillator.start()
+    const envelope = context.createGain()
+    const attack = Math.min(0.08, release * 0.25)
+    envelope.gain.setValueAtTime(0.0001, at)
+    envelope.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), at + attack)
+    envelope.gain.exponentialRampToValueAtTime(0.0001, at + attack + release)
 
-    return oscillator
-  })
+    oscillator.connect(envelope).connect(musicFilter)
+    oscillator.start(at)
+    oscillator.stop(at + attack + release + 0.02)
+  }
+
+  function scheduleScore(): void {
+    if (scoreStart === null) return
+
+    const horizon = context.currentTime + LOOKAHEAD_SECONDS
+
+    while (scoreStart + nextEighth * SECONDS_PER_EIGHTH < horizon) {
+      const at = scoreStart + nextEighth * SECONDS_PER_EIGHTH
+      const bar = Math.floor(nextEighth / 8)
+      const chord = chordAtBar(bar)
+
+      // The pad re-voices once a bar and rings across it.
+      if (nextEighth % 8 === 0) {
+        for (const frequency of chordFrequencies(chord)) {
+          note(frequency, at, LAYER_GAIN.pad / 4, LAYER_RELEASE.pad, 'triangle')
+        }
+      }
+
+      // The bass on the first and third beat, once it has arrived.
+      if (layers.has('bass') && nextEighth % 4 === 0) {
+        note(bassFrequency(chord), at, LAYER_GAIN.bass, LAYER_RELEASE.bass, 'sine')
+      }
+
+      // The eighth-note figure, which is what the busy section is made of.
+      if (layers.has('arp')) {
+        note(
+          arpFrequency(nextEighth, chord),
+          at,
+          LAYER_GAIN.arp,
+          LAYER_RELEASE.arp,
+          'triangle',
+        )
+      }
+
+      nextEighth++
+    }
+  }
 
   // --- Noise, built once. --------------------------------------------------
   //
@@ -296,24 +373,25 @@ export function createAudio(settings: Settings): AudioEngine {
       // Written straight rather than ramped: this runs every frame, so the
       // value is already as smooth as `approachIntensity` made it, and a ramp
       // per frame would fight the next one.
-      droneFilter.frequency.value = droneCutoff(intensity)
+      musicFilter.frequency.value = musicCutoff(intensity)
+
+      layers = activeLayers(intensity, layers)
+      scheduleScore()
     },
 
     applySettings,
 
     resume() {
       if (context.state === 'suspended') void context.resume()
+      // The score begins at the first moment it can actually be heard, so bar
+      // one is not half over before the browser lets any of it out.
+      if (scoreStart === null) scoreStart = context.currentTime + 0.1
     },
 
     destroy() {
-      for (const oscillator of droneOscillators) {
-        try {
-          oscillator.stop()
-        } catch {
-          // Already stopped; a teardown path that throws on its second call
-          // takes the error handler with it.
-        }
-      }
+      // Scheduled notes stop themselves; closing the context takes anything
+      // still pending with it.
+      scoreStart = null
       void context.close()
     },
 

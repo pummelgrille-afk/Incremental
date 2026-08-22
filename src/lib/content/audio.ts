@@ -273,60 +273,10 @@ export const CONJUNCTION_BELL: CueDef = {
 }
 
 /**
- * The music bed.
+ * How far the music's filter opens, calm to busy.
  *
- * Three drones a fifth apart, filtered and slow. Not a tune: a tune has a
- * beginning and would need an end, and this plays for the length of a session.
- * What it does instead is *breathe* with the field — see `core/audioMix.ts` for
- * how intensity moves it.
- *
- * The base is low enough to sit under every cue above, which is the point: the
- * music must never be the reason a Sun hit went unheard.
+ * The score itself lives in `content/music.ts`; this is the one part of it the
+ * *mix* owns, because it is a response to the field rather than a musical
+ * decision. See `core/audioMix.ts`.
  */
-export const DRONES: readonly {
-  readonly frequency: number
-  readonly gain: number
-  readonly wave: Waveform
-}[] = [
-  // The sub. Felt on a real speaker, harmless on a laptop, and carrying none
-  // of the bed's actual information — which is why the first version of this
-  // table, which was *only* voices down here, measured as playing and was
-  // inaudible on anything anyone owns.
-  { frequency: 55, gain: 0.34, wave: 'sine' },
-  // The body. Triangles rather than sines from here up: a sine has no
-  // harmonics at all, so a small speaker rolling off the fundamental
-  // reproduces literally nothing.
-  { frequency: 110, gain: 0.3, wave: 'triangle' },
-  { frequency: 164.81, gain: 0.24, wave: 'triangle' },
-  // The part a laptop can actually reproduce. An open fifth rather than a
-  // triad — a bed that committed to major or minor would have an opinion, and
-  // this one is a room tone.
-  { frequency: 220, gain: 0.2, wave: 'triangle' },
-  { frequency: 329.63, gain: 0.1, wave: 'triangle' },
-]
-
-/**
- * Cutoff the bed sweeps between, calm to busy.
- *
- * The calm figure was 240 Hz in the first pass, which put the filter *below*
- * most of the bed and left only the sub-bass audible. It is above the top drone
- * now, so what intensity opens is the harmonics rather than the notes.
- */
-export const DRONE_CUTOFF = { calm: 700, busy: 2400 } as const
-
-/**
- * Overall gain of the bed, before the music bus.
- *
- * Tuned by measuring the output, in two passes, because both failures are only
- * visible at the end of the chain:
- *
- * 1. At 0.22 with only sub-bass voices the master RMS was 0.023 — about
- *    -33 dBFS, which is "technically not silent" and practically nothing.
- * 2. Raised to 0.62 it measured 0.087, and then the *cues* were the problem:
- *    `hit` and `kill` measured at or below the bed, so the commonest sounds in
- *    the game were inaudible under their own music.
- *
- * The bed is a constant and everything else is transient, so the constant is
- * what has to give. See phase-41.md for the measured table.
- */
-export const DRONE_GAIN = 0.34
+export const MUSIC_CUTOFF = { calm: 700, busy: 2400 } as const

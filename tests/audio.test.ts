@@ -3,17 +3,26 @@ import {
   approachIntensity,
   busGains,
   combatIntensity,
-  droneCutoff,
+  musicCutoff,
   INTENSITY_FALL_PER_SECOND,
   INTENSITY_RISE_PER_SECOND,
 } from '../src/lib/core/audioMix'
+import { CONJUNCTION_CHORD, CUES, MUSIC_CUTOFF } from '../src/lib/content/audio'
 import {
-  CONJUNCTION_CHORD,
-  CUES,
-  DRONE_CUTOFF,
-  DRONES,
-  DRONE_GAIN,
-} from '../src/lib/content/audio'
+  ARP_PATTERN,
+  LAYER_GAIN,
+  LAYER_THRESHOLDS,
+  PROGRESSION,
+  SECONDS_PER_EIGHTH,
+  TEMPO_BPM,
+} from '../src/lib/content/music'
+import {
+  activeLayers,
+  arpFrequency,
+  bassFrequency,
+  chordAtBar,
+  chordFrequencies,
+} from '../src/lib/core/music'
 import { createSilentAudio } from '../src/lib/core/audio'
 import { createDefaultSave } from '../src/lib/core/saveSchema'
 import { BUDGETS } from '../src/lib/content/budgets'
@@ -128,31 +137,24 @@ describe('the music never buries a cue', () => {
      * game and the one that matters most exactly when the screen is least
      * readable.
      */
-    expect(droneCutoff(0)).toBe(DRONE_CUTOFF.calm)
-    expect(droneCutoff(1)).toBe(DRONE_CUTOFF.busy)
-    expect(droneCutoff(0.5)).toBeGreaterThan(DRONE_CUTOFF.calm)
+    expect(musicCutoff(0)).toBe(MUSIC_CUTOFF.calm)
+    expect(musicCutoff(1)).toBe(MUSIC_CUTOFF.busy)
+    expect(musicCutoff(0.5)).toBeGreaterThan(MUSIC_CUTOFF.calm)
   })
 
-  it('keeps the bed inside its own bus without clipping', () => {
+  it('keeps the score inside its own bus without clipping', () => {
     /*
-     * Five drones sum before the music bus sees them, so the invariant is on
-     * the sum rather than on `DRONE_GAIN` alone.
+     * Every layer can sound at once, so the invariant is on the sum.
      *
-     * Note what this deliberately does *not* claim: that the bed is quieter
-     * than the cues. Raw gains are not comparable across a sine drone and a
-     * lowpassed noise burst — filtered noise keeps a fraction of its energy —
-     * so that balance is settled by measuring the output, and the figure is
-     * recorded in phase-41.md. Asserting it here would be asserting a number
-     * that does not mean what it looks like.
+     * Note what this deliberately does *not* claim: that the score is quieter
+     * than the cues. Raw gains are not comparable across a sustained triangle
+     * and a lowpassed noise burst — filtered noise keeps only a fraction of its
+     * energy — so that balance is settled by measuring the output, and the
+     * figure is recorded in phase-41.md. Asserting it here would be asserting a
+     * number that does not mean what it looks like.
      */
-    const summed = DRONES.reduce((total, drone) => total + drone.gain, 0)
-    expect(DRONE_GAIN * summed).toBeLessThan(1)
-  })
-
-  it('sits the bed below the cues in pitch', () => {
-    // Low enough to leave the top end, where every cue lives, entirely free.
-    const highestDrone = Math.max(...DRONES.map((drone) => drone.frequency))
-    expect(highestDrone).toBeLessThan(CUES.hit.frequency)
+    const summed = Object.values(LAYER_GAIN).reduce((total, gain) => total + gain, 0)
+    expect(summed).toBeLessThan(1)
   })
 })
 
@@ -230,5 +232,82 @@ describe('silence is a supported outcome', () => {
     }).not.toThrow()
 
     expect(audio.stats.voices).toBe(0)
+  })
+})
+
+describe('the score', () => {
+  it('runs at the measured tempo', () => {
+    // 131-134 by autocorrelation on the reference, confirmed by an eighth-note
+    // spacing of 0.221s against 0.227s at 132.
+    expect(TEMPO_BPM).toBeGreaterThanOrEqual(128)
+    expect(TEMPO_BPM).toBeLessThanOrEqual(136)
+    expect(SECONDS_PER_EIGHTH).toBeCloseTo(0.227, 3)
+  })
+
+  it('loops long enough not to announce itself', () => {
+    // Four bars is 7.3s at this tempo, which a player notices inside a minute.
+    const loopSeconds = PROGRESSION.length * 4 * (60 / TEMPO_BPM)
+    expect(loopSeconds).toBeGreaterThan(12)
+  })
+
+  it('wraps the progression rather than running off it', () => {
+    expect(chordAtBar(0)).toBe(chordAtBar(PROGRESSION.length))
+    expect(chordAtBar(-1)).toBe(PROGRESSION[PROGRESSION.length - 1])
+    expect(chordAtBar(1e6)).toBeDefined()
+  })
+
+  it('keeps the arpeggio inside its own chord', () => {
+    /*
+     * The pattern indexes the chord's voicing rather than the scale, which is
+     * the difference between an arpeggio and a random walk — and the reason
+     * this needs no taste to stay consonant as the progression moves.
+     */
+    for (let bar = 0; bar < PROGRESSION.length; bar++) {
+      const chord = chordAtBar(bar)
+      const allowed = new Set(chordFrequencies(chord, 2).map((f) => f.toFixed(3)))
+
+      for (let eighth = 0; eighth < ARP_PATTERN.length; eighth++) {
+        expect(allowed.has(arpFrequency(eighth, chord).toFixed(3)), `bar ${bar}`).toBe(true)
+      }
+    }
+  })
+
+  it('puts the bass under the pad and the arp above it', () => {
+    const chord = chordAtBar(0)
+    const pad = chordFrequencies(chord)
+
+    expect(bassFrequency(chord)).toBeLessThan(Math.min(...pad))
+    expect(arpFrequency(0, chord)).toBeGreaterThan(Math.max(...pad))
+  })
+
+  it('layers in as the field gets busy, the way the reference does', () => {
+    // Measured on the supplied track: sub-bass 2.1% when calm, 15.2% when
+    // busy. The bass is a layer that arrives, not one that gets louder.
+    const calm = activeLayers(0, new Set())
+    expect([...calm]).toEqual(['pad'])
+
+    const busy = activeLayers(1, calm)
+    expect(busy.has('bass')).toBe(true)
+    expect(busy.has('arp')).toBe(true)
+  })
+
+  it('does not flicker a layer around its threshold', () => {
+    /*
+     * `combatIntensity` sits near a boundary for long stretches by design — a
+     * wave that holds steady holds the intensity steady — and a layer blinking
+     * in and out is worse than either state it blinks between.
+     */
+    const { on, off } = LAYER_THRESHOLDS.arp
+    expect(off).toBeLessThan(on)
+
+    const engaged = activeLayers(on + 0.01, new Set(['pad']))
+    expect(engaged.has('arp')).toBe(true)
+
+    // Drops back below the arrival threshold but above the departure one.
+    const held = activeLayers((on + off) / 2, engaged)
+    expect(held.has('arp')).toBe(true)
+
+    const gone = activeLayers(off - 0.01, held)
+    expect(gone.has('arp')).toBe(false)
   })
 })
