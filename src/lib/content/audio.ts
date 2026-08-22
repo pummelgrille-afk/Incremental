@@ -243,34 +243,24 @@ export const CUES = {
 export type CueName = keyof typeof CUES
 
 /**
- * The conjunction, which is a chord rather than a cue.
+ * There is deliberately no conjunction cue.
  *
- * The one place this game should sound like something. A conjunction is an
- * astronomical event before it is a synergy trigger (theme-revision.md), the
- * whole rotating-formation puzzle exists to arrange one, and Phase 40 found it
- * had been firing with no visual for twenty-two phases. It gets a bell.
+ * There was: a bell on a just-intoned triad, pitched by the size of the
+ * alignment, and it was the best-sounding thing in the set on its own. It came
+ * out after playtesting, for the reason phase-41.md had already written down as
+ * the most likely complaint — **a full formation conjuncts far too often for a
+ * ringing sound**. Phase 40 measured roughly 36 alignments a second at 48
+ * Platforms; even rate-limited to one bell every 0.35s, a 1.6s release meant
+ * four or five overlapping every second, and the game turned into a wind chime.
  *
- * Pitched by scale, upward: a Grand alignment is the pay-off, and it should be
- * heard to be a bigger event than a Minor rather than a louder one. The
- * intervals are a just-intoned major triad — 1, 5/4, 3/2 — because a
- * conjunction is a *coincidence of periods*, and that is exactly what a simple
- * frequency ratio is.
+ * The moment is not unmarked: Phase 40 gives it a particle burst scaled by the
+ * alignment, which costs nothing in a channel that does not accumulate. That is
+ * the difference between light and sound, and it is why the visual survived the
+ * same frequency that killed the audio.
+ *
+ * If it ever returns, the fix is not a quieter bell — it is a rate limit longer
+ * than the release, so no two can ever overlap.
  */
-export const CONJUNCTION_CHORD = {
-  minor: [261.63, 392.0],
-  major: [261.63, 327.03, 392.0],
-  grand: [261.63, 327.03, 392.0, 523.25],
-} as const
-
-export const CONJUNCTION_BELL: CueDef = {
-  wave: 'sine',
-  frequency: 0,
-  attack: 0.006,
-  release: 1.6,
-  gain: 0.26,
-  cutoff: 5000,
-  minInterval: 0.35,
-}
 
 /**
  * How far the music's filter opens, calm to busy.

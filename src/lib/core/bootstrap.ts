@@ -1,4 +1,3 @@
-import { conjunctionScaleOf } from '../entities/Platform'
 import { platformById, PLATFORMS } from '../content/platforms'
 import { arrayById, ARRAYS } from '../content/arrays'
 import { STARTING_ZONE_ID, ZONES } from '../content/zones'
@@ -827,9 +826,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     if (events.contactHits > 0) audio.play('hit')
     if (events.contactKilled > 0) audio.play('kill')
     if (events.sunHits > 0) audio.play('sunHit')
-    if (events.conjunctionsFired > 0) {
-      audio.conjunction(conjunctionScaleOf(events.largestConjunction))
-    }
 
     if (events.stageLost) {
       audio.play('lost')

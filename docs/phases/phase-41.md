@@ -25,10 +25,11 @@ epic". A maintenance log has no orchestral hits in it. It has ticks, a hum, a
 bell somewhere down the corridor, and long stretches of a machine running
 correctly.
 
-The one place the game is allowed to sound like *something* is the conjunction,
-which gets a bell tuned to a just-intoned triad — 1, 5/4, 3/2. A conjunction is
-a coincidence of orbital periods, and a simple frequency ratio is exactly that.
-The chord grows with the alignment: two notes for a Minor, four for a Grand.
+The conjunction had a bell — a just-intoned triad, pitched by the size of the
+alignment, on the argument that a conjunction is a coincidence of orbital
+periods and a simple frequency ratio is exactly that. It was the best-sounding
+thing in the set, and it is **gone**; see "The bell was right about everything
+except how often it rang" below.
 
 ## Frequency is the design problem, a third time
 
@@ -231,6 +232,34 @@ layer that flickers. The arpeggio indexes the *chord's voicing* rather than the
 scale, which is what keeps it consonant as the harmony moves underneath it
 without anyone exercising taste, and a test walks every bar to prove it.
 
+## The bell was right about everything except how often it rang
+
+This section listed three likely first complaints. The first one to come back
+from playtesting was the one it named: *"the conjunction bell fires up to three
+times a second at its rate limit, with a 1.6s release — overlapping bells may
+wash."*
+
+They washed. Phase 40 had already measured the underlying number — a full
+formation of 48 Platforms aligns roughly **36 times a second** — and even
+limited to one bell every 0.35s, a 1.6s tail meant four or five ringing at once.
+The game became a wind chime.
+
+It was removed rather than tuned, at the player's request, and removed
+properly: the cue, the chord table and the engine method are all gone. Leaving a
+chord table nothing reads would be exactly the dead configuration this project
+has now caught four times.
+
+**The moment is still marked.** Phase 40 gives a conjunction a particle burst
+scaled by the alignment, and that survives the same frequency unharmed — which
+is the whole difference between the two channels. Light does not accumulate;
+sound does. A visual effect at 36 Hz is a shimmer, and an audio effect at 36 Hz
+is a mess.
+
+A general guard replaced the specific cue in `tests/audio.test.ts`: **no cue may
+have a tail much longer than the gap it is rate-limited to.** A sound that
+outlives its own limit can pile up on itself however quiet it is, and that is
+the property the bell violated.
+
 ## What could not be verified
 
 **Whether any of it sounds good.** There is no audio device in the environment
@@ -250,6 +279,5 @@ The specific things to listen for, and the likely first complaints:
   `minInterval` is the one number to raise.
 - **The score may be too present** in a long session, or too sparse.
   `LAYER_GAIN` is three numbers and `PROGRESSION` is eight chords.
-- **The conjunction bell fires up to three times a second** at its rate limit,
-  with a 1.6s release — overlapping bells may wash. If so, the limit wants to be
-  nearer the release length.
+- ~~**The conjunction bell fires up to three times a second**~~ — this one was
+  right, and it was removed. See below.

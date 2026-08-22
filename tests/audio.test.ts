@@ -7,7 +7,7 @@ import {
   INTENSITY_FALL_PER_SECOND,
   INTENSITY_RISE_PER_SECOND,
 } from '../src/lib/core/audioMix'
-import { CONJUNCTION_CHORD, CUES, MUSIC_CUTOFF } from '../src/lib/content/audio'
+import { CUES, MUSIC_CUTOFF } from '../src/lib/content/audio'
 import {
   ARP_PATTERN,
   LAYER_GAIN,
@@ -198,22 +198,24 @@ describe('the cue library', () => {
     }
   })
 
-  it('grows the conjunction chord with the alignment', () => {
-    // A Grand is the pay-off the whole formation puzzle is arranged for, and
-    // should be heard to be a bigger event rather than a louder one.
-    expect(CONJUNCTION_CHORD.major.length).toBeGreaterThan(CONJUNCTION_CHORD.minor.length)
-    expect(CONJUNCTION_CHORD.grand.length).toBeGreaterThan(CONJUNCTION_CHORD.major.length)
+  it('has no cue that fires as often as a conjunction', () => {
+    /*
+     * The conjunction bell was removed after playtesting, and this is the rule
+     * it broke. A full formation aligns roughly 36 times a second (Phase 40),
+     * so any cue attached to that moment overlaps itself several times over
+     * however loud it is — the bell's 1.6s release against a 0.35s limit meant
+     * four or five ringing at once.
+     *
+     * The guard is general rather than about bells: no cue may have a tail
+     * longer than the gap it is limited to, or it can pile up on itself.
+     */
+    for (const [name, cue] of Object.entries(CUES)) {
+      if (cue.minInterval === 0) continue
+      expect(cue.attack + cue.release, `${name} outlives its own rate limit`)
+        .toBeLessThanOrEqual(cue.minInterval * 6)
+    }
   })
 
-  it('tunes the chord to simple ratios', () => {
-    /*
-     * A conjunction is a coincidence of orbital periods, and a simple frequency
-     * ratio is exactly that. 5/4 and 3/2 against the root.
-     */
-    const [root, third, fifth] = CONJUNCTION_CHORD.major
-    expect(third / root).toBeCloseTo(1.25, 2)
-    expect(fifth / root).toBeCloseTo(1.5, 2)
-  })
 })
 
 describe('silence is a supported outcome', () => {
@@ -224,7 +226,6 @@ describe('silence is a supported outcome', () => {
 
     expect(() => {
       audio.play('flare')
-      audio.conjunction('grand')
       audio.update({ dt: 0.016, contacts: 10, outputFraction: 0.5, running: true })
       audio.applySettings(createDefaultSave(0).settings)
       audio.resume()

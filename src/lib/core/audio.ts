@@ -1,10 +1,4 @@
-import {
-  CONJUNCTION_BELL,
-  CONJUNCTION_CHORD,
-  CUES,
-  type CueDef,
-  type CueName,
-} from '../content/audio'
+import { CUES, type CueDef, type CueName } from '../content/audio'
 import {
   approachIntensity,
   busGains,
@@ -26,7 +20,6 @@ import {
 } from '../content/music'
 import { BUDGETS } from '../content/budgets'
 import type { Settings } from './saveSchema'
-import type { ConjunctionScale } from '../entities/types'
 
 /**
  * The audio engine.
@@ -68,8 +61,6 @@ const MAX_VOICES = 16
 export interface AudioEngine {
   /** Play a named cue. Silently refused if it would break a limit. */
   play(cue: CueName): void
-  /** The conjunction bell, pitched by the alignment's size. */
-  conjunction(scale: ConjunctionScale): void
   /** Follow the field. Called once per frame with the frame's own dt. */
   update(input: {
     dt: number
@@ -103,7 +94,6 @@ export interface AudioEngine {
 export function createSilentAudio(): AudioEngine {
   return {
     play() {},
-    conjunction() {},
     update() {},
     applySettings() {},
     resume() {},
@@ -345,20 +335,6 @@ export function createAudio(settings: Settings): AudioEngine {
       const def = CUES[cue]
       if (!canPlay(cue, def.minInterval)) return
       fire(def)
-    },
-
-    conjunction(scale) {
-      if (!canPlay('conjunction', CONJUNCTION_BELL.minInterval)) return
-
-      // One voice per note, so the chord is a chord rather than a chord-shaped
-      // sample. Counted against the voice ceiling honestly — a Grand costs four.
-      for (const frequency of CONJUNCTION_CHORD[scale]) {
-        if (voices >= MAX_VOICES) {
-          dropped++
-          return
-        }
-        fire(CONJUNCTION_BELL, frequency)
-      }
     },
 
     update({ dt, contacts, outputFraction, running }) {
