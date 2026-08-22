@@ -55,6 +55,8 @@ export function bindingLabel(binding: string): string {
   if (code.startsWith('Key')) label = code.slice(3)
   else if (code.startsWith('Digit')) label = code.slice(5)
   else if (code === 'Space') label = 'Space'
+  // Written the way a keyboard writes it, and the way it fits on a keycap.
+  else if (code === 'Escape') label = 'Esc'
   else if (code.startsWith('Arrow')) label = code.slice(5)
 
   return [...modifiers, label].join('+')

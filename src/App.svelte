@@ -10,6 +10,7 @@
   import WelcomeBack from './lib/ui/WelcomeBack.svelte'
   import AchievementToast from './lib/ui/AchievementToast.svelte'
   import Tutorial from './lib/ui/Tutorial.svelte'
+  import Sidebar from './lib/ui/Sidebar.svelte'
   import MainMenu from './lib/ui/MainMenu.svelte'
   import SettingsMenu from './lib/ui/SettingsMenu.svelte'
 
@@ -94,6 +95,7 @@
   </div>
 {:else}
   <HUD showDiagnostics={game.showDiagnostics} />
+  <Sidebar />
   <FormationEditor open={game.showFormation} />
   <UpgradeTree open={game.showTree} />
   <StageSelect open={game.showMap} />

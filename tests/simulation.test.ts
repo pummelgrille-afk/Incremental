@@ -618,3 +618,72 @@ describe('every damage path goes through the type matrix', () => {
     expect(erratic).toBeGreaterThan(massed)
   })
 })
+
+describe('standing by', () => {
+  /*
+   * The between-state, asked for by a player: `wave-gap` is the only window the
+   * game gives you to rearrange a formation, it is a few seconds long, and it
+   * arrives on the Approach's schedule rather than yours. Standby is the same
+   * window with no clock on it.
+   *
+   * It behaves exactly like `cleared` inside the tick, which is the point —
+   * three phases wanting "the field is still there and completely still" take
+   * one door rather than three.
+   */
+
+  it('stops time entirely', () => {
+    sim.advance(1)
+    const elapsed = state.elapsed
+    const phases = state.rings.map((r) => r.phase)
+
+    state.phase = 'standby'
+    sim.advance(5)
+
+    expect(state.elapsed).toBe(elapsed)
+    expect(state.rings.map((r) => r.phase)).toEqual(phases)
+  })
+
+  it('spawns nothing', () => {
+    state.phase = 'standby'
+    sim.advance(30)
+
+    expect(state.contact).toHaveLength(0)
+  })
+
+  it('does not charge the Flare', () => {
+    state.flare.charge = 0
+    state.phase = 'standby'
+    sim.advance(30)
+
+    expect(state.flare.charge).toBe(0)
+  })
+
+  it('does not resolve the stage in either direction', () => {
+    state.phase = 'standby'
+    sim.advance(60)
+
+    expect(state.phase).toBe('standby')
+  })
+
+  it('reports nothing happened', () => {
+    state.phase = 'standby'
+    const events = sim.advance(10)
+
+    expect(events.contactKilled).toBe(0)
+    expect(events.salvageDropped).toBe(0)
+    expect(events.sunHits).toBe(0)
+    expect(events.stageCleared).toBe(false)
+    expect(events.stageLost).toBe(false)
+  })
+
+  it('picks straight back up when the shift begins', () => {
+    state.phase = 'standby'
+    sim.advance(10)
+    expect(state.elapsed).toBe(0)
+
+    state.phase = 'wave-active'
+    sim.advance(1)
+
+    expect(state.elapsed).toBeGreaterThan(0)
+  })
+})

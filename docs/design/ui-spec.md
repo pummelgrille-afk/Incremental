@@ -90,6 +90,11 @@ Phase 42, four more added by Phase 43's settings screen.
 | `Slider` | A continuous value, with its reading | SettingsMenu ×3 |
 | `Choice` | One of a handful, all visible at once | SettingsMenu ×2 |
 
+`Sidebar` is a screen, not a primitive, and its rows are not `Button`s for the
+same reason StageSelect's stage tiles are not: the three variants are statements
+about what an action *does*, and a navigation tab is a place — one you can
+already be in.
+
 The four settings controls are all **real form elements**, visually restyled
 rather than replaced. Space, arrow keys, the label association and every
 assistive technology on earth keep working — none of which a div with a click
@@ -206,7 +211,7 @@ Phase 43:
 - **`Tooltip` also raises on focus**, not only on hover, so the unit and node
   cards exist for a keyboard.
 - **Every action has a key, including the Flare**, which was mouse-only until
-  Phase 43. See section 6.
+  Phase 43. See section 7.
 
 ### The four settings
 
@@ -244,7 +249,55 @@ incoming fire against your own.
 
 ---
 
-## 6. Keys
+## 6. Reaching a panel
+
+Two routes to every panel, and they are the same route underneath: the sidebar
+sets the same store flag the key handler sets, so no panel knows or cares which
+was used.
+
+**The sidebar exists because the keys were the only way in.** Until it was
+added, the Formation editor, the map, the Almanac and the Rewind were reachable
+*only* by shortcut, and the HUD's hint line was the entire discovery path. A
+hint line is something a player reads once and then stops seeing. A row of
+buttons is the thing they find by looking.
+
+Each row carries its keycap, so the sidebar teaches the shortcut rather than
+replacing it.
+
+**It hides whenever a panel is open.** Overlays and modals cover it by
+`--z-overlay` and `--z-modal` anyway, but a button that is under a scrim and
+still tabbable is exactly the trap the focus work exists to close.
+
+**Rows follow the reveals.** The Almanac appears when the tree is revealed, the
+Rewind when it unlocks — economy-spec.md section 3 wants a first-time player
+meeting one progression system at a time, and a permanent row for a system that
+does not exist yet argues the opposite.
+
+### Three ways time stops
+
+| | What it is | What it looks like |
+|---|---|---|
+| `wave-gap` | The Approach's re-slotting window, a few seconds, on its schedule | The field keeps moving |
+| **Pause** | The player asking for a moment | Everything freezes exactly where it is |
+| **Standby** | The player standing the stage down | Clean, empty field; the stage restarts when they begin |
+
+Pause and standby are separate on purpose and cannot be confused: pause is a
+freeze-frame, standby is a stopped shift. Standing down releases a pause,
+because a pause on top of a stopped field is two brakes and one confusing
+banner.
+
+Standby was asked for by a player who wanted to rearrange a formation without a
+wave landing on it — a fair thing to want in a game whose whole pitch is that it
+runs without you. It **rebuilds the stage** rather than freezing it where it
+stands: freezing would leave the Contacts that were mid-approach hanging over
+the rings for as long as the player took to think, and un-freezing would drop
+them onto a formation arranged while they were harmless. The cost is the waves
+already cleared on that stage, and the banner says so rather than letting the
+player discover it.
+
+---
+
+## 7. Keys
 
 Ten actions, in `content/keybindings.ts`; resolution and repair in
 `core/keybindings.ts`, DOM-free and tested.
@@ -261,7 +314,7 @@ to reach the screen that would let them fix it.
 
 ---
 
-## 7. Escape belongs to the router
+## 8. Escape belongs to the router
 
 `bootstrap.ts` owns the key handler, and it listens in the **capture phase**.
 No component may register a window `keydown` handler; `tests/ui.test.ts` fails

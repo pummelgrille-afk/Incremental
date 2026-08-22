@@ -167,6 +167,25 @@ export interface SettingsActions {
 /** The settings a player can change, projected. `keybindings` is separate. */
 export type PlayerSettings = Omit<Settings, 'keybindings'>
 
+/**
+ * Starting and stopping the shift.
+ *
+ * Both go through `bootstrap.ts` rather than being flags the view can set,
+ * because both rebuild the simulation and only the session owns that.
+ */
+export interface StageActions {
+  /**
+   * Stop the stage and hold the field.
+   *
+   * Rebuilds the stage from the start and parks it, so re-entering begins
+   * cleanly rather than dropping the player back into a half-finished wave with
+   * the Contacts gone. It also cancels any queued advance to the next stage.
+   */
+  standDown(): void
+  /** Start, or restart, the loaded stage. */
+  begin(): void
+}
+
 export interface FormationActions {
   place(defId: string, ring: number, slot: number, from?: { ring: number; slot: number }): void
   remove(ring: number, slot: number): void
@@ -364,6 +383,17 @@ class GameStore {
   /** The system menu — Escape. Pauses the run while it is open. */
   showMenu = $state(false)
 
+  stageActions = $state<StageActions | null>(null)
+
+  /**
+   * The sidebar asking for the Manual.
+   *
+   * A request rather than a call, the same way `requestedStage` is: opening the
+   * Manual reads the save and plays a cue, and the store is a projection that
+   * must not reach into either. `bootstrap.ts` consumes it and clears it.
+   */
+  manualRequested = $state(false)
+
   /**
    * Whether simulated time is advancing.
    *
@@ -467,6 +497,9 @@ class GameStore {
   clearedUntouched = $derived(this.phase === 'cleared' && this.lowestOutputFraction >= 1)
 
   /** True while the player can act — used to gate input and dim the field. */
+  /** Stood down: a stage is loaded and deliberately not running. */
+  standby = $derived(this.phase === 'standby')
+
   running = $derived(this.phase === 'wave-active' || this.phase === 'wave-gap')
 
   /** True when the frame budget is at risk — drives the diagnostics warning. */

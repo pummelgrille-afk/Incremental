@@ -8,6 +8,7 @@
   import Meter from './primitives/Meter.svelte'
   import Delta from './primitives/Delta.svelte'
   import Kbd from './primitives/Kbd.svelte'
+  import Button from './primitives/Button.svelte'
 
   /**
    * The always-on readout: Output, the currencies, where you are, and the
@@ -60,6 +61,20 @@
           />
         {/snippet}
       </Stat>
+
+      <!-- Under the bar rather than beside the Flare, because it is a
+           statement about the *stage*, not about the player's one live input.
+           The HUD around it is inert, so this row opts back in. -->
+      <div class="controls">
+        <button
+          class:on={game.paused}
+          disabled={game.standby}
+          onclick={() => (game.paused = !game.paused)}
+        >
+          {game.paused ? 'Resume' : 'Pause'}
+          <Kbd>{key('pause')}</Kbd>
+        </button>
+      </div>
     </div>
 
     <Stat label="Salvage" tone="loud">
@@ -154,7 +169,20 @@
     </aside>
   {/if}
 
-  {#if game.paused}
+  {#if game.standby}
+    <!-- The between-state. It says what it costs, because standing down
+         restarts the stage and a player should not learn that by losing four
+         cleared waves to it. -->
+    <div class="banner held">
+      <strong>Standing by.</strong>
+      <span>Nothing is approaching. Take as long as you need.</span>
+      <span class="next">The shift restarts from the first wave.</span>
+      <div class="banner-actions">
+        <Button onclick={() => game.stageActions?.begin()}>Begin the shift</Button>
+        <Button variant="ghost" onclick={() => (game.showFormation = true)}>Formation</Button>
+      </div>
+    </div>
+  {:else if game.paused}
     <!-- Said plainly and centrally. A stopped field with no explanation is the
          exact thing Phase 33 had to fix on the clear banner, and a pause that
          did not announce itself would reintroduce it. -->
@@ -358,6 +386,62 @@
   .banner .next {
     color: var(--muted);
     font-size: 0.75rem;
+  }
+
+  .banner.held {
+    border-color: var(--corona-dim);
+  }
+
+  .banner.held strong {
+    color: var(--text);
+  }
+
+  .banner-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    pointer-events: auto;
+  }
+
+  .controls {
+    display: flex;
+    margin-top: 0.5rem;
+    pointer-events: auto;
+  }
+
+  .controls button {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.55rem;
+    font: inherit;
+    font-size: 0.68rem;
+    color: var(--muted);
+    background: rgba(11, 10, 8, 0.8);
+    border: 1px solid var(--corona-dim);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: color 120ms linear, border-color 120ms linear;
+  }
+
+  .controls button:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--corona);
+  }
+
+  .controls button:disabled {
+    color: var(--inert);
+    cursor: default;
+  }
+
+  .controls button:focus-visible {
+    outline: 2px solid var(--corona);
+    outline-offset: 2px;
+  }
+
+  .controls .on {
+    color: var(--corona);
+    border-color: var(--corona);
   }
 
   .banner.paused {

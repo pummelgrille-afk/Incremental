@@ -225,7 +225,17 @@ export class Simulation {
     const sim = this.state
     const events: TickEvents = noTickEvents()
 
-    if (sim.phase === 'cleared' || sim.phase === 'overwhelmed') return events
+    /*
+     * Three phases in which no time passes.
+     *
+     * `cleared` and `overwhelmed` are the stage having resolved; `standby` is
+     * the player having stopped it on purpose. All three want the same thing —
+     * a field that is still there and completely still — so all three take the
+     * same door rather than three different ones.
+     */
+    if (sim.phase === 'cleared' || sim.phase === 'overwhelmed' || sim.phase === 'standby') {
+      return events
+    }
 
     // The opening wave is directed on the first tick that runs, once the
     // formation exists. Later waves are directed as they start (step 10).

@@ -516,6 +516,38 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     unlockedPlatforms: Object.keys(saveData.meta.platforms).length,
   })
 
+  game.stageActions = {
+    standDown() {
+      /*
+       * Rebuilt rather than frozen where it stands.
+       *
+       * Freezing would leave the Contacts that were mid-approach hanging over
+       * the rings for as long as the player took to think, and un-freezing
+       * would drop them onto a formation arranged while they were harmless.
+       * A stood-down field is a clean one, and re-entering costs the waves
+       * already cleared on this stage — the same trade a restart makes, and
+       * the reason the button says so.
+       */
+      pendingStage = null
+      advanceIn = 0
+      simulation = buildSimulation()
+      game.reset()
+      simulation.state.phase = 'standby'
+      game.syncFrom(simulation)
+      // A pause on top of a stopped field is two brakes and one confusing
+      // banner. Standing down releases it.
+      game.paused = false
+      autosaver.request('purchase')
+    },
+
+    begin() {
+      if (simulation.state.phase !== 'standby') return
+      simulation.state.phase = 'wave-active'
+      game.paused = false
+      game.syncFrom(simulation)
+    },
+  }
+
   game.prestigeActions = {
     rewind() {
       if (!rewindRun(saveData, Date.now(), game.rewindUnlocked).rewound) return
@@ -1085,6 +1117,12 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
      * rather than trusted: the panel disables locked stages, but a disabled
      * button is a presentation detail and the rule lives in progression/.
      */
+    // The sidebar's route to the Manual. See `game.manualRequested`.
+    if (game.manualRequested) {
+      game.manualRequested = false
+      showManual()
+    }
+
     if (game.requestedStage) {
       const requested = game.requestedStage as StageAddress
       game.requestedStage = null

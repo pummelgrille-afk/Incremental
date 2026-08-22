@@ -8,7 +8,7 @@ between them.
 **Where we are:** Phases 1–43 done. Stages 1–5 complete; Stage 6 (UI/UX &
 Accessibility) is under way — Phase 44 (localization) is next.
 
-**Health:** 1064 tests across 46 files, `npm run check` clean, production build
+**Health:** 1070 tests across 46 files, `npm run check` clean, production build
 890 KB with every sprite inlined. Save schema 8.
 
 ---
@@ -48,6 +48,24 @@ The palette test also found something about the *shipped* palette: percussive
 gold against thermal orange is the tightest pair in the game at 88, under the
 floor the accessibility palettes are held to. Recorded rather than fixed —
 widening it is an art decision, not a threshold's call.
+
+### Asked for after it: a sidebar, a pause button, and a way to stop
+
+Every panel was reachable **only** by keyboard shortcut, with the HUD's hint
+line as the entire discovery path. `ui/Sidebar.svelte` puts a row of buttons on
+the right edge; each carries its keycap, so it teaches the shortcut rather than
+replacing it, and it sets the same store flag the key handler does — no panel
+changed.
+
+A pause button now sits under the Output bar, and **standby** is a third way
+time can stop: the player stands the stage down, the field goes clean and
+empty, and nothing happens until they begin. It rebuilds the stage rather than
+freezing it — freezing would leave Contacts hanging mid-approach and then drop
+them onto a formation arranged while they were harmless. The cost is the waves
+already cleared, and the banner says so.
+
+`wave-gap` is the Approach's re-slotting window: a few seconds, on its
+schedule. Standby is the same window with no clock on it.
 
 ### Two bugs fixed after it, both on the same unit
 
@@ -287,7 +305,7 @@ Four boundaries that must not erode, all in `docs/architecture.md`:
 
 ```bash
 npm run dev          # http://localhost:5173 — note: localhost, not 127.0.0.1
-npm test             # 1064 tests
+npm test             # 1070 tests
 npm run check        # svelte-check + tsc
 npm run build
 ```

@@ -51,6 +51,19 @@ export type StagePhase =
   | 'wave-active'
   /** Between waves — the player's re-slotting window. */
   | 'wave-gap'
+  /**
+   * Stood down: a stage is loaded and deliberately not running.
+   *
+   * The re-slotting window `wave-gap` provides is a few seconds long and
+   * arrives on the Approach's schedule, not the player's. Standby is the same
+   * window with no clock on it — asked for by a player who wanted to rearrange
+   * a formation without a wave landing on it, which is a fair thing to want in
+   * a game whose whole pitch is that it runs without you.
+   *
+   * Behaves exactly like `cleared` inside the tick, which is to say the tick
+   * does not run at all. Nothing spawns, nothing moves, nothing charges.
+   */
+  | 'standby'
   | 'cleared'
   | 'overwhelmed'
 

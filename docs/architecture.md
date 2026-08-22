@@ -405,6 +405,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `utils/format.ts` | `compact` — one abbreviation, everywhere | 42 |
 | `ui/primitives/*.svelte` | Modal, Overlay, Button, Kbd, Meter, Stat, Delta, Tooltip | 42 |
 | `ui/HUD.svelte` | Output, currencies, wave, Flare charge, diagnostics | 10 → 42 |
+| `ui/Sidebar.svelte` | Click-through to every panel; stand down | 43 |
 | `ui/MainMenu.svelte` | The menu, on Escape. Pauses while open | 43 |
 | `ui/SettingsMenu.svelte` | Sound, legibility, keys, the save | 43 |
 
