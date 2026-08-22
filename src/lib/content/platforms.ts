@@ -138,7 +138,15 @@ export const PLATFORMS: readonly PlatformDef[] = [
     role: 'tank',
     damageType: 'shear',
     maxHp: 145,
-    attack: 7,
+    /*
+     * Raised from 7 in Phase 35. Its description calls it "an Anchor that
+     * traded some of its patience for an edge", and the dominance check found
+     * it had traded the patience without getting the edge: an Anchor beat it on
+     * body, defence and block arc, and a Tuner out-blocked it too. Nine gives
+     * it the best damage of anything that can hold a line, which is the unit
+     * the description is describing.
+     */
+    attack: 9,
     defence: 18,
     baseInterval: 1.5,
     angularReach: 24 * DEG,
@@ -220,7 +228,17 @@ export const PLATFORMS: readonly PlatformDef[] = [
       'for something else, and to put the line back together afterwards.',
     role: 'support',
     damageType: 'resonant',
-    maxHp: 110,
+    /*
+     * The largest body and the widest block arc in the roster, which is what
+     * its description already claimed and its numbers did not deliver.
+     *
+     * Phase 35's dominance check found an Anchor strictly better than a Tuner
+     * on every axis and at a fifth of the price — leaving the Tuner justified
+     * only by its conjunction effect, which is a thin case for an 11-Clearance
+     * unit. A unit whose stated job is soaking hits meant for something else
+     * has to actually be the best at that.
+     */
+    maxHp: 175,
     // Genuinely zero. A support unit that also deals damage is a damage unit
     // with a smaller number, and the role would mean nothing.
     attack: 0,
@@ -229,8 +247,8 @@ export const PLATFORMS: readonly PlatformDef[] = [
     angularReach: 0,
     radialReach: 0,
     targeting: 'none',
-    // Its only contribution outside a conjunction.
-    blockArc: 22 * DEG,
+    // Its only contribution outside a conjunction, and now the widest.
+    blockArc: 28 * DEG,
     // The one effect that reaches past the unit that brought it.
     conjunctionEffect: { kind: 'repair', magnitude: 22 },
     unlockCost: 11,
@@ -251,8 +269,13 @@ export const PLATFORMS: readonly PlatformDef[] = [
     radialReach: 1,
     targeting: 'highestThreat',
     blockArc: 10 * DEG,
-    // The largest pulse in the roster, on the weakest body in it.
-    conjunctionEffect: { kind: 'damagePulse', magnitude: 44 },
+    /*
+     * The largest pulse in the roster, on the weakest body in it — and at 44
+     * it was not, because a Kiln carries 48 at half the price. The whole case
+     * for an 11-Clearance unit with 55 HP is that its alignment payload leads
+     * the game, so it has to actually lead it.
+     */
+    conjunctionEffect: { kind: 'damagePulse', magnitude: 56 },
     unlockCost: 14,
   },
 ] as const

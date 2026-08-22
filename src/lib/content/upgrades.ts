@@ -714,7 +714,9 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     requires: ['recovery-unattended-operation'],
     baseCost: 24,
     effects: [
-      { kind: 'offlineCap', magnitude: 8 * HOUR },
+      // Six, not eight. At eight this one node was exactly half of everything
+      // Recovery grants of offlineCap, which makes the other two decoration.
+      { kind: 'offlineCap', magnitude: 6 * HOUR },
       { kind: 'offlineEfficiency', magnitude: 0.15 },
     ],
   },

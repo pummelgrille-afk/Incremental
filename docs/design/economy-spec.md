@@ -186,6 +186,22 @@ a first-time player should meet exactly one progression system at a time.
 Runs get *shorter* and deeper. If Phase 35 playtests show run length climbing
 instead, the tree is under-powered relative to the wave curve.
 
+> **Phase 35 measured exactly that, and it is structural.** Twelve prestige
+> loops plateau at stage 11 by the second Rewind, with run length climbing from
+> 8.4 to 12.5 minutes rather than falling. Every candidate retune inside the
+> authored bands moves the plateau to 15 and no further.
+>
+> The arithmetic: a fully-invested player is ×107 their opening damage — 48
+> slots, level 10, all 72 nodes — while total wave HP at stage 40 is ×273. The
+> ceiling runs out around stage 37 even before the economy's own limits bite,
+> and the measured player never gets near it because Recollection is gated on
+> depth and depth is gated on Recollection.
+>
+> **This table is therefore aspirational, not achieved.** Closing the gap needs
+> a prestige reward that *compounds* rather than adding percentages, which would
+> change §2 and the additive rule in §7. Left as a design decision rather than
+> tuned away — see docs/phases/phase-35.md for the sweep and the working.
+
 ## 4. Offline progress
 
 ```
