@@ -114,14 +114,16 @@
       />
     </div>
 
-    <p class="hint">
-      Click the field or <Kbd>{key('flare')}</Kbd> to strike ·
-      <Kbd>{key('map')}</Kbd> map ·
-      <Kbd>{key('formation')}</Kbd> formation{#if game.treeRevealed}{' '}·
-        <Kbd>{key('tree')}</Kbd> tree{/if}{#if game.rewindUnlocked}{' '}·
-        <Kbd>{key('rewind')}</Kbd> rewind{/if} ·
-      <Kbd>{key('manual')}</Kbd> manual · <Kbd>Esc</Kbd> menu
-    </p>
+    <!--
+      The panel shortcuts used to be listed here and are not any more: the
+      sidebar carries each one on the button it belongs to, which is where a
+      player will actually look for it. A list of seven keycaps under the field
+      is something you read once and then stop seeing.
+
+      The Flare keeps its line, because it is the one action with no button
+      anywhere — clicking the field is discoverable, but the key is not.
+    -->
+    <p class="hint">Click the field or <Kbd>{key('flare')}</Kbd> to strike</p>
   </footer>
 
   {#if showDiagnostics}

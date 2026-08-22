@@ -262,7 +262,10 @@ hint line is something a player reads once and then stops seeing. A row of
 buttons is the thing they find by looking.
 
 Each row carries its keycap, so the sidebar teaches the shortcut rather than
-replacing it.
+replacing it — and the HUD's hint line, which used to list all seven, now lists
+none of them. A keycap belongs on the button it opens, not in a legend under the
+field. The one line that stayed is the Flare's, because it is the only action
+with no button anywhere: clicking the field is discoverable, the key is not.
 
 **It hides whenever a panel is open.** Overlays and modals cover it by
 `--z-overlay` and `--z-modal` anyway, but a button that is under a scrim and
