@@ -302,10 +302,14 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   /**
    * The progression map, and the address of the stage in play.
    *
-   * Republished on a clear and whenever the panel opens rather than every
-   * frame: it is forty stages across six zones and none of it changes between
-   * clears, so rebuilding it per frame would be forty allocations a frame for a
-   * panel that is usually shut.
+   * Republished wherever it can change — boot, an edit, a clear, a stage change
+   * — rather than every frame: it is forty stages across six zones and none of
+   * it changes between clears, so rebuilding it per frame would be forty
+   * allocations a frame for a panel that is usually shut.
+   *
+   * It used to be republished *by the handler that opened the panel* instead,
+   * which worked until there were two ways to open it. Keeping the projection
+   * correct is the version that survives a third.
    */
   const publishMap = (): void => {
     game.map = mapView(saveData)
@@ -368,7 +372,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     game.lastRefusal = refusal
     syncFieldToSave(simulation.state, saveData)
     publishRoster()
-  publishMap()
+    publishMap()
     publishTree()
     // Publish the balance immediately rather than waiting for the next frame:
     // a price that updates a frame after the click reads as a click that did
@@ -745,6 +749,28 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   publishSettings()
 
+  /*
+   * The map, once, before anything can ask for it.
+   *
+   * It was the only projection with no publish at boot, on the assumption —
+   * written into `publishMap`'s own comment — that the panel would be opened by
+   * the `M` handler, which refreshed it first. That held for exactly as long as
+   * there was one way to open it. The sidebar opens it by setting the same flag
+   * and nothing else, so on a fresh load it showed "0 of 0 zones cleared" until
+   * the key had been pressed once.
+   *
+   * Fixed by making the projection correct rather than by teaching the second
+   * route to refresh it: a rule that every entry point has to remember is a
+   * rule the third entry point will forget.
+   *
+   * **Down here, not up with the other boot publishes.** `publishMap` reads
+   * `currentStage`, which is a `let` declared below them — putting the call
+   * beside `publishRoster()` threw "Cannot access 'currentStage' before
+   * initialization" and took the whole game down with it. Same temporal dead
+   * zone the autosaver comment above describes, found the same way.
+   */
+  publishMap()
+
   function buildSimulation(): Simulation {
     // Seeded from the stage address, so a stage always plays the same way and
     // a balance observation is reproducible.
@@ -868,8 +894,11 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
       // The progression map. Always available: it is where a player finds out
       // there is anything past the zone they are on.
+      //
+      // Toggles and nothing else, exactly as the sidebar does. The refresh that
+      // used to happen here is now an invariant: the map is republished
+      // wherever it can change — boot, an edit, a clear, a stage change.
       case 'map':
-        publishMap()
         game.showMap = !game.showMap
         audio.play('ui')
         return true
