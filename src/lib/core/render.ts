@@ -3,6 +3,7 @@ import { FLARE, RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/fie
 import type { ContactInstance } from '../entities/Contact'
 import { arrayPosition } from '../systems/ai'
 import { EVENT_LIFETIME } from '../systems/feed'
+import { TRACER_LIFETIME } from '../systems/tracers'
 import { TICK_SECONDS, type Simulation } from './loop'
 
 /**
@@ -38,6 +39,21 @@ const PALETTE = {
   telegraph: 0xf87171,
   conjunction: 0xfff1a8,
 } as const
+
+/**
+ * Shot colour by damage type.
+ *
+ * The type matrix has been in `content/damageTypes.ts` since Phase 8 and has
+ * never been visible on the field — a player could see that one unit killed
+ * faster than another without any way to see *why*. A tracer is the natural
+ * place to say it: it appears exactly when a unit fires, and it costs nothing.
+ */
+const DAMAGE_COLOURS: Record<string, number> = {
+  percussive: 0xd8b45a,
+  shear: 0x8fb3c9,
+  thermal: 0xe08a4a,
+  resonant: 0x5eead4,
+}
 
 const PLATFORM_COLOURS: Record<string, number> = {
   hammer: PALETTE.platform,
@@ -111,6 +127,20 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   // Strike feedback lives above everything, so it reads even in dense fire.
   const strikeGraphic = new Graphics()
   effectLayer.addChild(strikeGraphic)
+
+  /*
+   * Platform shot tracers.
+   *
+   * One Graphics for all of them, cleared and rebuilt per frame like the strike
+   * — a dozen short lines is far less work than keeping a sprite per tracer in
+   * step with a pool that recycles under it.
+   *
+   * Under the projectile layer deliberately: a tracer is the cheapest thing on
+   * screen and must never obscure an incoming shot, which is the one thing a
+   * player has to read.
+   */
+  const tracerGraphic = new Graphics()
+  projectileLayer.addChild(tracerGraphic)
 
   // Damage popups. Text objects are expensive to create, so the pool of them
   // matches the feed's capacity and is allocated once.
@@ -394,6 +424,56 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       .stroke({ width: 3 * (1 - t) + 1, color: PALETTE.conjunction, alpha: 1 - t })
   }
 
+  /**
+   * Draw the shot tracers.
+   *
+   * The bolt travels the line over the tracer's short life while the damage it
+   * stands for has already landed — see `systems/tracers.ts` for why it is
+   * drawn rather than simulated. Colour is the damage type, which is the one
+   * place the type matrix becomes visible on the field rather than in a menu.
+   */
+  function drawTracers(simulation: Simulation) {
+    const tracers = simulation.state.tracers.items
+    tracerGraphic.clear()
+
+    for (let i = 0; i < tracers.length; i++) {
+      const tracer = tracers[i]
+      if (!tracer.active) continue
+
+      const t = Math.min(1, tracer.age / TRACER_LIFETIME)
+      const colour = DAMAGE_COLOURS[tracer.damageType] ?? PALETTE.platform
+
+      // The head runs the whole line across the window; the tail follows a
+      // third of a length behind, which is what gives the bolt a direction.
+      const head = t
+      const tail = Math.max(0, t - 0.34)
+
+      const dx = tracer.toX - tracer.fromX
+      const dy = tracer.toY - tracer.fromY
+
+      tracerGraphic
+        .moveTo(tracer.fromX + dx * tail, tracer.fromY + dy * tail)
+        .lineTo(tracer.fromX + dx * head, tracer.fromY + dy * head)
+        .stroke({ width: 2, color: colour, alpha: 0.85 * (1 - t * t) })
+
+      // A muzzle spark at the unit, so a shot reads as *this* unit firing even
+      // when the target is off in a crowd.
+      if (t < 0.5) {
+        tracerGraphic
+          .circle(tracer.fromX, tracer.fromY, 3 * (1 - t * 2))
+          .fill({ color: colour, alpha: 0.7 })
+      }
+
+      // A kill gets a flare at the far end. It is the same information the kill
+      // popup carries, placed where the player is already looking.
+      if (tracer.lethal && t > 0.35) {
+        tracerGraphic
+          .circle(tracer.toX, tracer.toY, 4 + 6 * t)
+          .stroke({ width: 1.5, color: colour, alpha: 0.8 * (1 - t) })
+      }
+    }
+  }
+
   const FEED_COLOURS: Record<string, number> = {
     damage: 0xe8e2d4,
     kill: PALETTE.sun,
@@ -452,6 +532,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       drawArrays(simulation)
       drawContact(simulation, alpha)
       drawProjectiles(simulation, alpha)
+      drawTracers(simulation)
       drawSun(simulation)
       drawStrike(simulation)
       drawFeed(simulation)

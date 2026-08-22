@@ -7,6 +7,7 @@ import { isBossStage } from '../systems/scaling'
 import { zoneById } from '../content/zones'
 import { createFlareState, createRingStates, type SimulationState } from './simulation'
 import { CombatFeed } from '../systems/feed'
+import { TracerFeed } from '../systems/tracers'
 import { createTelemetry } from '../systems/telemetry'
 import { noUpgradeEffects, type UpgradeEffects } from '../entities/Upgrade'
 import { FLARE } from '../content/field'
@@ -152,6 +153,7 @@ export function loadStage(
     // Flare regenerates toward, not just the starting value.
     flare: createFlareState(FLARE.maxCharges + Math.floor(effects.flareCharges)),
     feed: new CombatFeed(),
+    tracers: new TracerFeed(),
 
     platforms: [],
     arrays: [],

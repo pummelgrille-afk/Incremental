@@ -229,6 +229,7 @@ export class Simulation {
     // 2. Cooldowns, charge, buffs, objective recovery.
     this.advanceFlare(dt)
     sim.feed.update(dt)
+    sim.tracers.update(dt)
     updateBuffs(sim, dt)
     updateObjective(sim, dt)
 

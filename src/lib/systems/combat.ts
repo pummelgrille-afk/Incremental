@@ -10,7 +10,7 @@ import { absorb, attackScaleOf, clearBuffs } from './buffs'
 import { noUpgradeEffects } from '../entities/Upgrade'
 
 const NO_EFFECTS = noUpgradeEffects()
-import type { PlatformAttack } from './ai'
+import { platformPosition, type PlatformAttack } from './ai'
 import type { Telemetry } from './telemetry'
 
 /**
@@ -154,6 +154,27 @@ export function resolvePlatformAttacks(
       target.position.y,
       before - target.hp,
     )
+
+    /*
+     * The shot itself, drawn after the damage it stands for.
+     *
+     * Emitted here rather than where ai.ts queues the attack, so a tracer marks
+     * a shot that actually resolved — an attack whose target died earlier in
+     * this same tick is skipped above, and drawing a bolt into a corpse would
+     * be a lie the render layer had no way to catch. The origin is read now
+     * because the ring keeps turning: a tracer that recomputed the unit's
+     * position while it was on screen would sweep sideways with the ring.
+     */
+    const origin = platformPosition(sim, platform)
+    sim.tracers.emit(
+      origin.x,
+      origin.y,
+      target.position.x,
+      target.position.y,
+      platform.def.damageType,
+      died,
+    )
+
     if (died) dead.add(target.id)
   }
 

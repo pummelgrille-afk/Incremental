@@ -8,6 +8,7 @@ import type { StageDef, ZoneDef } from '../entities/Zone'
 import type { AnyWaveDef } from '../entities/Wave'
 import { FLARE, RINGS } from '../content/field'
 import type { CombatFeed } from '../systems/feed'
+import type { TracerFeed } from '../systems/tracers'
 import type { Telemetry } from '../systems/telemetry'
 import type { UpgradeEffects } from '../entities/Upgrade'
 
@@ -111,6 +112,8 @@ export interface SimulationState {
 
   /** Transient presentation events. Never read by the simulation itself. */
   feed: CombatFeed
+  /** Shot lines, on the same terms as `feed`. See systems/tracers.ts. */
+  tracers: TracerFeed
 
   platforms: PlatformInstance[]
   arrays: ArrayInstance[]

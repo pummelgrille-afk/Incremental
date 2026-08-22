@@ -196,9 +196,26 @@ interval = baseInterval / (1 + hasteBonus)
 ```
 
 Each unit carries `cooldownRemaining`, decremented by `dt`. When it crosses zero
-the unit attacks and resets. Attacks resolve **instantly for melee**, and spawn a
-`Projectile` for ranged. No wind-up animation gates damage — animation is cosmetic
-and reads from the same cooldown value.
+the unit attacks and resets. No wind-up animation gates damage — animation is
+cosmetic and reads from the same cooldown value.
+
+**A Platform's attack resolves instantly, at every range.** Only Arrays spawn a
+`Projectile`, and the difference is deliberate rather than incidental: an Array's
+whole case is that it leads a moving target across the field (§4), which needs a
+flight time to lead *into*. A Platform strikes inside its own band, where flight
+time would add a miss on a target that died in the interim, a second collision
+path between a unit and its damage, and a re-measurement of every clear rate in
+`balancing.csv`.
+
+The shot is still **drawn**, as a tracer from the unit to what it hit
+(`systems/tracers.ts`). This is presentation only, on the same terms as the
+combat feed — dropping one changes nothing about the fight. It exists because
+the alternative was what shipped through Phase 35: a rack of Platforms firing
+four times a second with nothing whatsoever appearing between them and the
+Contact, so the only evidence a unit was working was a damage number popping
+somewhere else. The tracer is coloured by damage type, which is the first time
+the type matrix in `content/damageTypes.ts` is visible on the field rather than
+in a menu.
 
 ### Reach subtends a wider angle near the centre (Phase 19)
 
