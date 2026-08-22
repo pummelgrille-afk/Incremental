@@ -1,9 +1,56 @@
+/*
+ * The design tokens every component reads.
+ *
+ * Phase 42 moved the palette here from wherever it had been retyped. Before
+ * that, three modals had three different scrim alphas, five files each carried
+ * their own copy of the button rules, and `z-index: 10 | 20 | 30` were chosen
+ * one at a time with nothing naming the order. Those are not styling
+ * preferences — they are one decision, and it belongs in one place.
+ *
+ * See docs/design/ui-spec.md for what each token is *for*, which is the part a
+ * hex value cannot say.
+ */
 :root {
   --bg: #0b0a08;
   --corona: #c9a227;
   --corona-dim: #7a6418;
   --text: #e8e2d4;
   --muted: #8a8474;
+
+  /* The two states the palette has to say out loud. Danger is the Sun losing
+     Output; warn is a refusal the player can still act on. */
+  --danger: #f87171;
+  --warn: #f0b06c;
+
+  /* Recessed surfaces: an empty meter, a keycap, an inert control. */
+  --well: #1c1a14;
+  --inert: #2a2620;
+
+  /* The two ways a panel covers the field. A modal leaves it legible behind
+     the scrim because the field keeps running; an overlay is a work surface
+     and hides it, because arranging a formation against a moving background is
+     the same information twice. */
+  --scrim: rgba(6, 6, 5, 0.82);
+  --overlay: rgba(6, 6, 5, 0.94);
+
+  --radius: 0.3rem;
+
+  /*
+   * The stacking order, named. Five layers, in the order a player meets them:
+   * the HUD sits over the field, an overlay covers the HUD, a modal interrupts
+   * an overlay, and a tooltip explains whatever is under the pointer — so it
+   * is always last.
+   *
+   * A notice — an onboarding card, an achievement toast — sits above an
+   * overlay and below a modal, which is the order it was already using and is
+   * worth keeping: the Manual has to be able to explain the screen the player
+   * is looking at, and nothing may talk over a decision that cannot be undone.
+   */
+  --z-hud: 5;
+  --z-overlay: 10;
+  --z-notice: 15;
+  --z-modal: 20;
+  --z-tooltip: 30;
 
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: dark;

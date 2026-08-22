@@ -96,7 +96,10 @@ describe('the Flare charge bar', () => {
 
 describe('the Salvage counter', () => {
   beforeEach(() => {
-    game.salvage = 0
+    // Through the store's own entry point, not by writing the field: priming
+    // is what "a session opening on this balance" means, and the pool behind
+    // the counter has to be told the same thing the projection was.
+    game.primeSalvage(0)
     game.salvageGain = 0
   })
 

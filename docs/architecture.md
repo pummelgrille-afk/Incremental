@@ -202,6 +202,8 @@ The rule from `CLAUDE.md`, made concrete:
 ┌──────────────────────────────────────────────────────────┐
 │  src/lib/ui/*.svelte        DOM chrome: HUD, panels,     │
 │                             menus, tooltips              │
+│  src/lib/ui/primitives/     the shared set they are      │
+│                             built from (Phase 42)        │
 │         ▲ reads                                          │
 │  src/lib/stores/            thin reactive projection     │
 │         ▲ published once per tick (step 11)              │
@@ -237,6 +239,12 @@ The rule from `CLAUDE.md`, made concrete:
    bus gain does not. Building a filter node does.
 2. `stores/` is the only bridge into Svelte, written once per tick at step 11 of
    the order in `combat-spec.md` §8.
+
+   **A primitive never crosses it.** Nothing under `ui/primitives/` may import
+   `stores/`: a primitive that reads `game` is a screen with fewer props, usable
+   only where that state means what it meant the first time. Screens read the
+   projection and hand primitives plain values. Checked by `tests/ui.test.ts`
+   along with the rest of `docs/design/ui-spec.md`.
 3. `render.ts` **reads** simulation state and never writes it. Rendering is a pure
    projection; a dropped frame must never change the simulation.
 
@@ -384,7 +392,10 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `systems/synergy.ts` | Conjunction detection, effects, preview | 10 |
 | `utils/pool.ts` | Fixed-capacity object pool | 10 |
 | `stores/game.svelte.ts` | The reactive projection — the only Svelte bridge | 10 |
-| `ui/HUD.svelte` | Tension, Filings, wave, Beat charge, diagnostics | 10 → 42 |
+| `utils/delta.ts` | Pooled gain/loss for the HUD's readouts | 42 |
+| `utils/format.ts` | `compact` — one abbreviation, everywhere | 42 |
+| `ui/primitives/*.svelte` | Modal, Overlay, Button, Kbd, Meter, Stat, Delta, Tooltip | 42 |
+| `ui/HUD.svelte` | Output, currencies, wave, Flare charge, diagnostics | 10 → 42 |
 
 ### Boundary enforcement
 
@@ -394,6 +405,11 @@ The test scans every module's import specifiers and fails if the simulation
 layer reaches for Svelte or Pixi, if Pixi appears outside `render.ts`, if
 `content/` reaches upward into `systems/` or `core/`, or if a second barrel
 appears.
+
+`tests/ui.test.ts` does the same job one layer up, for the rules in
+`docs/design/ui-spec.md`: it fails if a screen styles a bare `button` or `kbd`,
+hand-rolls a dialog, writes a numeric `z-index`, retypes a tokenised colour, or
+if a primitive reaches into `stores/`.
 
 ## Current state of `src/lib/core/render.ts`
 

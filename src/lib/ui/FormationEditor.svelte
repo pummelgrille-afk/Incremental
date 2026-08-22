@@ -1,6 +1,10 @@
 <script lang="ts">
   import { game, type RosterView } from '../stores/game.svelte'
   import { RIM_MOUNTS, RIM_RADIUS, RINGS } from '../content/field'
+  import Overlay from './primitives/Overlay.svelte'
+  import Button from './primitives/Button.svelte'
+  import Kbd from './primitives/Kbd.svelte'
+  import Tooltip from './primitives/Tooltip.svelte'
 
   /**
    * The formation editor.
@@ -142,20 +146,18 @@
   // the top and bottom of the list. Fixed positioning takes it out of that box.
 
   const CARD_WIDTH = 260
-  const CARD_ESTIMATED_HEIGHT = 250
 
-  let inspecting = $state<{ unit: RosterView; x: number; y: number } | null>(null)
+  let inspecting = $state<{ unit: RosterView; anchor: DOMRect } | null>(null)
 
   function inspect(event: { currentTarget: EventTarget | null }, unit: RosterView) {
     const row = event.currentTarget as HTMLElement | null
     if (!row) return
-    const rect = row.getBoundingClientRect()
-
-    inspecting = {
-      unit,
-      x: Math.max(8, rect.left - CARD_WIDTH - 12),
-      y: Math.min(Math.max(8, rect.top - 8), window.innerHeight - CARD_ESTIMATED_HEIGHT),
-    }
+    // Only the rectangle. Where a card fits beside it is the primitive's
+    // problem, and it is the half this file used to get wrong: it clamped
+    // against a hardcoded 250px guess at its own height, which was right for a
+    // fielded unit and short for a locked one, whose extra paragraph ran off
+    // the bottom of the window.
+    inspecting = { unit, anchor: row.getBoundingClientRect() }
   }
 
   const ROLE_COPY: Record<string, string> = {
@@ -194,22 +196,22 @@
   )
 </script>
 
-{#if open}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="overlay"
-    ondragover={(e) => e.preventDefault()}
-    ondrop={(e) => {
-      e.preventDefault()
-      dropOutside()
-    }}
-  >
-    <header>
-      <h2>Formation</h2>
-      <span class="balance">{Math.floor(game.salvage)} Salvage</span>
-      <span class="balance">{game.clearance} Clearance</span>
-      <span class="hint"><kbd>F</kbd> to close · drag a unit onto a slot</span>
-    </header>
+<Overlay
+  {open}
+  title="Formation"
+  balances={[
+    { label: 'Salvage', value: game.salvage },
+    { label: 'Clearance', value: game.clearance },
+  ]}
+  ondragover={(e) => e.preventDefault()}
+  ondrop={(e) => {
+    e.preventDefault()
+    dropOutside()
+  }}
+>
+  {#snippet hint()}
+    <Kbd>F</Kbd> to close · drag a unit onto a slot
+  {/snippet}
 
     <section class="field">
       <div class="ring-plan" style:width="{CENTRE * 2}px" style:height="{CENTRE * 2}px">
@@ -364,22 +366,24 @@
               {#if unit.atMaxLevel}
                 <span class="maxed">max</span>
               {:else}
-                <button
+                <Button
+                  small
                   disabled={!unit.canLevel}
                   title="Level up for {unit.levelCost} Clearance"
                   onclick={() => game.formationActions?.levelUp(unit.kind, unit.id)}
                 >
                   +{unit.levelCost}
-                </button>
+                </Button>
               {/if}
             {:else}
-              <button
+              <Button
+                small
                 disabled={!unit.canUnlock}
                 title="Unlock for {unit.unlockCost} Clearance"
                 onclick={() => game.formationActions?.unlock(unit.kind, unit.id)}
               >
                 {unit.unlockCost} Clearance
-              </button>
+              </Button>
             {/if}
           </li>
         {/each}
@@ -411,13 +415,14 @@
                 {#if track.atMax}
                   <span class="maxed">max</span>
                 {:else}
-                  <button
+                  <Button
+                    small
                     disabled={!track.affordable}
                     title="{track.cost} Clearance"
                     onclick={() => game.formationActions?.buyTrack(array.id, track.track)}
                   >
                     +{track.cost}
-                  </button>
+                  </Button>
                 {/if}
               </li>
             {/each}
@@ -435,16 +440,23 @@
             if (e.key === 'Enter') commitPreset()
           }}
         />
-        <button onclick={commitPreset} disabled={presetName.trim().length === 0}>Save</button>
+        <Button small onclick={commitPreset} disabled={presetName.trim().length === 0}>
+          Save
+        </Button>
       </div>
       <ul class="presets">
         {#each game.presetNames as name (name)}
           <li>
             <span class="name">{name}</span>
-            <button onclick={() => game.formationActions?.loadPreset(name)}>Field</button>
-            <button class="ghost" onclick={() => game.formationActions?.deletePreset(name)}>
+            <Button small onclick={() => game.formationActions?.loadPreset(name)}>Field</Button>
+            <Button
+              variant="ghost"
+              small
+              aria-label="Delete {name}"
+              onclick={() => game.formationActions?.deletePreset(name)}
+            >
               ✕
-            </button>
+            </Button>
           </li>
         {:else}
           <li class="empty">Saved arrangements survive a Rewind.</li>
@@ -454,20 +466,14 @@
 
     {#if inspecting}
       {@const unit = inspecting.unit}
-      <div
-        class="card"
-        role="tooltip"
-        style:left="{inspecting.x}px"
-        style:top="{inspecting.y}px"
-        style:width="{CARD_WIDTH}px"
-      >
+      <Tooltip anchor={inspecting.anchor} width={CARD_WIDTH}>
         <span class="card-kind">
           {unit.kind === 'array' ? 'Array · rim mount' : 'Platform · ring slot'} ·
           {unit.profile.damageType}
         </span>
         <h4>{unit.name}{#if unit.unlocked}<span class="level">lv {unit.level}</span>{/if}</h4>
-        <p class="role">{ROLE_COPY[unit.profile.role] ?? unit.profile.role}</p>
-        <p class="voice">{unit.profile.description}</p>
+        <p class="card-role">{ROLE_COPY[unit.profile.role] ?? unit.profile.role}</p>
+        <p class="card-voice">{unit.profile.description}</p>
 
         <ul class="statline">
           <li><span>Attack</span><span>{stat(unit.profile.attack)}</span></li>
@@ -476,7 +482,7 @@
           <li><span>Defence</span><span>{stat(unit.profile.defence)}</span></li>
         </ul>
 
-        <p class="note">
+        <p class="card-note">
           It {TARGETING_COPY[unit.profile.targeting] ?? unit.profile.targeting}.
           {#if unit.profile.conjunction}
             In a conjunction it contributes {CONJUNCTION_COPY[unit.profile.conjunction.kind] ??
@@ -487,56 +493,16 @@
         </p>
 
         {#if !unit.unlocked}
-          <p class="note locked-note">
+          <p class="card-note card-locked">
             Locked. {unit.unlockCost} Clearance to add it to the roster; the stats above
             are what it opens at.
           </p>
         {/if}
-      </div>
+      </Tooltip>
     {/if}
-  </div>
-{/if}
+</Overlay>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(6, 6, 5, 0.94);
-    display: grid;
-    grid-template-columns: 1fr 20rem;
-    grid-template-rows: auto 1fr;
-    pointer-events: auto;
-    z-index: 10;
-    font-size: 0.78rem;
-  }
-
-  header {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.9rem 1.25rem;
-    border-bottom: 1px solid var(--corona-dim);
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 0.85rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--corona);
-  }
-
-  .balance {
-    font-variant-numeric: tabular-nums;
-  }
-
-  .hint {
-    margin-left: auto;
-    font-size: 0.7rem;
-    color: var(--muted);
-  }
-
   .field {
     display: flex;
     flex-direction: column;
@@ -562,7 +528,7 @@
   }
 
   .ring-guide {
-    border: 1px dashed #2a2620;
+    border: 1px dashed var(--inert);
   }
 
   .sun {
@@ -631,7 +597,7 @@
 
   .refusal {
     margin: 0;
-    color: #f0b06c;
+    color: var(--warn);
   }
 
   .side {
@@ -750,17 +716,6 @@
     color: #7a6a48;
   }
 
-  .card {
-    position: fixed;
-    z-index: 30;
-    padding: 0.7rem 0.8rem;
-    background: var(--bg);
-    border: 1px solid var(--corona-dim);
-    border-radius: 0.3rem;
-    box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.55);
-    pointer-events: none;
-  }
-
   .card-kind {
     display: block;
     font-size: 0.6rem;
@@ -769,7 +724,7 @@
     color: var(--muted);
   }
 
-  .card h4 {
+  h4 {
     display: flex;
     align-items: baseline;
     gap: 0.4rem;
@@ -778,13 +733,13 @@
     color: var(--text);
   }
 
-  .card .role {
+  .card-role {
     margin: 0 0 0.4rem;
     color: var(--corona);
     line-height: 1.4;
   }
 
-  .card .voice {
+  .card-voice {
     margin: 0 0 0.6rem;
     color: var(--muted);
     font-style: italic;
@@ -816,15 +771,15 @@
     color: var(--text);
   }
 
-  .card .note {
+  .card-note {
     margin: 0;
     color: var(--muted);
     line-height: 1.45;
   }
 
-  .card .locked-note {
+  .card-locked {
     margin-top: 0.5rem;
-    color: #f0b06c;
+    color: var(--warn);
   }
 
   .level {
@@ -858,33 +813,4 @@
     border-radius: 0.2rem;
   }
 
-  button {
-    padding: 0.25rem 0.5rem;
-    font: inherit;
-    font-size: 0.72rem;
-    color: var(--bg);
-    background: var(--corona);
-    border: none;
-    border-radius: 0.2rem;
-    cursor: pointer;
-  }
-
-  button:disabled {
-    background: #2a2620;
-    color: var(--muted);
-    cursor: default;
-  }
-
-  button.ghost {
-    background: transparent;
-    color: var(--muted);
-    border: 1px solid var(--corona-dim);
-  }
-
-  kbd {
-    display: inline-block;
-    padding: 0 0.25rem;
-    border: 1px solid var(--corona-dim);
-    border-radius: 0.2rem;
-  }
 </style>

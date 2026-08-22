@@ -5,15 +5,51 @@ State of the build, kept short enough to stay true. `PLAN.md` is the roadmap,
 `docs/phases/phase-N.md` is what each phase actually did. This file is the map
 between them.
 
-**Where we are:** Phases 1–41 done. Stages 1–5 complete; Stage 6 (UI/UX &
-Accessibility) is next, starting at Phase 42.
+**Where we are:** Phases 1–42 done. Stages 1–5 complete; Stage 6 (UI/UX &
+Accessibility) is under way — Phase 43 (menus, settings, accessibility) is next.
 
-**Health:** 981 tests across 41 files, `npm run check` clean, production build
+**Health:** 999 tests across 43 files, `npm run check` clean, production build
 890 KB with every sprite inlined.
 
 ---
 
-## What was just built — Stage 5, Art & Audio (Phases 37–41)
+## What was just built — Phase 42, HUD & core UI
+
+The shared UI layer the eight existing screens should always have been built on,
+plus the gain/loss readouts PLAN.md asks for at this phase.
+
+| Built | Key files |
+|-------|-----------|
+| Eight primitives — Modal, Overlay, Button, Kbd, Meter, Stat, Delta, Tooltip | `src/lib/ui/primitives/` |
+| Design tokens: palette, radius, and a **named** stacking order | `src/styles/app.css` |
+| Pooled gain/loss, framework-free and tested | `src/lib/utils/delta.ts` |
+| One number format, truncating, everywhere | `src/lib/utils/format.ts` |
+| The rules, enforced rather than reviewed | `tests/ui.test.ts`, `docs/design/ui-spec.md` |
+
+It was a deduplication, and the count is the argument for having done it: three
+hand-rolled scrims at three different alphas, five copies of the button rules,
+four of the keycap rules, `z-index` chosen one at a time in six files, and one
+red meaning both "the Sun is dying" and "this control is disabled".
+
+Three things it found on the way, all of the same kind as the ones Stage 5
+turned up:
+
+- **No dialog ever focused itself.** All three set `tabindex="-1"` and none
+  called `focus()`; a tab press from an open modal walked the HUD behind the
+  scrim. The fifth authored-but-never-connected thing this project has found.
+- **The hover card clamped against a guess at its own height** — 250px against a
+  real 310–330. It measures itself now.
+- **The same balance printed two ways**, `11.83K` in the HUD and `11833` in the
+  Formation header.
+
+And one thing genuinely new on screen: **Output now says when it is being hit.**
+It had a bar easing over 120 ms and nothing else, so at a full formation it
+could lose a fifth of its width between two glances without ever being seen to
+move.
+
+---
+
+## The stage before — Stage 5, Art & Audio (Phases 37–41)
 
 | Phase | Built | Key files |
 |-------|-------|-----------|
@@ -51,6 +87,12 @@ more expensive than the last:
   is an unlistenable buzz.
 - The conjunction bell was removed entirely — a 1.6s tail against alignments
   arriving 36 times a second.
+
+**A number the player must react to gets a float; one they merely need to know
+does not.** The same rule as the two above, applied to the DOM: Output and
+Salvage carry pooled deltas, Clearance and Recollection are drawn quiet. The
+pooling is arithmetic in `utils/delta.ts` rather than a rune, so it can be
+asserted. `ui-spec.md` §4.
 
 **Light does not accumulate; sound does.** Which is why the conjunction kept its
 particle burst and lost its bell at the same frequency.
@@ -91,8 +133,16 @@ tell you when something is too loud.
       `reducedMotion`, `colourblindPalette` and `textScale` have been in
       `src/lib/core/saveSchema.ts` since Phase 8 and are read by **nothing**.
       Confirmed by grep, not by memory. Phase 43 owns them. This is the same
-      pattern already caught four times — `assetKey`, `PLATFORM_COLOURS`, the
-      volume settings, and nearly the conjunction chord table.
+      pattern already caught five times — `assetKey`, `PLATFORM_COLOURS`, the
+      volume settings, nearly the conjunction chord table, and Phase 42's
+      dialogs that never took focus. `reducedMotion` now has something concrete
+      to switch off: `Delta`'s floats and `Meter`'s struck flash are the first
+      animations in the chrome.
+
+- [ ] **Dialogs do not trap focus, or give it back.** Phase 42 moves focus
+      *into* a modal when it opens, which is the half that was free. A trap
+      while it is open, and restoring focus to the control that opened it, are
+      Phase 43's. → `docs/design/ui-spec.md` §5
 
 - [ ] **No settings UI at all.** The three volume faders work and have no
       control surface. Phase 43.
@@ -160,14 +210,17 @@ src/lib/core/                loop, save, stageLoader, render, audio, and the
                              framework-free decision modules beside them
 src/lib/stores/              the only bridge into Svelte
 src/lib/ui/                  Svelte components; they decide nothing
-tests/                       41 files; support/playthrough.ts drives whole runs
+src/lib/ui/primitives/       the shared set those are built from
+tests/                       43 files; support/playthrough.ts drives whole runs
 ```
 
-Two boundaries that must not erode, both in `docs/architecture.md`:
+Three boundaries that must not erode, all in `docs/architecture.md`:
 
 1. Nothing under `core/`, `systems/`, `entities/` or `content/` imports Svelte,
    Pixi or a browser API — except the two output files named above.
 2. `render.ts` reads simulation state and never writes it.
+3. Nothing under `ui/primitives/` imports `stores/`. A primitive that reads the
+   game is a screen with fewer props.
 
 ---
 
@@ -175,7 +228,7 @@ Two boundaries that must not erode, both in `docs/architecture.md`:
 
 ```bash
 npm run dev          # http://localhost:5173 — note: localhost, not 127.0.0.1
-npm test             # 981 tests
+npm test             # 999 tests
 npm run check        # svelte-check + tsc
 npm run build
 ```

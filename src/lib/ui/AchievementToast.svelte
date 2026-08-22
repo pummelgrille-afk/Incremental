@@ -57,7 +57,7 @@
     position: fixed;
     right: 1.25rem;
     bottom: 1.25rem;
-    z-index: 15;
+    z-index: var(--z-notice);
   }
 
   .toast {
@@ -68,7 +68,7 @@
     padding: 0.7rem 0.9rem;
     background: rgba(11, 10, 8, 0.96);
     border: 1px solid var(--corona);
-    border-radius: 0.3rem;
+    border-radius: var(--radius);
     font-size: 0.78rem;
     font-family: inherit;
     text-align: left;

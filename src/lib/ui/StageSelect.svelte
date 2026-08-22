@@ -1,5 +1,7 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
+  import Modal from './primitives/Modal.svelte'
+  import Button from './primitives/Button.svelte'
 
   /**
    * The progression map.
@@ -19,123 +21,69 @@
     if (!unlocked) return
     game.requestedStage = address
   }
+
+  function close(): void {
+    game.showMap = false
+  }
 </script>
 
-{#if open}
-  <div class="scrim" role="presentation" onclick={() => (game.showMap = false)}>
-    <div
-      class="panel"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Stage select"
-      tabindex="-1"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
-    >
-      <header>
-        <h2>The Perihelion</h2>
-        <span class="sub">
-          {game.map.filter((z) => z.cleared).length} of {game.map.length} zones cleared
+<Modal {open} title="The Perihelion" label="Stage select" width="46rem" onclose={close}>
+  {#snippet sub()}
+    {game.map.filter((z) => z.cleared).length} of {game.map.length} zones cleared
+  {/snippet}
+
+  {#each game.map as zone (zone.id)}
+    <section class="zone" class:locked={!zone.unlocked}>
+      <div class="head">
+        <h3>{zone.name}</h3>
+        <span class="count">
+          {#if zone.unlocked}
+            {zone.clearedCount}/{zone.stageCount}
+          {:else}
+            Locked
+          {/if}
         </span>
-      </header>
-
-      <div class="zones">
-        {#each game.map as zone (zone.id)}
-          <section class="zone" class:locked={!zone.unlocked}>
-            <div class="head">
-              <h3>{zone.name}</h3>
-              <span class="count">
-                {#if zone.unlocked}
-                  {zone.clearedCount}/{zone.stageCount}
-                {:else}
-                  Locked
-                {/if}
-              </span>
-            </div>
-
-            {#if zone.unlocked}
-              <p class="epigraph">
-                {zone.epigraph}
-                <span class="attrib">— {zone.epigraphAttribution}</span>
-              </p>
-
-              <ul class="stages">
-                {#each zone.stages as stage (stage.address)}
-                  <li>
-                    <button
-                      class="stage"
-                      class:cleared={stage.cleared}
-                      class:boss={stage.isBoss}
-                      class:current={stage.address === game.currentStage}
-                      disabled={!stage.unlocked}
-                      onclick={() => enter(stage.address, stage.unlocked)}
-                    >
-                      <span class="index">{stage.scalingIndex}</span>
-                      <span class="name">{stage.name}</span>
-                      {#if stage.isBoss}<span class="tag">Encounter</span>{/if}
-                      {#if stage.cleared}<span class="tick" aria-label="cleared">✓</span>{/if}
-                    </button>
-                  </li>
-                {/each}
-              </ul>
-            {:else}
-              <!-- Named but not described. Knowing a place exists is the
-                   incentive; knowing what is in it is the reward. -->
-              <p class="sealed">Requires the previous zone.</p>
-            {/if}
-          </section>
-        {/each}
       </div>
 
-      <button class="close" onclick={() => (game.showMap = false)}>Back to it</button>
-    </div>
-  </div>
-{/if}
+      {#if zone.unlocked}
+        <p class="epigraph">
+          {zone.epigraph}
+          <span class="attrib">— {zone.epigraphAttribution}</span>
+        </p>
+
+        <ul class="stages">
+          {#each zone.stages as stage (stage.address)}
+            <li>
+              <button
+                class="stage"
+                class:cleared={stage.cleared}
+                class:boss={stage.isBoss}
+                class:current={stage.address === game.currentStage}
+                disabled={!stage.unlocked}
+                onclick={() => enter(stage.address, stage.unlocked)}
+              >
+                <span class="index">{stage.scalingIndex}</span>
+                <span class="name">{stage.name}</span>
+                {#if stage.isBoss}<span class="tag">Encounter</span>{/if}
+                {#if stage.cleared}<span class="tick" aria-label="cleared">✓</span>{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {:else}
+        <!-- Named but not described. Knowing a place exists is the
+             incentive; knowing what is in it is the reward. -->
+        <p class="sealed">Requires the previous zone.</p>
+      {/if}
+    </section>
+  {/each}
+
+  {#snippet footer()}
+    <Button variant="ghost" onclick={close}>Back to it</Button>
+  {/snippet}
+</Modal>
 
 <style>
-  .scrim {
-    position: fixed;
-    inset: 0;
-    background: rgba(6, 6, 8, 0.72);
-    display: grid;
-    place-items: center;
-    z-index: 20;
-  }
-
-  .panel {
-    width: min(46rem, 92vw);
-    max-height: 86vh;
-    overflow-y: auto;
-    padding: 1.2rem 1.4rem 1.4rem;
-    background: rgba(11, 10, 8, 0.98);
-    border: 1px solid var(--corona);
-    border-radius: 0.4rem;
-  }
-
-  header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-    border-bottom: 1px solid var(--corona-dim);
-    padding-bottom: 0.6rem;
-    margin-bottom: 0.9rem;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--corona);
-  }
-
-  .sub {
-    font-size: 0.72rem;
-    color: var(--muted);
-  }
-
   .zone {
     margin-bottom: 1.1rem;
   }
@@ -192,6 +140,13 @@
     gap: 0.3rem;
   }
 
+  /*
+   * Not a `<Button>`. A stage is a place on a map, and the primitive's three
+   * variants are all statements about *what an action does* — none of them
+   * describes a destination that can be current, cleared, or sealed. Forcing it
+   * through would mean a fourth variant used exactly once, which is how a
+   * shared set stops being shared.
+   */
   .stage {
     width: 100%;
     display: flex;
@@ -215,6 +170,11 @@
 
   .stage:not(:disabled):hover {
     border-color: var(--corona);
+  }
+
+  .stage:focus-visible {
+    outline: 2px solid var(--corona);
+    outline-offset: 2px;
   }
 
   .stage.current {
@@ -248,17 +208,5 @@
 
   .tick {
     color: var(--corona);
-  }
-
-  .close {
-    margin-top: 0.4rem;
-    padding: 0.45rem 0.9rem;
-    background: transparent;
-    border: 1px solid var(--corona);
-    border-radius: 0.25rem;
-    color: var(--text);
-    font: inherit;
-    font-size: 0.76rem;
-    cursor: pointer;
   }
 </style>

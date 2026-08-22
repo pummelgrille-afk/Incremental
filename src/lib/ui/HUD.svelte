@@ -1,74 +1,98 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
   import { BUDGETS } from '../content/budgets'
+  import { compact } from '../utils/format'
+  import Stat from './primitives/Stat.svelte'
+  import Meter from './primitives/Meter.svelte'
+  import Delta from './primitives/Delta.svelte'
+  import Kbd from './primitives/Kbd.svelte'
 
   /**
-   * Minimal always-on HUD: objective health, resources, wave indicator.
-   * Phase 42 builds the real one with shared primitives and gain animations.
+   * The always-on readout: Output, the currencies, where you are, and the
+   * Flare.
+   *
+   * Everything here is drawn from primitives, and the reason is not tidiness —
+   * it is that the HUD is the one surface a player looks at *while doing
+   * something else*. A label that is 0.65rem here and 0.62rem in the Rewind
+   * modal costs a fraction of a second of re-reading every time they move
+   * between the two, and they move between them constantly.
+   *
+   * **What moves is what is animated.** Phase 42's readability brief comes down
+   * to one rule: a number the player must react to gets a float, and a number
+   * they merely need to know does not. Output and Salvage move on the scale of
+   * a second and carry deltas; Clearance and Recollection move on the scale of
+   * a run and are drawn quiet.
    */
 
   let { showDiagnostics = false }: { showDiagnostics?: boolean } = $props()
 
-  function format(n: number): string {
-    if (n < 1000) return Math.floor(n).toString()
-    if (n < 1_000_000) return (n / 1000).toFixed(2) + 'K'
-    return (n / 1_000_000).toFixed(2) + 'M'
-  }
+  const low = $derived(game.outputFraction < 0.3)
 </script>
 
 <div class="hud">
   <header>
-    <div class="output" class:low={game.outputFraction < 0.3}>
-      <span class="label">Output</span>
-      <div class="bar">
-        <div class="fill" style:width="{game.outputFraction * 100}%"></div>
-      </div>
-      <span class="value">{format(game.output)} / {format(game.maxOutput)}</span>
+    <div class="output">
+      <Stat label="Output">
+        {compact(game.output)} / {compact(game.maxOutput)}
+        <Delta value={game.outputLoss} direction="loss" />
+        <Delta value={game.outputGain} direction="gain" />
+        {#snippet after()}
+          <!-- `struck` flashes the bar's own border on a hit. Under a full
+               formation the bar can lose a fifth of its width between two
+               glances and never be seen moving; the flash is what makes a
+               fast, survivable hit distinguishable from a slow, fatal one. -->
+          <Meter
+            label="Output"
+            fraction={game.outputFraction}
+            tone={low ? 'danger' : 'corona'}
+            struck={game.outputLoss > 0}
+          />
+        {/snippet}
+      </Stat>
     </div>
 
-    <div class="stack">
-      <span class="label">Salvage</span>
-      <span class="value big" class:gaining={game.salvageGain > 0}>{format(game.salvage)}</span>
-      {#if game.salvageGain > 0}<span class="gain">+{format(game.salvageGain)}</span>{/if}
-    </div>
+    <Stat label="Salvage" tone="loud">
+      {compact(game.salvage)}
+      {#snippet after()}
+        <Delta value={game.salvageGain} direction="gain" />
+        <Delta value={game.salvageLoss} direction="loss" />
+      {/snippet}
+    </Stat>
 
     <!-- The permanent currencies. Kept visually quieter than Salvage: they
          change on the scale of a run, not a second, and a counter that never
          moves competing for attention with one that always does is noise. -->
-    <div class="stack meta">
-      <span class="label">Clearance</span>
-      <span class="value">{format(game.clearance)}</span>
-    </div>
+    <Stat label="Clearance" tone="quiet">{compact(game.clearance)}</Stat>
+    <Stat label="Recollection" tone="quiet">{compact(game.recollection)}</Stat>
 
-    <div class="stack meta">
-      <span class="label">Recollection</span>
-      <span class="value">{format(game.recollection)}</span>
-    </div>
-
-    <div class="stack">
-      <span class="label">{game.zoneName}</span>
-      <span class="value">{game.stageName} — wave {game.waveNumber}/{game.waveCount}</span>
-    </div>
+    <Stat label={game.zoneName}>
+      {game.stageName} — wave {game.waveNumber}/{game.waveCount}
+    </Stat>
   </header>
 
   <footer>
     <div class="flare" class:ready={game.canStrike}>
-      <span class="label">The Flare</span>
+      <span class="flare-label">The Flare</span>
       <div class="pips">
         {#each Array(game.flareMaxCharge) as _, i (i)}
           <span class="pip" class:filled={i < game.flaresReady}></span>
         {/each}
       </div>
-      <div class="charge" class:ready={game.canStrike}>
-        <div class="fill" style:width="{game.flareProgress * 100}%"></div>
-      </div>
+      <!-- `instant`, because this one updates every frame. A 120 ms ease on a
+           250 ms cooldown reports a state the player has already left. -->
+      <Meter
+        label="Flare charge"
+        fraction={game.flareProgress}
+        tone={game.canStrike ? 'corona' : 'dim'}
+        instant
+      />
     </div>
 
     <p class="hint">
-      Click the field to strike · <kbd>M</kbd> map ·
-      <kbd>F</kbd> formation{#if game.treeRevealed}{' '}·
-        <kbd>T</kbd> tree{/if}{#if game.rewindUnlocked}{' '}· <kbd>P</kbd> rewind{/if} ·
-      <kbd>H</kbd> manual · <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
+      Click the field to strike · <Kbd>M</Kbd> map ·
+      <Kbd>F</Kbd> formation{#if game.treeRevealed}{' '}·
+        <Kbd>T</Kbd> tree{/if}{#if game.rewindUnlocked}{' '}· <Kbd>P</Kbd> rewind{/if} ·
+      <Kbd>H</Kbd> manual · <Kbd>R</Kbd> restart · <Kbd>F2</Kbd> diagnostics
     </p>
   </footer>
 
@@ -120,7 +144,7 @@
   {#if game.phase === 'cleared'}
     <div class="banner">
       <strong>Stage clear.</strong>
-      <span>The rings hold. {format(game.salvage)} salvage recovered.</span>
+      <span>The rings hold. {compact(game.salvage)} salvage recovered.</span>
       {#if game.lastClearanceAward}
         <span class="reward">
           +{game.lastClearanceAward.clearance}{' '}
@@ -135,7 +159,7 @@
         <span class="next">Next stage in {Math.ceil(game.nextStageIn)}…</span>
       {:else}
         <span class="next">
-          End of the authored stages. <kbd>R</kbd> to run it again.
+          End of the authored stages. <Kbd>R</Kbd> to run it again.
         </span>
       {/if}
     </div>
@@ -143,7 +167,7 @@
     <div class="banner lost">
       <strong>The Perihelion has stopped.</strong>
       <span>Output exhausted. Nothing is lost but the shift.</span>
-      <span class="next"><kbd>R</kbd> to wind it again.</span>
+      <span class="next"><Kbd>R</Kbd> to wind it again.</span>
     </div>
   {/if}
 </div>
@@ -153,6 +177,7 @@
     position: fixed;
     inset: 0;
     pointer-events: none;
+    z-index: var(--z-hud);
     font-size: 0.8rem;
   }
 
@@ -175,77 +200,8 @@
     padding: 1rem;
   }
 
-  .label {
-    display: block;
-    font-size: 0.65rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-
-  .value {
-    font-variant-numeric: tabular-nums;
-    color: var(--text);
-  }
-
-  .value.big {
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: var(--corona);
-  }
-
-  .stack {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-  }
-
   .output {
     min-width: 15rem;
-  }
-
-  .bar {
-    height: 6px;
-    margin: 0.3rem 0 0.25rem;
-    background: #1c1a14;
-    border: 1px solid var(--corona-dim);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .stack.meta .value {
-    color: var(--muted);
-  }
-
-  .value.gaining {
-    color: #f0e6c8;
-  }
-
-  .gain {
-    font-size: 0.7rem;
-    color: var(--corona);
-    animation: gain-fade 1.1s linear forwards;
-  }
-
-  @keyframes gain-fade {
-    from {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    to {
-      opacity: 0;
-      transform: translateY(-0.4rem);
-    }
-  }
-
-  .fill {
-    height: 100%;
-    background: var(--corona);
-    transition: width 120ms linear;
-  }
-
-  .output.low .fill {
-    background: #f87171;
   }
 
   .flare {
@@ -253,10 +209,11 @@
     flex-direction: column;
     align-items: center;
     gap: 0.3rem;
+    width: 11rem;
     padding: 0.45rem 1rem;
     background: rgba(11, 10, 8, 0.8);
     border: 1px solid var(--corona-dim);
-    border-radius: 0.3rem;
+    border-radius: var(--radius);
     opacity: 0.55;
     transition: opacity 120ms linear;
   }
@@ -264,6 +221,13 @@
   .flare.ready {
     opacity: 1;
     border-color: var(--corona);
+  }
+
+  .flare-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
 
   .pips {
@@ -274,7 +238,7 @@
   .pip {
     width: 10px;
     height: 10px;
-    background: #1c1a14;
+    background: var(--well);
     border: 1px solid var(--corona-dim);
     border-radius: 50%;
   }
@@ -284,54 +248,10 @@
     border-color: var(--corona);
   }
 
-  /* Progress to the next strike: the cooldown, or the charge regenerating. */
-  .charge {
-    width: 100%;
-    height: 3px;
-    background: #1c1a14;
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .charge .fill {
-    height: 100%;
-    background: var(--corona-dim);
-    /* Explicitly cancels the 120ms width transition the shared `.fill` rule
-       applies. The value already updates every frame, and 120ms of easing on a
-       250ms cooldown would leave the bar reporting a state the player has
-       already left. */
-    transition: none;
-  }
-
-  .charge.ready .fill {
-    background: var(--corona);
-  }
-
-  .banner .reward {
-    color: var(--corona);
-  }
-
-  .banner .next {
-    color: var(--muted);
-    font-size: 0.75rem;
-  }
-
   .hint {
     margin: 0;
     color: var(--muted);
     font-size: 0.7rem;
-  }
-
-  kbd {
-    display: inline-block;
-    padding: 0 0.25rem;
-    margin: 0 0.1rem;
-    font: inherit;
-    font-size: 0.65rem;
-    color: var(--text);
-    background: #1c1a14;
-    border: 1px solid var(--corona-dim);
-    border-radius: 0.2rem;
   }
 
   .telemetry .head {
@@ -347,7 +267,7 @@
     padding: 0.6rem 0.8rem;
     background: rgba(11, 10, 8, 0.85);
     border: 1px solid var(--corona-dim);
-    border-radius: 0.3rem;
+    border-radius: var(--radius);
   }
 
   dl {
@@ -369,7 +289,7 @@
   }
 
   .warn {
-    color: #f87171;
+    color: var(--danger);
   }
 
   .of {
@@ -409,11 +329,20 @@
     color: var(--muted);
   }
 
+  .banner .reward {
+    color: var(--corona);
+  }
+
+  .banner .next {
+    color: var(--muted);
+    font-size: 0.75rem;
+  }
+
   .banner.lost {
-    border-color: #f87171;
+    border-color: var(--danger);
   }
 
   .banner.lost strong {
-    color: #f87171;
+    color: var(--danger);
   }
 </style>

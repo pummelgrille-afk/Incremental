@@ -7,6 +7,7 @@ import type { DamageType } from '../entities/types'
 import type { UpgradeBranch } from '../entities/Upgrade'
 import type { UnavailableReason } from '../progression/upgradeTree'
 import type { ZoneView } from '../progression/map'
+import { PooledDelta } from '../utils/delta'
 
 /**
  * The Almanac, projected for the view.
@@ -193,15 +194,29 @@ class GameStore {
   clearance = $state(0)
 
   /**
-   * Recent Salvage gain, pooled for the HUD's counter.
+   * Recent movement in Salvage and in Output, pooled for the HUD's readouts.
    *
-   * Pooled rather than per-drop: kills arrive dozens a second and an animation
-   * each would strobe. Accumulated here rather than in the component because
-   * `syncFrom` already runs exactly once a frame — doing it in a `$effect`
-   * would mean guessing a frame rate and risking a self-triggering read.
+   * Pooled rather than per-event: kills arrive dozens a second and hits on the
+   * Sun at a comparable rate, so an animation each would strobe. The rule lives
+   * in `utils/delta.ts`; these are the two runes it is mirrored into.
+   *
+   * Mirrored here rather than read through a `$derived` because a `PooledDelta`
+   * is a plain object — Svelte cannot see a mutation inside one, and making it
+   * reactive would put a rune underneath arithmetic that has to stay testable
+   * without a DOM. `syncFrom` already runs exactly once a frame, so the mirror
+   * costs one comparison per field.
    */
   salvageGain = $state(0)
-  private gainExpiresAt = 0
+  /** Recent spending. A purchase is movement too, and reads as one. */
+  salvageLoss = $state(0)
+  /** Output lost in the last second. The one number a player under fire needs. */
+  outputLoss = $state(0)
+  /** Output regained — a repair, or the Recovery branch doing its job. */
+  outputGain = $state(0)
+
+  private static readonly GAIN_WINDOW = 1.1
+  private readonly salvagePool = new PooledDelta(GameStore.GAIN_WINDOW)
+  private readonly outputPool = new PooledDelta(GameStore.GAIN_WINDOW)
 
   /**
    * Seconds until the next stage loads, or 0 when nothing is queued.
@@ -422,6 +437,19 @@ class GameStore {
   syncFrom(simulation: Simulation): void {
     const sim = simulation.state
 
+    /*
+     * Output movement, pooled before it is published.
+     *
+     * A change in `maxHp` is never a wound or a heal — it is an Almanac node
+     * landing, or a stage arriving with a different Sun — so the pool forgets
+     * what it knew and adopts the new figure in silence. Without it, the first
+     * frame of every stage reports the whole bar as a repair.
+     */
+    if (sim.sun.maxHp !== this.maxOutput) this.outputPool.clear()
+    this.outputPool.push(sim.sun.hp, sim.elapsed)
+    this.outputLoss = this.outputPool.loss
+    this.outputGain = this.outputPool.gain
+
     this.output = sim.sun.hp
     this.maxOutput = sim.sun.maxHp
     this.shield = sim.sun.shield
@@ -503,9 +531,6 @@ class GameStore {
     this.nextConjunctionAt = seconds === null ? null : sim.elapsed + seconds
   }
 
-  /** How long a gain stays on screen. */
-  private static readonly GAIN_WINDOW = 1.1
-
   /**
    * Publish a starting balance without it reading as a gain.
    *
@@ -520,8 +545,9 @@ class GameStore {
    */
   primeSalvage(balance: number): void {
     this.salvage = balance
+    this.salvagePool.prime(balance)
     this.salvageGain = 0
-    this.gainExpiresAt = 0
+    this.salvageLoss = 0
   }
 
   /**
@@ -537,15 +563,17 @@ class GameStore {
    * delta is a purchase, and must not read as a gain.
    */
   publishSalvage(balance: number, elapsed: number): void {
-    const delta = balance - this.salvage
+    /*
+     * Against the previous *projected* value rather than a remembered total, so
+     * a reload mid-stage shows no phantom gain — which is why the pool is
+     * pushed the balance rather than being told the delta. A test writes
+     * `salvageGain` directly to stand in for a float that has already played;
+     * the mirror below is what makes that hold until the next real movement.
+     */
+    this.salvagePool.push(balance, elapsed)
     this.salvage = balance
-
-    if (delta > 0) {
-      this.salvageGain += delta
-      this.gainExpiresAt = elapsed + GameStore.GAIN_WINDOW
-    } else if (this.salvageGain > 0 && elapsed >= this.gainExpiresAt) {
-      this.salvageGain = 0
-    }
+    this.salvageGain = this.salvagePool.gain
+    this.salvageLoss = this.salvagePool.loss
   }
 
   /** Refresh the telemetry readout, at most once a second. */
@@ -580,6 +608,14 @@ class GameStore {
     this.lastClearanceAward = null
     this.nextStageIn = 0
     this.salvageGain = 0
+    this.salvageLoss = 0
+
+    // The stage that follows is a different Sun with a full bar. Carrying the
+    // pool across would open it on a repair the size of the last stage's
+    // damage.
+    this.outputPool.clear()
+    this.outputLoss = 0
+    this.outputGain = 0
   }
 }
 

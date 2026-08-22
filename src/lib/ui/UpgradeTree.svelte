@@ -1,6 +1,10 @@
 <script lang="ts">
   import { game, type TreeNodeView } from '../stores/game.svelte'
   import type { UpgradeBranch } from '../entities/Upgrade'
+  import Overlay from './primitives/Overlay.svelte'
+  import Button from './primitives/Button.svelte'
+  import Kbd from './primitives/Kbd.svelte'
+  import Tooltip from './primitives/Tooltip.svelte'
 
   /**
    * The Almanac.
@@ -150,24 +154,50 @@
   function buy() {
     if (selectedId) game.treeActions?.purchase(selectedId)
   }
+
+  // --- Hover. ---------------------------------------------------------------
+
+  /**
+   * What the pointer is over, if anything.
+   *
+   * Separate from the selection on purpose. Reading what a node is used to
+   * *cost* you your selection — and the selection is the planning state, the
+   * thing holding the highlighted path across the tree. Browsing had to
+   * destroy planning, which is backwards.
+   *
+   * Suppressed while panning: a card following the tree as it slides under the
+   * pointer is unreadable, and it is not what the player is doing.
+   */
+  let hovered = $state<{ node: TreeNodeView; anchor: DOMRect } | null>(null)
+
+  function hover(node: TreeNodeView, event: PointerEvent): void {
+    if (dragging) return
+    hovered = { node, anchor: (event.currentTarget as Element).getBoundingClientRect() }
+  }
 </script>
 
-{#if open}
-  <div class="overlay">
-    <header>
-      <h2>The Almanac</h2>
-      <span class="balance">{Math.floor(game.recollection)} Recollection</span>
-      <button class="ghost" onclick={reset}>Recentre</button>
-      <button
-        class="ghost"
-        disabled={game.treeRefund <= 0 || game.running}
-        title={game.running ? 'Only between runs' : 'Refunds everything, free'}
-        onclick={() => game.treeActions?.respec()}
-      >
-        Respec ({game.treeRefund})
-      </button>
-      <span class="hint"><kbd>T</kbd> to close · drag to pan · scroll to zoom</span>
-    </header>
+<Overlay
+  {open}
+  title="The Almanac"
+  aside="19rem"
+  balances={[{ label: 'Recollection', value: game.recollection }]}
+>
+  {#snippet controls()}
+    <Button variant="ghost" small onclick={reset}>Recentre</Button>
+    <Button
+      variant="ghost"
+      small
+      disabled={game.treeRefund <= 0 || game.running}
+      title={game.running ? 'Only between runs' : 'Refunds everything, free'}
+      onclick={() => game.treeActions?.respec()}
+    >
+      Respec ({game.treeRefund})
+    </Button>
+  {/snippet}
+
+  {#snippet hint()}
+    <Kbd>T</Kbd> to close · drag to pan · scroll to zoom
+  {/snippet}
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <svg
@@ -225,6 +255,10 @@
             onkeydown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') selectedId = node.id
             }}
+            onpointerenter={(e) => hover(node, e)}
+            onpointerleave={() => (hovered = null)}
+            onfocus={(e) => hover(node, e as unknown as PointerEvent)}
+            onblur={() => (hovered = null)}
           >
             <!-- A star, not a disc: four points on the axes with a soft waist,
                  which is the shape the eye reads as a star at this size. The
@@ -270,14 +304,14 @@
             Requires {path.ids.length - 1} earlier{' '}
             {path.ids.length === 2 ? 'node' : 'nodes'}. Highlighted on the tree.
           </p>
-          <button disabled={!selected.unlocked || !selected.affordable} onclick={buy}>
+          <Button block disabled={!selected.unlocked || !selected.affordable} onclick={buy}>
             {selected.unlocked ? `Buy for ${selected.cost}` : 'Locked'}
-          </button>
+          </Button>
         {:else}
           <p class="state"><strong>{selected.cost}</strong> Recollection</p>
-          <button disabled={!selected.affordable} onclick={buy}>
+          <Button block disabled={!selected.affordable} onclick={buy}>
             Buy for {selected.cost}
-          </button>
+          </Button>
         {/if}
       {:else}
         <p class="note">
@@ -286,49 +320,26 @@
         </p>
       {/if}
     </aside>
-  </div>
-{/if}
+
+  {#if hovered}
+    <Tooltip anchor={hovered.anchor} prefer="right" width={230}>
+      <span class="card-branch">
+        {BRANCH_LABELS[hovered.node.branch]} · tier {hovered.node.tier}
+      </span>
+      <h4>{hovered.node.name}</h4>
+      <p class="card-voice">{hovered.node.description}</p>
+      <p class="card-cost">
+        {#if hovered.node.purchased}
+          Purchased.
+        {:else}
+          <strong>{hovered.node.cost}</strong> Recollection
+        {/if}
+      </p>
+    </Tooltip>
+  {/if}
+</Overlay>
 
 <style>
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(6, 6, 5, 0.94);
-    display: grid;
-    grid-template-columns: 1fr 19rem;
-    grid-template-rows: auto 1fr;
-    pointer-events: auto;
-    z-index: 10;
-  }
-
-  header {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.9rem 1.25rem;
-    border-bottom: 1px solid var(--corona-dim);
-  }
-
-  h2 {
-    margin: 0;
-    font-size: 0.85rem;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--corona);
-  }
-
-  .balance {
-    font-variant-numeric: tabular-nums;
-    color: var(--text);
-  }
-
-  .hint {
-    margin-left: auto;
-    font-size: 0.7rem;
-    color: var(--muted);
-  }
-
   .canvas {
     width: 100%;
     height: 100%;
@@ -343,7 +354,7 @@
   /* Thin, so the lines read as the joins of a constellation rather than as
      pipework. A purchased chain is the one that brightens. */
   .edges line {
-    stroke: #2a2620;
+    stroke: var(--inert);
     stroke-width: 1;
   }
 
@@ -475,40 +486,34 @@
     line-height: 1.45;
   }
 
-  button {
-    width: 100%;
-    padding: 0.5rem;
-    font: inherit;
-    color: var(--bg);
-    background: var(--corona);
-    border: none;
-    border-radius: 0.25rem;
-    cursor: pointer;
+  /* The hover card. Terser than the detail column on purpose: it answers
+     "what is this" while the column answers "what does it take". */
+  .card-branch {
+    display: block;
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
 
-  button:disabled {
-    background: #2a2620;
-    color: var(--muted);
-    cursor: default;
+  h4 {
+    margin: 0.2rem 0 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text);
   }
 
-  button.ghost {
-    width: auto;
-    padding: 0.3rem 0.7rem;
-    background: transparent;
+  .card-voice {
+    margin: 0 0 0.5rem;
     color: var(--muted);
-    border: 1px solid var(--corona-dim);
     font-size: 0.72rem;
+    line-height: 1.45;
   }
 
-  button.ghost:disabled {
-    border-color: #2a2620;
-  }
-
-  kbd {
-    display: inline-block;
-    padding: 0 0.25rem;
-    border: 1px solid var(--corona-dim);
-    border-radius: 0.2rem;
+  .card-cost {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--corona);
+    font-variant-numeric: tabular-nums;
   }
 </style>

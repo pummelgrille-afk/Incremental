@@ -12,8 +12,12 @@
   import Tutorial from './lib/ui/Tutorial.svelte'
 
   /**
-   * Phase 10 vertical slice. The default view, so `npm run dev` shows the game
-   * immediately (PLAN.md Phase 10). Phase 42 builds the real shell around this.
+   * The shell: the field, and everything drawn over it.
+   *
+   * Deliberately thin. It starts the session, holds the canvas, and mounts each
+   * screen against the flag in the store that opens it — nothing here decides
+   * anything. The order is the stacking order, which `--z-*` in app.css names
+   * and none of these files repeat.
    */
 
   let host = $state<HTMLDivElement>()
@@ -78,12 +82,12 @@
     padding: 1.5rem 2rem;
     text-align: center;
     background: rgba(11, 10, 8, 0.95);
-    border: 1px solid #f87171;
+    border: 1px solid var(--danger);
     border-radius: 0.4rem;
   }
 
   strong {
-    color: #f87171;
+    color: var(--danger);
   }
 
   code {

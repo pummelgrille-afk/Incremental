@@ -1,5 +1,7 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
+  import Button from './primitives/Button.svelte'
+  import Kbd from './primitives/Kbd.svelte'
 
   /**
    * The onboarding card.
@@ -35,7 +37,7 @@
   <aside class="card" aria-live="polite">
     <header>
       <span class="label">The Manual</span>
-      {#if card.key}<kbd>{card.key}</kbd>{/if}
+      {#if card.key}<span class="key"><Kbd>{card.key}</Kbd></span>{/if}
     </header>
 
     <h3>{card.name}</h3>
@@ -45,7 +47,7 @@
       {#if game.tutorialQueue.length > 1}
         <span class="more">{game.tutorialQueue.length - 1} more</span>
       {/if}
-      <button onclick={dismiss}>Understood</button>
+      <span class="act"><Button small onclick={dismiss}>Understood</Button></span>
     </footer>
   </aside>
 {/if}
@@ -55,13 +57,13 @@
     position: fixed;
     left: 1.25rem;
     bottom: 1.25rem;
-    z-index: 15;
+    z-index: var(--z-notice);
     width: min(22rem, calc(100vw - 2.5rem));
     padding: 0.9rem 1rem 0.8rem;
     background: rgba(11, 10, 8, 0.96);
     border: 1px solid var(--corona-dim);
     border-left: 2px solid var(--corona);
-    border-radius: 0.3rem;
+    border-radius: var(--radius);
     box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.55);
     font-size: 0.78rem;
     /* Above the field, but the field stays clickable around it. */
@@ -81,16 +83,8 @@
     color: var(--muted);
   }
 
-  kbd {
+  .key {
     margin-left: auto;
-    display: inline-block;
-    min-width: 1.3rem;
-    padding: 0.05rem 0.35rem;
-    text-align: center;
-    color: var(--corona);
-    border: 1px solid var(--corona-dim);
-    border-radius: 0.2rem;
-    font-size: 0.7rem;
   }
 
   h3 {
@@ -117,15 +111,7 @@
     color: var(--muted);
   }
 
-  button {
+  .act {
     margin-left: auto;
-    padding: 0.3rem 0.8rem;
-    font: inherit;
-    font-size: 0.72rem;
-    color: var(--bg);
-    background: var(--corona);
-    border: none;
-    border-radius: 0.2rem;
-    cursor: pointer;
   }
 </style>
