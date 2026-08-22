@@ -107,6 +107,28 @@ export function skipTutorial(save: SaveData): void {
   }
 }
 
+/**
+ * Hand back the whole sequence, to be read on demand.
+ *
+ * Not a re-run of the triggers, and that distinction is the whole design. A
+ * player asking to see this has already passed most of the moments — a replay
+ * that waited for them again would show one card and then nothing for an hour,
+ * which is indistinguishable from broken.
+ *
+ * So it queues every step in authored order and marks them all seen. The
+ * sequence reads as what its header always claimed to be: the Manual, front to
+ * back, rather than nine things that happen to you.
+ *
+ * Marking them seen matters for the case this exists for — a save the schema
+ * 6 → 7 migration opted out of. Those steps are already marked, and re-clearing
+ * them would arm nine triggers that then fire one at a time over the next hour
+ * of play, long after the player asked to read them.
+ */
+export function replayTutorial(save: SaveData): readonly TutorialStepDef[] {
+  skipTutorial(save)
+  return TUTORIAL_STEPS
+}
+
 /** How far through onboarding a save is, for a settings screen to report. */
 export function tutorialProgress(save: SaveData): { seen: number; total: number } {
   // Counted against content rather than by array length, so a save carrying an

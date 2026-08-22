@@ -128,6 +128,10 @@ The likely findings are worth writing down before they are contradicted:
 - **Nine may be too many.** Cards 5 and 6 (Clearance, The Arrays) land a minute
   apart and are both about spending the same currency in the same panel. They
   are the first candidates to merge.
-- **Nothing re-opens a dismissed card.** A player who dismisses one by reflex
-  cannot get it back. Phase 43's settings screen is the natural home for a
-  "replay onboarding" control, and `skipTutorial` already has the inverse.
+- ~~**Nothing re-opens a dismissed card.**~~ **Closed the same day.** The first
+  person to look for the tutorial was the one who could never see it: their save
+  had progress, so the schema 6 → 7 migration had opted them out by design. `H`
+  now puts the whole Manual on screen, front to back. It queues every card
+  rather than re-arming the triggers — a replay that waited for the moments
+  again would show one card and then nothing for an hour, which is
+  indistinguishable from broken.

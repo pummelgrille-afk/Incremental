@@ -4,6 +4,7 @@ import { TUTORIAL_STEPS, TUTORIAL_STEP_IDS } from '../src/lib/content/tutorial'
 import {
   evaluate,
   isSeen,
+  replayTutorial,
   skipTutorial,
   tutorialProgress,
 } from '../src/lib/progression/tutorial'
@@ -132,6 +133,32 @@ describe('raising a card', () => {
     save.meta.tutorialSeen = save.meta.tutorialSeen.filter((id) => id !== 'the-rewind')
 
     expect(evaluate(save, 'stage-lost', { rewindWorthwhile: true })?.id).toBe('the-rewind')
+  })
+})
+
+describe('reading the Manual on demand', () => {
+  it('hands back every card, in authored order', () => {
+    const steps = replayTutorial(save)
+    expect(steps.map((s) => s.id)).toEqual([...TUTORIAL_STEP_IDS])
+  })
+
+  it('works for a save that has already been through the sequence', () => {
+    // The case it exists for: a save the schema 6 → 7 migration opted out of,
+    // or simply one that has read them all. Both are "everything seen".
+    skipTutorial(save)
+    expect(replayTutorial(save)).toHaveLength(TUTORIAL_STEPS.length)
+  })
+
+  it('leaves every step marked seen, so nothing re-fires later', () => {
+    /*
+     * Re-arming the triggers instead would drip the same nine cards out over
+     * the next hour of play, long after the player asked to read them.
+     */
+    replayTutorial(save)
+
+    expect(tutorialProgress(save).seen).toBe(TUTORIAL_STEPS.length)
+    expect(evaluate(save, 'stage-cleared', { nextSlotCost: 0 })).toBeNull()
+    expect(evaluate(save, 'conjunction', { largestConjunction: 4 })).toBeNull()
   })
 })
 

@@ -68,7 +68,7 @@
       Click the field to strike · <kbd>M</kbd> map ·
       <kbd>F</kbd> formation{#if game.treeRevealed}{' '}·
         <kbd>T</kbd> tree{/if}{#if game.rewindUnlocked}{' '}· <kbd>P</kbd> rewind{/if} ·
-      <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
+      <kbd>H</kbd> manual · <kbd>R</kbd> restart · <kbd>F2</kbd> diagnostics
     </p>
   </footer>
 

@@ -10,7 +10,10 @@ import {
   updateEarningRate,
 } from '../systems/offlineProgress'
 import { evaluate as evaluateAchievements } from '../progression/achievements'
-import { evaluate as evaluateTutorial } from '../progression/tutorial'
+import {
+  evaluate as evaluateTutorial,
+  replayTutorial,
+} from '../progression/tutorial'
 import type { TutorialEvent } from '../entities/Tutorial'
 import {
   buyTrack,
@@ -452,6 +455,24 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     autosaver.request('purchase')
   }
 
+  /**
+   * Put the whole onboarding sequence on screen, on request.
+   *
+   * The reveal gates mean a player who has been going for a while has been
+   * marked as having seen every card — by the schema 6 → 7 migration, or simply
+   * by having read them. Without this there is no way back to any of them, and
+   * the person most likely to want one is the one who has played longest.
+   */
+  const showManual = (): void => {
+    game.tutorialQueue = replayTutorial(saveData).map((step) => ({
+      id: step.id,
+      name: step.name,
+      description: step.description,
+      key: step.key,
+    }))
+    autosaver.request('purchase')
+  }
+
   /** The parts of a moment the triggers read. */
   const achievementSnapshot = () => ({
     distinctPlatformsSlotted: new Set(Object.values(saveData.run.formation)).size,
@@ -582,7 +603,24 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     simulation.strike(world.x, world.y)
   }
 
+  /**
+   * True when the keystroke belongs to something the player is typing into.
+   *
+   * Every shortcut here is a bare letter, and the formation editor has a text
+   * field for naming a preset — so naming one "harrier picket" restarted the
+   * stage on the `r`, opened the map on the `m`, toggled the formation panel on
+   * the `f` and, since this phase, threw the Manual up on the `h`. Nothing
+   * guarded against it because for a long time there was no field to type in.
+   */
+  const isTyping = (target: EventTarget | null): boolean => {
+    const element = target as HTMLElement | null
+    if (!element) return false
+    const tag = element.tagName
+    return tag === 'INPUT' || tag === 'TEXTAREA' || element.isContentEditable
+  }
+
   const onKeyDown = (event: KeyboardEvent) => {
+    if (isTyping(event.target)) return
     if (event.key === 'r') session.restart()
     // The synergy preview. Not persisted — it is a planning aid you open when
     // you are planning, unlike the diagnostics overlay.
@@ -597,6 +635,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     // first-time player meeting one progression system at a time.
     if (event.key === 't' && game.treeRevealed) game.showTree = !game.showTree
     if (event.key === 'p' && game.rewindUnlocked) game.showPrestige = !game.showPrestige
+    // The Manual, front to back. Always available: it explains the panels, so
+    // gating it behind the reveals it describes would be backwards.
+    if (event.key === 'h') showManual()
     if (event.key === 'F2') {
       event.preventDefault()
       // Persisted, so a profiling session survives a reload.

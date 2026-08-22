@@ -154,6 +154,13 @@ than by authoring discipline:
    wave, or gate a next button. The Flare stays clickable underneath the card
    that explains the Flare.
 
+**`H` reads the Manual front to back**, at any time, whether or not the cards
+have been seen. It queues all nine in order rather than re-arming their
+triggers: a player asking to see this has passed most of the moments already,
+and a replay that waited for them again would show one card and then go quiet.
+That is also the only route in for a save the schema 6 → 7 migration opted out
+of, which is every save that existed before Phase 36.
+
 Order 3 → 4 is not guaranteed and does not need to be: a conjunction fires on
 its own moment and may well precede the formation card. Every other pair is
 ordered by the array.
