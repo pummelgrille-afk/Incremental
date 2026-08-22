@@ -15,10 +15,19 @@
    * chrome — which is why the scrim is translucent. A player deciding whether
    * to Rewind should be able to see what the decision is costing them.
    *
-   * **Focus moves to the dialog when it opens.** None of the three did that:
-   * Escape worked only because the handler was on the window, and a tab press
-   * walked the HUD behind the scrim. Phase 43 needs the whole UI reachable from
-   * the keyboard, and this is the half of it that belongs here.
+   * **Focus moves to the dialog when it opens, stays inside while it is open,
+   * and goes back where it came from when it closes.** None of the three
+   * hand-rolled dialogs did any of that: a tab press walked the HUD behind the
+   * scrim. Phase 42 added the first of the three; Phase 43 added the other two,
+   * which is the difference between a dialog a keyboard can open and one it can
+   * use.
+   *
+   * **Escape is not handled here**, which is deliberate and was learned the
+   * hard way. Every open Modal used to listen on the window, so one Escape with
+   * two panels stacked closed *both* — and closing the last one raced the
+   * global handler into reopening the menu it had just dismissed. Escape is a
+   * binding like any other; `bootstrap.ts` routes it, because it is the only
+   * place that knows the whole stacking order. See `docs/design/ui-spec.md` §7.
    */
 
   interface Props {
@@ -49,22 +58,77 @@
 
   let dialog = $state<HTMLDivElement>()
 
+  /**
+   * Whatever had focus when this opened, so it can be handed back.
+   *
+   * Without it, closing a dialog drops focus onto `<body>` and the next Tab
+   * starts from the top of the document — which, for a player who opened the
+   * map from a keyboard, means losing their place every single time.
+   */
+  let restoreTo: HTMLElement | null = null
+
   $effect(() => {
-    if (open) dialog?.focus()
+    if (!open) return
+
+    restoreTo = document.activeElement as HTMLElement | null
+    dialog?.focus()
+
+    return () => {
+      // Guarded: the element may have been unmounted while the dialog was up,
+      // and focusing a detached node silently sends focus to the body anyway.
+      if (restoreTo?.isConnected) restoreTo.focus()
+      restoreTo = null
+    }
   })
+
+  /** Everything inside the panel a keyboard can land on, in document order. */
+  function focusable(): HTMLElement[] {
+    if (!dialog) return []
+    const selector =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    return [...dialog.querySelectorAll<HTMLElement>(selector)].filter(
+      (el) => el.offsetParent !== null || el === document.activeElement,
+    )
+  }
+
+  /**
+   * Keep Tab inside the panel.
+   *
+   * Computed on each press rather than cached on open: these panels change what
+   * they contain while they are up — the Rewind grows a confirm button, the
+   * settings screen swaps a keycap for "press a key" — and a list captured at
+   * open time would send Tab to a control that no longer exists.
+   */
+  function trap(event: KeyboardEvent): void {
+    if (event.key !== 'Tab') return
+
+    const items = focusable()
+    if (items.length === 0) {
+      // Nothing to move to. Holding focus on the panel beats letting Tab
+      // escape to the HUD behind the scrim.
+      event.preventDefault()
+      dialog?.focus()
+      return
+    }
+
+    const first = items[0]
+    const last = items[items.length - 1]
+    const current = document.activeElement
+
+    if (event.shiftKey && (current === first || current === dialog)) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && current === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   /** Stops a click inside the panel from reaching the scrim's dismiss. */
   function swallow(event: Event): void {
     event.stopPropagation()
   }
 </script>
-
-<!-- Outside the `{#if}`: `<svelte:window>` cannot be nested in an element. -->
-<svelte:window
-  onkeydown={(e) => {
-    if (open && e.key === 'Escape') onclose()
-  }}
-/>
 
 {#if open}
   <div class="scrim" role="presentation" onclick={onclose}>
@@ -77,7 +141,7 @@
       bind:this={dialog}
       style:width="min({width}, 92vw)"
       onclick={swallow}
-      onkeydown={swallow}
+      onkeydown={trap}
     >
       <header>
         <h2>{title}</h2>

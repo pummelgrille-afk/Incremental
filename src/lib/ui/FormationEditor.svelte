@@ -813,4 +813,11 @@
     border-radius: 0.2rem;
   }
 
+  /* The preset-name field was the one control in the game with no focus ring
+     of its own — found by tests/ui.test.ts in Phase 43, not by looking. */
+  input:focus-visible {
+    outline: 2px solid var(--corona);
+    outline-offset: 1px;
+  }
+
 </style>

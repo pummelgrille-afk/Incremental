@@ -1,4 +1,5 @@
 import { SCHEMA_VERSION } from './saveSchema'
+import { DEFAULT_BINDINGS } from '../content/keybindings'
 
 /**
  * Save schema migrations.
@@ -74,6 +75,9 @@ const NODE_IDS: Readonly<Record<string, string>> = {
 const TRACK_IDS: Readonly<Record<string, string>> = { winding: 'recharge' }
 
 /** Unknown ids pass through unchanged — content drift is tolerated elsewhere. */
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
+
 const remap = (id: string, table: Readonly<Record<string, string>>): string =>
   table[id] ?? id
 
@@ -134,6 +138,33 @@ const TUTORIAL_IDS_AT_SCHEMA_7 = [
 ]
 
 export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
+  /**
+   * 7 → 8: keys become data.
+   *
+   * The bindings lived inside `core/bootstrap.ts` as a run of `event.key`
+   * comparisons from Phase 10 until Phase 43, so there is nothing in an
+   * existing save to carry across — every save was, in effect, on the
+   * defaults. This writes them in explicitly rather than leaving the field
+   * absent and letting `normalise` fill it, for one reason: **a stored map
+   * pins a player's keys against a future default changing under them.** A
+   * save that says nothing is a save that agrees to whatever the next version
+   * decides, and the whole point of a rebind is that it does not.
+   */
+  7: (save) => {
+    const settings = isObject(save.settings) ? save.settings : {}
+
+    return {
+      ...save,
+      schemaVersion: 8,
+      settings: {
+        ...settings,
+        keybindings: isObject(settings.keybindings)
+          ? { ...DEFAULT_BINDINGS, ...settings.keybindings }
+          : { ...DEFAULT_BINDINGS },
+      },
+    }
+  },
+
   /**
    * 6 → 7: onboarding remembers what it has already said.
    *

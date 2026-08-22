@@ -10,6 +10,8 @@
   import WelcomeBack from './lib/ui/WelcomeBack.svelte'
   import AchievementToast from './lib/ui/AchievementToast.svelte'
   import Tutorial from './lib/ui/Tutorial.svelte'
+  import MainMenu from './lib/ui/MainMenu.svelte'
+  import SettingsMenu from './lib/ui/SettingsMenu.svelte'
 
   /**
    * The shell: the field, and everything drawn over it.
@@ -23,6 +25,42 @@
   let host = $state<HTMLDivElement>()
   let session: GameSession | undefined
   let error = $state<string | null>(null)
+
+  /**
+   * The two settings that apply to the document rather than to the field.
+   *
+   * They belong here and not in `bootstrap.ts` for the same reason `render.ts`
+   * owns the palette: this is the layer that owns the DOM. Text scale is a
+   * root font size, so every `rem` in every panel follows it without a single
+   * component knowing the setting exists — which is the whole reason the
+   * primitives were written in `rem` in Phase 42.
+   *
+   * Reduced motion is an attribute rather than a class so `app.css` can switch
+   * off every chrome animation in one rule, including ones added later that
+   * nobody remembers to check a flag in.
+   */
+  $effect(() => {
+    document.documentElement.style.setProperty('--text-scale', String(game.settings.textScale))
+  })
+
+  $effect(() => {
+    document.documentElement.toggleAttribute('data-reduced-motion', game.settings.reducedMotion)
+  })
+
+  /*
+   * Whether the operating system has already asked for reduced motion.
+   *
+   * Watched rather than read once: it can change while the page is open, and a
+   * player switching it on in system settings to see whether the game respects
+   * it would otherwise find that it does not until a reload.
+   */
+  $effect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const sync = () => (game.systemReducedMotion = query.matches)
+    sync()
+    query.addEventListener('change', sync)
+    return () => query.removeEventListener('change', sync)
+  })
 
   onMount(() => {
     let disposed = false
@@ -60,6 +98,8 @@
   <UpgradeTree open={game.showTree} />
   <StageSelect open={game.showMap} />
   <PrestigeModal open={game.showPrestige} />
+  <MainMenu open={game.showMenu} />
+  <SettingsMenu open={game.showSettings} />
   <WelcomeBack />
   <AchievementToast />
   <Tutorial />

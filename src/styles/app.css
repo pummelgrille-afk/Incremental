@@ -52,10 +52,61 @@
   --z-modal: 20;
   --z-tooltip: 30;
 
+  /*
+   * Text scale.
+   *
+   * Set on the root element by `App.svelte` from the player's setting, and
+   * everything follows because every size in this project is in `rem` — which
+   * was true before there was a setting to change it, and is why connecting one
+   * cost a single line rather than an audit.
+   */
+  --text-scale: 1;
+
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: calc(100% * var(--text-scale));
   color-scheme: dark;
   background: var(--bg);
   color: var(--text);
+}
+
+/*
+ * Reduced motion.
+ *
+ * One rule rather than a flag threaded through every component, so an animation
+ * added later is covered by default instead of by remembering. It reaches the
+ * chrome only — the floats, the flashes, the toast sliding in. The field keeps
+ * moving, because the field moving *is* the game: a Platform that stopped
+ * orbiting would not be a calmer game, it would be a broken one.
+ *
+ * `!important` is load-bearing here and nowhere else: these override animations
+ * declared inside component-scoped styles, which win on specificity.
+ */
+:root[data-reduced-motion] *,
+:root[data-reduced-motion] *::before,
+:root[data-reduced-motion] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+/*
+ * The same, for a player who asked the operating system instead of asking us.
+ *
+ * The in-game toggle can only *add* a reason to reduce, never remove this one.
+ * Someone who set the preference at the OS level has already answered the
+ * question, and a game that treated its own default as an override would be
+ * making that preference mean nothing. The settings screen says so when it
+ * applies, so the toggle appearing to do nothing is explained rather than
+ * merely true.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 * {

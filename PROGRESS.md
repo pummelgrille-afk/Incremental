@@ -5,15 +5,53 @@ State of the build, kept short enough to stay true. `PLAN.md` is the roadmap,
 `docs/phases/phase-N.md` is what each phase actually did. This file is the map
 between them.
 
-**Where we are:** Phases 1–42 done. Stages 1–5 complete; Stage 6 (UI/UX &
-Accessibility) is under way — Phase 43 (menus, settings, accessibility) is next.
+**Where we are:** Phases 1–43 done. Stages 1–5 complete; Stage 6 (UI/UX &
+Accessibility) is under way — Phase 44 (localization) is next.
 
-**Health:** 999 tests across 43 files, `npm run check` clean, production build
-890 KB with every sprite inlined.
+**Health:** 1046 tests across 45 files, `npm run check` clean, production build
+890 KB with every sprite inlined. Save schema 8.
 
 ---
 
-## What was just built — Phase 42, HUD & core UI
+## What was just built — Phase 43, menus, settings, accessibility
+
+The settings screen, the menu, the pause, and the four accessibility settings
+that had been dead configuration since Phase 8.
+
+| Built | Key files |
+|-------|-----------|
+| Settings: sound, legibility, keys, the save | `src/lib/ui/SettingsMenu.svelte` |
+| The menu, on Escape. Pauses while open | `src/lib/ui/MainMenu.svelte` |
+| Rebindable keys, stored by physical position | `src/lib/content/keybindings.ts`, `src/lib/core/keybindings.ts` |
+| Three colourblind-safe field palettes, measured | `src/lib/content/palettes.ts`, `tests/palettes.test.ts` |
+| Four more primitives: Field, Toggle, Slider, Choice | `src/lib/ui/primitives/` |
+
+**The four dead settings are alive.** `screenShake`, `reducedMotion`,
+`colourblindPalette` and `textScale` were unreachable rather than forgotten —
+there was no screen to put them on, so every phase that could have connected one
+had no surface to connect it to. Text scale cost a single line, because every
+size in this project was already in `rem`.
+
+Two bugs in Phase 42's `Modal`, invisible until there were two dialogs to stack
+and found by driving the app rather than by reading it:
+
+- **One Escape closed two screens**, because every open Modal listened on the
+  window.
+- **Escape reopened the menu it had just closed**, because the router ran in the
+  bubble phase and arrived after the dialog had already closed itself.
+
+Both are one decision now: Escape is a binding like any other, the router owns
+it, and it listens in the capture phase. No component may register a window
+`keydown` handler; the test enforces it.
+
+The palette test also found something about the *shipped* palette: percussive
+gold against thermal orange is the tightest pair in the game at 88, under the
+floor the accessibility palettes are held to. Recorded rather than fixed —
+widening it is an art decision, not a threshold's call.
+
+---
+
+## What came before — Phase 42, HUD & core UI
 
 The shared UI layer the eight existing screens should always have been built on,
 plus the gain/loss readouts PLAN.md asks for at this phase.
@@ -129,24 +167,6 @@ tell you when something is too loud.
       `tests/balance.test.ts` that fail if the gap closes or widens.
       → `docs/phases/phase-35.md`
 
-- [ ] **Four accessibility settings are dead configuration.** `screenShake`,
-      `reducedMotion`, `colourblindPalette` and `textScale` have been in
-      `src/lib/core/saveSchema.ts` since Phase 8 and are read by **nothing**.
-      Confirmed by grep, not by memory. Phase 43 owns them. This is the same
-      pattern already caught five times — `assetKey`, `PLATFORM_COLOURS`, the
-      volume settings, nearly the conjunction chord table, and Phase 42's
-      dialogs that never took focus. `reducedMotion` now has something concrete
-      to switch off: `Delta`'s floats and `Meter`'s struck flash are the first
-      animations in the chrome.
-
-- [ ] **Dialogs do not trap focus, or give it back.** Phase 42 moves focus
-      *into* a modal when it opens, which is the half that was free. A trap
-      while it is open, and restoring focus to the control that opened it, are
-      Phase 43's. → `docs/design/ui-spec.md` §5
-
-- [ ] **No settings UI at all.** The three volume faders work and have no
-      control surface. Phase 43.
-
 ### Content and art
 
 - [ ] **Drawn animation frames.** `idle`, `attack` and `hit` are one frame each.
@@ -170,11 +190,24 @@ tell you when something is too loud.
       would be dead content whatever art arrived. Either they become damageable
       or the fields go.
 
+### Deferred deliberately
+
+- [ ] **No controller support.** PLAN.md Phase 43 asks for
+      "keyboard/controller"; the keyboard half is done and the Gamepad API is
+      not started. Deferred deliberately: there is no controller in this
+      environment, and an implementation that has never had a gamepad attached
+      is a guess with a changelog entry.
+
 ### Verification we cannot do here
 
 - [ ] **Playtest onboarding with new users.** Phase 36's open checklist item.
       The card pacing is traced through a real run by test; whether the copy
       lands, and whether nine cards is two too many, needs people.
+- [ ] **Judge the colourblind palettes by eye.** They are measured against a
+      simulation of each deficiency, which rules out the collapse they exist to
+      prevent. A palette that clears a distance threshold is still not the same
+      as one that looks right on a moving field.
+
 - [ ] **Judge the audio by ear over a long session.** Levels are measured now,
       which rules out the two failures that already happened, but a correct level
       is not a pleasant sound. Most likely first moves: `LAYER_GAIN` (three
@@ -211,16 +244,19 @@ src/lib/core/                loop, save, stageLoader, render, audio, and the
 src/lib/stores/              the only bridge into Svelte
 src/lib/ui/                  Svelte components; they decide nothing
 src/lib/ui/primitives/       the shared set those are built from
-tests/                       43 files; support/playthrough.ts drives whole runs
+tests/                       45 files; support/playthrough.ts drives whole runs
 ```
 
-Three boundaries that must not erode, all in `docs/architecture.md`:
+Four boundaries that must not erode, all in `docs/architecture.md`:
 
 1. Nothing under `core/`, `systems/`, `entities/` or `content/` imports Svelte,
    Pixi or a browser API — except the two output files named above.
 2. `render.ts` reads simulation state and never writes it.
 3. Nothing under `ui/primitives/` imports `stores/`. A primitive that reads the
    game is a screen with fewer props.
+4. No component registers a window `keydown` handler. `bootstrap.ts` routes
+   every key, including Escape, because it is the only place that knows what is
+   open. See `docs/design/ui-spec.md` §7.
 
 ---
 
@@ -228,13 +264,13 @@ Three boundaries that must not erode, all in `docs/architecture.md`:
 
 ```bash
 npm run dev          # http://localhost:5173 — note: localhost, not 127.0.0.1
-npm test             # 999 tests
+npm test             # 1046 tests
 npm run check        # svelte-check + tsc
 npm run build
 ```
 
 Audio needs one click on the field before the browser will start it — that is
-the browser's rule, not a bug. `H` opens the Manual.
+the browser's rule, not a bug. `H` opens the Manual, `Esc` the menu, and every key is rebindable.
 
 The dev server binds to IPv6 localhost only, so `http://127.0.0.1:5173` will
 *not* connect, and would be a different `localStorage` origin — a different save

@@ -248,6 +248,11 @@ The rule from `CLAUDE.md`, made concrete:
 3. `render.ts` **reads** simulation state and never writes it. Rendering is a pure
    projection; a dropped frame must never change the simulation.
 
+   Phase 43's screen shake is the test case for this rule rather than an
+   exception to it: it needs to know that Output fell, so it keeps its *own*
+   previous value and its own `Math.random`, and writes nothing back. Two
+   frames dropped mean a shake that never fired, which is the correct failure.
+
 The renderer and the simulation therefore run at different rates by design — a
 fixed-timestep simulation with rendering interpolating between states. Phase 10
 establishes the pacing.
@@ -393,9 +398,14 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `utils/pool.ts` | Fixed-capacity object pool | 10 |
 | `stores/game.svelte.ts` | The reactive projection — the only Svelte bridge | 10 |
 | `utils/delta.ts` | Pooled gain/loss for the HUD's readouts | 42 |
+| `content/keybindings.ts` | The ten actions and their default keys | 43 |
+| `core/keybindings.ts` | Which action a stroke is; conflicts; repair | 43 |
+| `content/palettes.ts` | Field palettes, including three colourblind-safe | 43 |
 | `utils/format.ts` | `compact` — one abbreviation, everywhere | 42 |
 | `ui/primitives/*.svelte` | Modal, Overlay, Button, Kbd, Meter, Stat, Delta, Tooltip | 42 |
 | `ui/HUD.svelte` | Output, currencies, wave, Flare charge, diagnostics | 10 → 42 |
+| `ui/MainMenu.svelte` | The menu, on Escape. Pauses while open | 43 |
+| `ui/SettingsMenu.svelte` | Sound, legibility, keys, the save | 43 |
 
 ### Boundary enforcement
 
@@ -408,8 +418,9 @@ appears.
 
 `tests/ui.test.ts` does the same job one layer up, for the rules in
 `docs/design/ui-spec.md`: it fails if a screen styles a bare `button` or `kbd`,
-hand-rolls a dialog, writes a numeric `z-index`, retypes a tokenised colour, or
-if a primitive reaches into `stores/`.
+hand-rolls a dialog, writes a numeric `z-index`, retypes a tokenised colour,
+registers a window `keydown` handler, styles an interactive element with no
+focus ring, or if a primitive reaches into `stores/`.
 
 ## Current state of `src/lib/core/render.ts`
 

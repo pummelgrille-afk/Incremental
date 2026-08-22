@@ -2,6 +2,8 @@
   import { game } from '../stores/game.svelte'
   import { BUDGETS } from '../content/budgets'
   import { compact } from '../utils/format'
+  import { bindingLabel } from '../core/keybindings'
+  import type { ActionId } from '../content/keybindings'
   import Stat from './primitives/Stat.svelte'
   import Meter from './primitives/Meter.svelte'
   import Delta from './primitives/Delta.svelte'
@@ -27,6 +29,15 @@
   let { showDiagnostics = false }: { showDiagnostics?: boolean } = $props()
 
   const low = $derived(game.outputFraction < 0.3)
+
+  /**
+   * The hint line reads the player's actual bindings.
+   *
+   * It listed the defaults as literal letters until Phase 43 made keys
+   * rebindable, at which point a hardcoded hint stops being a help and becomes
+   * a lie — and the player it lies to is exactly the one who needed the hint.
+   */
+  const key = (action: ActionId) => bindingLabel(game.keybindings[action] ?? '')
 </script>
 
 <div class="hud">
@@ -89,10 +100,12 @@
     </div>
 
     <p class="hint">
-      Click the field to strike · <Kbd>M</Kbd> map ·
-      <Kbd>F</Kbd> formation{#if game.treeRevealed}{' '}·
-        <Kbd>T</Kbd> tree{/if}{#if game.rewindUnlocked}{' '}· <Kbd>P</Kbd> rewind{/if} ·
-      <Kbd>H</Kbd> manual · <Kbd>R</Kbd> restart · <Kbd>F2</Kbd> diagnostics
+      Click the field or <Kbd>{key('flare')}</Kbd> to strike ·
+      <Kbd>{key('map')}</Kbd> map ·
+      <Kbd>{key('formation')}</Kbd> formation{#if game.treeRevealed}{' '}·
+        <Kbd>{key('tree')}</Kbd> tree{/if}{#if game.rewindUnlocked}{' '}·
+        <Kbd>{key('rewind')}</Kbd> rewind{/if} ·
+      <Kbd>{key('manual')}</Kbd> manual · <Kbd>Esc</Kbd> menu
     </p>
   </footer>
 
@@ -141,7 +154,16 @@
     </aside>
   {/if}
 
-  {#if game.phase === 'cleared'}
+  {#if game.paused}
+    <!-- Said plainly and centrally. A stopped field with no explanation is the
+         exact thing Phase 33 had to fix on the clear banner, and a pause that
+         did not announce itself would reintroduce it. -->
+    <div class="banner paused">
+      <strong>Paused.</strong>
+      <span>The rings are holding station.</span>
+      <span class="next"><Kbd>{key('pause')}</Kbd> or <Kbd>Esc</Kbd> to go on.</span>
+    </div>
+  {:else if game.phase === 'cleared'}
     <div class="banner">
       <strong>Stage clear.</strong>
       <span>The rings hold. {compact(game.salvage)} salvage recovered.</span>
@@ -336,6 +358,14 @@
   .banner .next {
     color: var(--muted);
     font-size: 0.75rem;
+  }
+
+  .banner.paused {
+    border-color: var(--corona-dim);
+  }
+
+  .banner.paused strong {
+    color: var(--text);
   }
 
   .banner.lost {

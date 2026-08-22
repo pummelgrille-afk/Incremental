@@ -8,6 +8,8 @@ import type { UpgradeBranch } from '../entities/Upgrade'
 import type { UnavailableReason } from '../progression/upgradeTree'
 import type { ZoneView } from '../progression/map'
 import { PooledDelta } from '../utils/delta'
+import type { Settings } from '../core/saveSchema'
+import type { ActionId } from '../content/keybindings'
 
 /**
  * The Almanac, projected for the view.
@@ -133,6 +135,37 @@ export interface RewindPreviewView {
 export interface PrestigeActions {
   rewind(): void
 }
+
+/**
+ * Everything the settings screen can change, and how.
+ *
+ * A command interface rather than writable state on the store, for the reason
+ * `stores/` exists at all: the save is owned by `bootstrap.ts`, and a setting
+ * that a component could write directly would be a setting that could get out
+ * of step with the file it is supposed to live in. The component asks; the
+ * owner applies, persists and republishes.
+ */
+export interface SettingsActions {
+  set<K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]): void
+  bind(action: ActionId, binding: string): void
+  resetBindings(): void
+  /**
+   * Start or cancel waiting for a key.
+   *
+   * The capture has to beat the global key handler, and the global handler
+   * lives in `bootstrap.ts` — so the settings screen asks for a rebind rather
+   * than listening for one itself. A component that installed its own window
+   * listener would race the one that opens the formation editor on F.
+   */
+  beginRebind(action: ActionId | null): void
+  /** The save as a transferable string, for the menu's export. */
+  exportSave(): string
+  /** Replaces everything. Returns a problem to show, or null on success. */
+  importSave(text: string): string | null
+}
+
+/** The settings a player can change, projected. `keybindings` is separate. */
+export type PlayerSettings = Omit<Settings, 'keybindings'>
 
 export interface FormationActions {
   place(defId: string, ring: number, slot: number, from?: { ring: number; slot: number }): void
@@ -289,6 +322,57 @@ class GameStore {
 
   /** Mirrors settings.showFps. Toggled with F2, persisted to the save. */
   showDiagnostics = $state(false)
+
+  /**
+   * The player's settings, mirrored out of the save.
+   *
+   * Read by the settings screen, and by `App.svelte` for the two that are
+   * applied to the document rather than to the field — text scale and reduced
+   * motion. Everything else is applied by `bootstrap.ts`, which owns the save.
+   */
+  settings = $state<PlayerSettings>({
+    masterVolume: 0.8,
+    musicVolume: 0.6,
+    sfxVolume: 0.8,
+    screenShake: true,
+    reducedMotion: false,
+    colourblindPalette: 'none',
+    textScale: 1,
+    showFps: false,
+  })
+
+  /** Action id → binding. Mirrored out of the save alongside `settings`. */
+  keybindings = $state<Record<ActionId, string>>({} as Record<ActionId, string>)
+
+  settingsActions = $state<SettingsActions | null>(null)
+
+  /** The action waiting for a key, or null. Owned by bootstrap's handler. */
+  rebinding = $state<ActionId | null>(null)
+
+  /**
+   * The operating system has asked for reduced motion.
+   *
+   * Published so the settings screen can explain why the toggle looks stuck on.
+   * A preference set at the OS level is an answer already given; the in-game
+   * toggle can add a reason to reduce, never remove that one.
+   */
+  systemReducedMotion = $state(false)
+
+  /** The settings screen. Deliberately not persisted. */
+  showSettings = $state(false)
+
+  /** The system menu — Escape. Pauses the run while it is open. */
+  showMenu = $state(false)
+
+  /**
+   * Whether simulated time is advancing.
+   *
+   * Not the same as "a panel is open". Every other screen in this game leaves
+   * the field running, because P1 says the machine runs without you and a
+   * player who opens the Almanac has not asked the Approach to wait. A pause is
+   * the one case where they have asked, explicitly.
+   */
+  paused = $state(false)
 
   /** The synergy preview panel. Toggled with F; deliberately not persisted. */
   showFormation = $state(false)

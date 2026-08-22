@@ -15,6 +15,7 @@ import {
   updateArrays,
   updatePlatforms,
 } from '../src/lib/systems/ai'
+import { deepestContactPoint } from '../src/lib/systems/ai'
 import { RINGS } from '../src/lib/content/field'
 import { findConjunctions } from '../src/lib/systems/synergy'
 import { grantBonus } from '../src/lib/systems/buffs'
@@ -585,5 +586,54 @@ describe('reach widens as a target closes on the centre', () => {
 
     updatePlatforms(sim.state, TICK_SECONDS)
     expect(unit.targetId).toBeNull()
+  })
+})
+
+describe('where a keyboard Flare lands', () => {
+  /*
+   * Phase 43. The pointer aims; a key cannot, so it needs a rule — and the rule
+   * has to be *worse* than aiming, or the key would make the mouse pointless
+   * and remove the one live input this game asks for.
+   */
+
+  it('picks the Contact closest to the Sun', () => {
+    contactAt('skiff', 400)
+    const deep = contactAt('skiff', 120, Math.PI / 3)
+    contactAt('skiff', 260, Math.PI)
+
+    const point = deepestContactPoint(sim.state)
+
+    expect(point).not.toBeNull()
+    expect(point!.x).toBeCloseTo(deep.position.x, 6)
+    expect(point!.y).toBeCloseTo(deep.position.y, 6)
+  })
+
+  it('is not the best shot available', () => {
+    // Three Contacts stacked far out beat one lone Contact close in, for any
+    // rule optimising for damage. This rule takes the lone one, on purpose.
+    contactAt('skiff', 120)
+    contactAt('skiff', 400, 0)
+    contactAt('skiff', 402, 0.01)
+    contactAt('skiff', 404, 0.02)
+
+    const point = deepestContactPoint(sim.state)
+
+    expect(Math.hypot(point!.x, point!.y)).toBeLessThan(200)
+  })
+
+  it('ignores a Contact that is already dead', () => {
+    // Reaped at the end of the tick, so a dead one can still be in the array
+    // when a key is pressed. Striking it would waste the charge.
+    const dying = contactAt('skiff', 80)
+    dying.hp = 0
+    const alive = contactAt('skiff', 300)
+
+    const point = deepestContactPoint(sim.state)
+
+    expect(point!.x).toBeCloseTo(alive.position.x, 6)
+  })
+
+  it('has nowhere to fire at an empty field', () => {
+    expect(deepestContactPoint(sim.state)).toBeNull()
   })
 })

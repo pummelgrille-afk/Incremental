@@ -1,7 +1,12 @@
 import { Application, Assets, Container, Graphics, Sprite, Text, Texture, TextStyle } from 'pixi.js'
 import { FLARE, RINGS, RIM_RADIUS, ringByIndex, slotAngle } from '../content/field'
 import type { ContactInstance } from '../entities/Contact'
-import type { DamageType } from '../entities/types'
+import {
+  PALETTES,
+  paletteFor,
+  type ColourblindPalette,
+  type FieldPalette,
+} from '../content/palettes'
 import { arrayPosition } from '../systems/ai'
 import { attackIntervalOf } from '../systems/buffs'
 import { EVENT_LIFETIME } from '../systems/feed'
@@ -48,7 +53,6 @@ const PALETTE = {
   background: 0x0b0a08,
   ringTrack: 0x2a2417,
   sun: 0xc9a227,
-  sunLow: 0xf87171,
   platform: 0xc9a227,
   platformDisabled: 0x4a4335,
   detent: 0x8fb3c9,
@@ -56,30 +60,38 @@ const PALETTE = {
   array: 0x5eead4,
   contact: 0x8a8474,
   contactFlash: 0xffffff,
-  projectileContact: 0xe8e2d4,
-  projectileArray: 0x5eead4,
-  telegraph: 0xf87171,
   conjunction: 0xfff1a8,
 } as const
 
 /**
- * Shot colour by damage type.
+ * The colours a player has to tell apart, as a swappable set.
  *
- * The type matrix has been in `content/damageTypes.ts` since Phase 8 and has
- * never been visible on the field — a player could see that one unit killed
- * faster than another without any way to see *why*. A tracer is the natural
- * place to say it: it appears exactly when a unit fires, and it costs nothing.
+ * Shot colour by damage type makes the type matrix — in `content/damageTypes.ts`
+ * since Phase 8 — visible on the field: a player could previously see that one
+ * unit killed faster than another with no way to see *why*. A tracer is the
+ * natural place to say it, and it costs nothing.
+ *
+ * Which set is in use is a **setting**, because the default one puts four of
+ * the five colours in that sentence on the red-green axis. The tables and the
+ * argument are in `content/palettes.ts`; this layer only asks for one.
  */
-const DAMAGE_COLOURS: Record<DamageType, number> = {
-  percussive: 0xd8b45a,
-  shear: 0x8fb3c9,
-  thermal: 0xe08a4a,
-  resonant: 0x5eead4,
+let active: FieldPalette = PALETTES.none
+
+/** Presentation settings the renderer honours. Pushed by bootstrap. */
+export interface RenderSettings {
+  colourblindPalette: ColourblindPalette
+  screenShake: boolean
+  reducedMotion: boolean
 }
 
+let screenShakeEnabled = true
+let reducedMotion = false
+
 export interface Renderer {
-  render(simulation: Simulation): void
+  render(simulation: Simulation, dt?: number): void
   resize(): void
+  /** Re-read the player's palette and motion settings. */
+  applySettings(settings: RenderSettings): void
   destroy(): void
   /** Screen coordinates (clientX/clientY) to simulation world space. */
   toWorld(clientX: number, clientY: number): { x: number; y: number }
@@ -417,7 +429,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     fontFamily: 'system-ui, sans-serif',
     fontSize: 13,
     fontWeight: '600',
-    fill: PALETTE.projectileContact,
+    fill: active.projectileContact,
   })
   const popups: Text[] = []
 
@@ -456,12 +468,65 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   const projectileSprites: ProjectileView[] = []
 
   const recentre = () => {
-    world.x = app.screen.width / 2
-    world.y = app.screen.height / 2
+    world.x = app.screen.width / 2 + shakeX
+    world.y = app.screen.height / 2 + shakeY
     // Scale down on small viewports so the whole field stays visible.
     const fit = Math.min(app.screen.width, app.screen.height) / (RIM_RADIUS * 2.2)
     world.scale.set(Math.min(1, fit))
   }
+
+  /*
+   * The screen shake, and the argument for it being this small.
+   *
+   * P4 says legibility over spectacle, every time, and a game that asks a
+   * player to read hundreds of projectiles has an unusually strong version of
+   * that. So the shake fires on **one event** — the Sun losing Output — where a
+   * jolt is information rather than decoration, and it is bounded at a handful
+   * of pixels and a fifth of a second. It is a punctuation mark, not a camera.
+   *
+   * Renderer-local state. It reads the Sun's hp and remembers the previous
+   * value here rather than anywhere in the simulation: rule 3 in
+   * architecture.md — a dropped frame must never change what happens.
+   */
+  const SHAKE_MAX = 6
+  const SHAKE_DECAY = 5
+  let shakeEnergy = 0
+  let shakeX = 0
+  let shakeY = 0
+  let previousOutput: number | null = null
+
+  function updateShake(simulation: Simulation, dt: number) {
+    const hp = simulation.state.sun.hp
+
+    if (previousOutput !== null && hp < previousOutput && simulation.state.sun.maxHp > 0) {
+      // Proportional to the bite taken, capped: a boss landing a quarter of the
+      // bar and a stray shot landing a hundredth must not feel the same, and
+      // neither may throw the field off screen.
+      const fraction = (previousOutput - hp) / simulation.state.sun.maxHp
+      shakeEnergy = Math.min(1, shakeEnergy + fraction * 8)
+    }
+    previousOutput = hp
+
+    if (shakeEnergy <= 0) {
+      if (shakeX !== 0 || shakeY !== 0) {
+        shakeX = 0
+        shakeY = 0
+        recentre()
+      }
+      return
+    }
+
+    shakeEnergy = Math.max(0, shakeEnergy - SHAKE_DECAY * dt)
+
+    // Presentation randomness never touches the simulation's stream — the same
+    // rule the particle field follows, and for the same reason: it would put
+    // every wave downstream of how hard the Sun was hit.
+    const amplitude = SHAKE_MAX * shakeEnergy * shakeEnergy
+    shakeX = (Math.random() * 2 - 1) * amplitude
+    shakeY = (Math.random() * 2 - 1) * amplitude
+    recentre()
+  }
+
   recentre()
   app.renderer.on('resize', recentre)
 
@@ -516,7 +581,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
        */
       const colour = disabled
         ? PALETTE.platformDisabled
-        : DAMAGE_COLOURS[platform.def.damageType]
+        : active.damage[platform.def.damageType]
 
       sprite.clear()
 
@@ -693,7 +758,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         const t = contact.telegraphRemaining
         sprite.circle(0, 0, size + 6 + t * 14).stroke({
           width: 2,
-          color: PALETTE.telegraph,
+          color: active.telegraph,
           alpha: 0.35 + 0.4 * Math.abs(Math.sin(t * 18)),
         })
       }
@@ -796,6 +861,18 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         sprite.rotation = Math.atan2(p.velocity.y, p.velocity.x) - COMET_HEADING
 
         /*
+         * Tinted, not left as authored.
+         *
+         * The two comet sprites carry the incoming/owned distinction in their
+         * own colours — green against blue — which is art-style.md §6 rule 1's
+         * most important pair and, under a red-green deficiency, one colour.
+         * The default palette tints them back to what the art already is, so
+         * this costs nothing when it is not needed.
+         */
+        sprite.tint =
+          p.faction === 'contact' ? active.projectileContact : active.projectileArray
+
+        /*
          * The tail gutters as it flies.
          *
          * Clocked on the projectile's own remaining lifetime, plus a small
@@ -833,7 +910,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         sprite.visible = true
         sprite.clear()
         sprite.circle(0, 0, p.radius).fill({
-          color: p.faction === 'contact' ? PALETTE.projectileContact : PALETTE.projectileArray,
+          color: p.faction === 'contact' ? active.projectileContact : active.projectileArray,
         })
       }
 
@@ -852,11 +929,11 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     if (sunSprite) {
       // Tinted rather than redrawn: a hit is a white flash and low Output is a
       // red shift, both of which a tint expresses without touching geometry.
-      sunSprite.tint = state.hitFlash > 0 ? 0xffffff : low ? PALETTE.sunLow : 0xffffff
+      sunSprite.tint = state.hitFlash > 0 ? 0xffffff : low ? active.sunLow : 0xffffff
       sunSprite.alpha = state.hitFlash > 0 ? 1 : 0.95
     } else {
       sun.circle(0, 0, 26).fill({
-        color: state.hitFlash > 0 ? 0xffffff : low ? PALETTE.sunLow : PALETTE.sun,
+        color: state.hitFlash > 0 ? 0xffffff : low ? active.sunLow : PALETTE.sun,
         alpha: 0.95,
       })
     }
@@ -865,7 +942,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     // number that must never require looking away from the field.
     sun
       .arc(0, 0, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fraction)
-      .stroke({ width: 4, color: low ? PALETTE.sunLow : PALETTE.sun })
+      .stroke({ width: 4, color: low ? active.sunLow : PALETTE.sun })
 
     if (state.shield > 0) {
       sun.circle(0, 0, 40).stroke({ width: 2, color: PALETTE.array, alpha: 0.6 })
@@ -907,7 +984,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       if (!tracer.active) continue
 
       const t = Math.min(1, tracer.age / TRACER_LIFETIME)
-      const colour = DAMAGE_COLOURS[tracer.damageType]
+      const colour = active.damage[tracer.damageType]
 
       // The head runs the whole line across the window; the tail follows a
       // third of a length behind, which is what gives the bolt a direction.
@@ -1063,7 +1140,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
       popup.visible = true
       popup.text = event.kind === 'block' ? '–' : String(event.amount)
-      popup.style.fill = FEED_COLOURS[event.kind] ?? PALETTE.projectileContact
+      popup.style.fill = FEED_COLOURS[event.kind] ?? active.projectileContact
       // Drift upward and fade, so overlapping numbers separate over time.
       popup.x = event.x
       popup.y = event.y - t * 22
@@ -1077,8 +1154,10 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   return {
     canvas: app.canvas,
 
-    render(simulation: Simulation) {
+    render(simulation: Simulation, dt = 1 / 60) {
       const alpha = simulation.alpha
+
+      if (screenShakeEnabled && !reducedMotion) updateShake(simulation, dt)
 
       drawBackdrop(simulation)
       drawPlatforms(simulation, alpha)
@@ -1088,11 +1167,34 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       drawTracers(simulation)
       drawSun(simulation)
       drawStrike(simulation)
-      drawParticles(simulation)
+      // Sparks are decoration on top of an event that is already legible from
+      // the thing that produced it, so reduced motion drops them entirely
+      // rather than slowing them down. A slower spark is still a moving object
+      // in the periphery, which is the part that was being objected to.
+      if (!reducedMotion) drawParticles(simulation)
       drawDeaths(simulation)
       drawFeed(simulation)
 
       app.render()
+    },
+
+    applySettings(settings: RenderSettings) {
+      active = paletteFor(settings.colourblindPalette)
+      screenShakeEnabled = settings.screenShake
+      reducedMotion = settings.reducedMotion
+
+      // A palette change repaints things the renderer otherwise redraws only
+      // when they move. The Contact cache is keyed on a signature that knows
+      // nothing about colour, so without this a switch mid-wave would recolour
+      // the tracers and leave every telegraph on the old red.
+      contactSigs.clear()
+
+      if (reducedMotion || !screenShakeEnabled) {
+        shakeEnergy = 0
+        shakeX = 0
+        shakeY = 0
+        recentre()
+      }
     },
 
     toWorld(clientX: number, clientY: number) {

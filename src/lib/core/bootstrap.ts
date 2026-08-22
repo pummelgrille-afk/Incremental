@@ -58,11 +58,14 @@ import {
   recomputeBonuses,
   removePlatform,
 } from './formation'
-import { MAX_CATCHUP_SECONDS, Simulation } from './loop'
+import { MAX_CATCHUP_SECONDS, noTickEvents, Simulation } from './loop'
 import { UPGRADE_BURST, UPGRADE_COLOUR } from '../content/effects'
 import { platformPosition } from '../systems/ai'
 import { createAudio, type AudioEngine } from './audio'
 import { createRenderer, type Renderer } from './render'
+import { actionFor, isBindable, normaliseBindings, strokeToBinding } from './keybindings'
+import { DEFAULT_BINDINGS, type ActionId } from '../content/keybindings'
+import { deepestContactPoint } from '../systems/ai'
 import { createRng, seedFrom } from './rng'
 import { SaveManager } from './save'
 import type { SaveData } from './saveSchema'
@@ -655,6 +658,92 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   game.showDiagnostics = saveData.settings.showFps
 
+  /**
+   * Push the player's settings out to everything that honours one.
+   *
+   * Three destinations and no shortcuts between them: the projection (so the
+   * settings screen and `App.svelte` can read them), the audio graph, and the
+   * renderer. Called once at boot and again after every change, because a
+   * setting that only takes effect on reload is a setting a player cannot tell
+   * they have changed.
+   */
+  const publishSettings = (): void => {
+    const s = saveData.settings
+
+    game.settings = {
+      masterVolume: s.masterVolume,
+      musicVolume: s.musicVolume,
+      sfxVolume: s.sfxVolume,
+      screenShake: s.screenShake,
+      reducedMotion: s.reducedMotion,
+      colourblindPalette: s.colourblindPalette,
+      textScale: s.textScale,
+      showFps: s.showFps,
+    }
+    game.keybindings = { ...s.keybindings }
+    game.showDiagnostics = s.showFps
+
+    audio.applySettings(s)
+    renderer.applySettings({
+      colourblindPalette: s.colourblindPalette,
+      screenShake: s.screenShake,
+      reducedMotion: s.reducedMotion,
+    })
+  }
+
+  game.settingsActions = {
+    set(key, value) {
+      // Written through the save rather than into the projection: the save is
+      // the record, and a setting the player can see but that was never
+      // persisted is worse than one that did not change at all.
+      ;(saveData.settings[key] as unknown) = value
+      publishSettings()
+      autosaver.request('settings')
+    },
+
+    bind(action, binding) {
+      saveData.settings.keybindings = normaliseBindings({
+        ...saveData.settings.keybindings,
+        [action]: binding,
+      })
+      publishSettings()
+      autosaver.request('settings')
+    },
+
+    resetBindings() {
+      saveData.settings.keybindings = { ...DEFAULT_BINDINGS }
+      publishSettings()
+      autosaver.request('settings')
+    },
+
+    beginRebind(action) {
+      pendingRebind = action
+      game.rebinding = action
+    },
+
+    exportSave() {
+      // Flushed first: exporting the state from before the last few seconds of
+      // play is exactly the kind of quiet data loss a backup is meant to
+      // prevent.
+      autosaver.flush('manual')
+      return saves.exportString(saveData)
+    },
+
+    importSave(text) {
+      try {
+        saves.importString(text)
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error)
+      }
+      // A different save is a different game. Reloading is the honest way to
+      // adopt one — every system here was built against the save it booted
+      // with, and swapping it underneath them would be a much larger promise.
+      window.location.reload()
+      return null
+    },
+  }
+
+  publishSettings()
 
   function buildSimulation(): Simulation {
     // Seeded from the stage address, so a stage always plays the same way and
@@ -699,41 +788,181 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     return tag === 'INPUT' || tag === 'TEXTAREA' || element.isContentEditable
   }
 
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (isTyping(event.target)) return
-    if (event.key === 'r') session.restart()
-    // The synergy preview. Not persisted — it is a planning aid you open when
-    // you are planning, unlike the diagnostics overlay.
-    audio.resume()
-    if (event.key === 'f') {
-      game.showFormation = !game.showFormation
-      audio.play('ui')
+  /**
+   * Dismiss the topmost open screen, and report whether there was one.
+   *
+   * The order is the stacking order in `docs/design/ui-spec.md` §2, read from
+   * the top down — Escape closes what is in front, one press at a time.
+   *
+   * Routed here rather than by each panel, because a panel can only know about
+   * itself: when every open dialog listened on the window, one Escape with two
+   * of them stacked closed both, and closing the last one raced this handler
+   * into reopening the menu it had just dismissed.
+   */
+  const closeTopmost = (): boolean => {
+    // Notices first: they sit over everything and are the least deliberate
+    // thing on screen, so they are what a player is most likely swatting at.
+    if (game.tutorialQueue.length > 0) {
+      game.tutorialQueue = game.tutorialQueue.slice(1)
+      return true
     }
-    // The progression map. Always available: it is where a player finds out
-    // there is anything past the zone they are on.
-    if (event.key === 'm') {
-      publishMap()
-      game.showMap = !game.showMap
-      audio.play('ui')
+    if (game.offlineSummary !== null) {
+      game.offlineSummary = null
+      return true
     }
-    // The tree stays hidden until it is revealed — economy-spec.md §3 wants a
-    // first-time player meeting one progression system at a time.
-    if (event.key === 't' && game.treeRevealed) game.showTree = !game.showTree
-    if (event.key === 'p' && game.rewindUnlocked) game.showPrestige = !game.showPrestige
-    // The Manual, front to back. Always available: it explains the panels, so
-    // gating it behind the reveals it describes would be backwards.
-    if (event.key === 'h') showManual()
-    if (event.key === 'F2') {
-      event.preventDefault()
-      // Persisted, so a profiling session survives a reload.
-      saveData.settings.showFps = !saveData.settings.showFps
-      game.showDiagnostics = saveData.settings.showFps
-      autosaver.request('purchase')
+
+    const screens = [
+      'showSettings',
+      'showMenu',
+      'showPrestige',
+      'showMap',
+      'showTree',
+      'showFormation',
+    ] as const
+
+    for (const key of screens) {
+      if (game[key]) {
+        game[key] = false
+        return true
+      }
+    }
+    return false
+  }
+
+  const runAction = (action: ActionId): boolean => {
+    switch (action) {
+      case 'menu':
+        // One key, two jobs, in the order a player expects: it backs out of
+        // whatever is open, and opens the menu only when nothing is.
+        if (!closeTopmost()) game.showMenu = true
+        return true
+
+      case 'pause':
+        game.paused = !game.paused
+        audio.play('ui')
+        return true
+
+      case 'flare': {
+        /*
+         * The Flare, without a pointer.
+         *
+         * `deepestContactPoint` picks the Contact closest to the Sun rather
+         * than the best cluster — see systems/ai.ts. A keyboard strike is
+         * meant to be available, not optimal.
+         */
+        const point = deepestContactPoint(simulation.state)
+        if (point && simulation.strike(point.x, point.y)) audio.play('flare')
+        return true
+      }
+
+      case 'restart':
+        session.restart()
+        return true
+
+      // The synergy preview. Not persisted — it is a planning aid you open
+      // when you are planning, unlike the diagnostics overlay.
+      case 'formation':
+        game.showFormation = !game.showFormation
+        audio.play('ui')
+        return true
+
+      // The progression map. Always available: it is where a player finds out
+      // there is anything past the zone they are on.
+      case 'map':
+        publishMap()
+        game.showMap = !game.showMap
+        audio.play('ui')
+        return true
+
+      // The tree stays hidden until it is revealed — economy-spec.md §3 wants
+      // a first-time player meeting one progression system at a time.
+      case 'tree':
+        if (game.treeRevealed) game.showTree = !game.showTree
+        return true
+
+      case 'rewind':
+        if (game.rewindUnlocked) game.showPrestige = !game.showPrestige
+        return true
+
+      // The Manual, front to back. Always available: it explains the panels,
+      // so gating it behind the reveals it describes would be backwards.
+      case 'manual':
+        showManual()
+        return true
+
+      case 'diagnostics':
+        // Persisted, so a profiling session survives a reload.
+        saveData.settings.showFps = !saveData.settings.showFps
+        publishSettings()
+        autosaver.request('settings')
+        return true
+
+      default:
+        return false
     }
   }
 
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (isTyping(event.target)) return
+
+    /*
+     * The rebind capture takes precedence over every binding.
+     *
+     * Set by the settings screen while it is waiting for a key. Without this,
+     * pressing F to rebind something would open the formation editor over the
+     * panel that was asking for the key.
+     */
+    if (pendingRebind) {
+      event.preventDefault()
+      const stroke = strokeOf(event)
+      if (stroke.code === 'Escape') pendingRebind = null
+      else if (isBindable(stroke)) {
+        game.settingsActions?.bind(pendingRebind, strokeToBinding(stroke))
+        pendingRebind = null
+      }
+      game.rebinding = pendingRebind
+      return
+    }
+
+    const action = actionFor(strokeOf(event), saveData.settings.keybindings)
+    if (action === null) return
+
+    audio.resume()
+    // F-keys and Space are the browser's until we claim them: F2 opens dev
+    // tools in some builds, and Space scrolls.
+    if (runAction(action)) event.preventDefault()
+  }
+
+  /** The four fields of a key press a binding is allowed to look at. */
+  const strokeOf = (event: KeyboardEvent) => ({
+    code: event.code,
+    ctrl: event.ctrlKey,
+    alt: event.altKey,
+    meta: event.metaKey,
+  })
+
+  /**
+   * The action currently waiting for a key, or null.
+   *
+   * Held here rather than in the component because the capture has to beat the
+   * global key handler, and the global handler is here. The component asks
+   * through `game.rebinding`.
+   */
+  let pendingRebind: ActionId | null = null
+
   host.addEventListener('pointerdown', onPointerDown)
-  window.addEventListener('keydown', onKeyDown)
+  /*
+   * Capture phase, so the router sees the key before any panel does.
+   *
+   * Escape has to close the *topmost* screen, and it can only know which that
+   * is by reading the state before anything else has changed it. In the
+   * bubble phase a dialog had already closed itself by the time this ran, so
+   * `closeTopmost` found nothing open and helpfully reopened the menu.
+   *
+   * Text entry is still exempt — `isTyping` is checked first, and it is the
+   * only reason a keystroke inside a panel should not reach a binding.
+   */
+  window.addEventListener('keydown', onKeyDown, { capture: true })
 
   // Flush the save when the tab goes away. The autosaver itself stays DOM-free;
   // this is the app layer's job (Phase 9).
@@ -791,9 +1020,23 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
    * which makes the whole loop unobservable there. The dev handle exposes this.
    */
   const frameStep = (elapsed: number, elapsedMs = elapsed * 1000) => {
+    /*
+     * A pause stops simulated time and nothing else.
+     *
+     * The renderer, the projection and the frame counter all keep running, so
+     * the field stays on screen and the HUD stays live — a paused game that
+     * blanked would be indistinguishable from one that had crashed. What stops
+     * is `advance`, which is the only thing that moves the world.
+     *
+     * P1 says the machine runs without you, and every other panel in this game
+     * leaves the field running for exactly that reason. A pause is the one case
+     * where the player has explicitly asked it not to, which is why it is a key
+     * of its own rather than something a panel does on the player's behalf.
+     */
+    const paused = game.paused
 
     const simStart = performance.now()
-    const events = simulation.advance(elapsed)
+    const events = paused ? noTickEvents() : simulation.advance(elapsed)
     const simMs = performance.now() - simStart
 
     // Bank whatever the stage produced, and tell the autosaver about it.
@@ -937,13 +1180,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
      */
     const sun = simulation.state.sun
     audio.update({
-      dt: simulated,
+      dt: paused ? 0 : simulated,
       contacts: simulation.state.contact.length,
       outputFraction: sun.maxHp > 0 ? sun.hp / sun.maxHp : 0,
       running: game.running,
     })
 
-    if (game.running) {
+    if (game.running && !paused) {
       saveData.run.salvagePerSecond = updateEarningRate(
         saveData.run.salvagePerSecond,
         events.salvageDropped,
@@ -951,7 +1194,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       )
     }
 
-    saveData.statistics.playtimeSeconds += simulated
+    // Paused time is not play. An idle game whose offline rate is derived from
+    // playtime would otherwise reward leaving it paused.
+    if (!paused) saveData.statistics.playtimeSeconds += simulated
     autosaver.tick(elapsed)
 
     if (game.tutorialQueue.length < lastTutorialCards) audio.play('pageTurn')
@@ -960,7 +1205,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     playAcknowledgements()
 
     const renderStart = performance.now()
-    renderer.render(simulation)
+    renderer.render(simulation, elapsed)
     const renderMs = performance.now() - renderStart
 
     // Step 11: publish the projection. The only write into Svelte.
@@ -1014,7 +1259,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     destroy() {
       cancelAnimationFrame(frame)
       host.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keydown', onKeyDown, { capture: true })
       window.removeEventListener('beforeunload', onHide)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       autosaver.flush('shutdown')

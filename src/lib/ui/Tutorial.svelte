@@ -31,8 +31,6 @@
   }
 </script>
 
-<svelte:window onkeydown={(e) => card && e.key === 'Escape' && dismiss()} />
-
 {#if card}
   <aside class="card" aria-live="polite">
     <header>

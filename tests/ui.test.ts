@@ -46,8 +46,8 @@ function name(file: string): string {
 describe('the primitive set', () => {
   it('is actually being looked at', () => {
     // A sweep over a file list that silently becomes empty passes forever.
-    expect(PRIMITIVE_FILES.length).toBeGreaterThanOrEqual(8)
-    expect(SCREENS.length).toBeGreaterThanOrEqual(8)
+    expect(PRIMITIVE_FILES.length).toBeGreaterThanOrEqual(12)
+    expect(SCREENS.length).toBeGreaterThanOrEqual(10)
   })
 
   it('is where every button is styled', () => {
@@ -161,5 +161,56 @@ describe('the palette', () => {
     }
 
     expect(offenders).toEqual([])
+  })
+})
+
+describe('the keyboard', () => {
+  it('leaves Escape to the one handler that knows the stacking order', () => {
+    /*
+     * Phase 43, learned by driving it. Every open Modal used to listen on the
+     * window, so a single Escape with two panels stacked closed **both** — and
+     * closing the last one raced `bootstrap.ts` into reopening the menu it had
+     * just dismissed. Escape is a binding like any other and belongs to the
+     * router; a component listening for it is a component that cannot know
+     * what else is open.
+     */
+    const offenders = ALL.filter((file) => {
+      const source = readFileSync(file, 'utf8')
+      return /<svelte:window[^>]*onkeydown/.test(source)
+    }).map(name)
+
+    expect(offenders).toEqual([])
+  })
+
+  it('draws its own focus ring wherever it can land', () => {
+    /*
+     * The platform ring is invisible against a dark panel in several browsers.
+     * Every file that styles something interactive has to say what focus looks
+     * like, or a keyboard player is navigating a panel that never tells them
+     * where they are.
+     */
+    const interactive = /^\s*(button|input|textarea|\.stage|\.option)\s*[{,:]/m
+    const offenders = ALL.filter((file) => {
+      const style = styleOf(file)
+      return interactive.test(style) && !style.includes(':focus-visible')
+    }).map(name)
+
+    expect(offenders).toEqual([])
+  })
+})
+
+describe('a control', () => {
+  it('is a real element, not a div wearing a role', () => {
+    /*
+     * The switches and the segmented choices are drawn from a hidden checkbox
+     * and hidden radios rather than replacing them. Space, arrow keys, the
+     * label association and every assistive technology on earth keep working —
+     * none of which a div with a click handler gets, and all of which this
+     * phase is specifically about.
+     */
+    for (const file of ['Toggle.svelte', 'Choice.svelte', 'Slider.svelte']) {
+      const source = readFileSync(join(PRIMITIVES, file), 'utf8')
+      expect(source, file).toMatch(/<input[\s>]/)
+    }
   })
 })

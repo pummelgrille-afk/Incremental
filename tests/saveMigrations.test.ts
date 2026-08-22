@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DEFAULT_BINDINGS } from '../src/lib/content/keybindings'
 import {
   MIGRATIONS,
   MigrationError,
@@ -521,5 +522,73 @@ describe('6 → 7: onboarding', () => {
     const snapshot = JSON.stringify(original)
     migrate(original)
     expect(JSON.stringify(original)).toBe(snapshot)
+  })
+})
+
+describe('7 → 8: keys become data', () => {
+  /** A save exactly as schema 7 wrote it: settings with no `keybindings`. */
+  const schemaSeven = (settings: Record<string, unknown> = {}): RawSave => ({
+    schemaVersion: 7,
+    savedAt: 0,
+    run: { salvage: 40, formation: {}, mounts: {} },
+    meta: {
+      recollection: 0,
+      clearance: 3,
+      purchasedNodes: [],
+      platforms: { bolt: 1 },
+      arrays: {},
+      presets: [],
+      arrayUpgrades: {},
+      unlockedZones: ['service-floor'],
+      clearedStages: [],
+      achievements: [],
+      tutorialSeen: [],
+      rewindCount: 0,
+    },
+    settings,
+    statistics: {},
+  })
+
+  it('writes the defaults in explicitly rather than leaving the field absent', () => {
+    /*
+     * `normalise` would fill a missing map anyway, so this step looks
+     * redundant and is not: **a stored map pins a player's keys against a
+     * future default moving under them.** A save that says nothing is a save
+     * that agrees to whatever the next version decides, and a rebind that a
+     * later release can silently overrule is not a rebind.
+     */
+    const settings = migrate(schemaSeven()).save.settings as Record<string, unknown>
+    const bindings = settings.keybindings as Record<string, string>
+
+    expect(bindings).toEqual(DEFAULT_BINDINGS)
+  })
+
+  it('keeps every other setting untouched', () => {
+    const settings = migrate(schemaSeven({ masterVolume: 0.2, showFps: true })).save
+      .settings as Record<string, unknown>
+
+    expect(settings.masterVolume).toBe(0.2)
+    expect(settings.showFps).toBe(true)
+  })
+
+  it('survives a save whose settings object is missing entirely', () => {
+    const raw = schemaSeven()
+    delete raw.settings
+
+    const settings = migrate(raw).save.settings as Record<string, unknown>
+    expect(settings.keybindings).toEqual(DEFAULT_BINDINGS)
+  })
+
+  it('leaves a partially bound map alone and fills the rest', () => {
+    // Not reachable from schema 7, which had no bindings at all — but a
+    // hand-edited or forward-dated save can produce it, and a migration that
+    // threw away a binding it did not expect would be worse than one that did
+    // not run.
+    const settings = migrate(schemaSeven({ keybindings: { formation: 'KeyJ' } })).save
+      .settings as Record<string, unknown>
+    const bindings = settings.keybindings as Record<string, string>
+
+    expect(bindings.formation).toBe('KeyJ')
+    expect(bindings.map).toBe(DEFAULT_BINDINGS.map)
   })
 })

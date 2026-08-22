@@ -19,6 +19,8 @@ export type SaveReason =
   | 'purchase'
   /** Prestige. The single most expensive event to lose. */
   | 'rewind'
+  /** A setting changed. Cheap and frequent — coalesced like an interval. */
+  | 'settings'
   /** Player pressed save, or the tab is closing. */
   | 'manual'
   | 'shutdown'

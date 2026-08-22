@@ -83,7 +83,14 @@ export interface TickEvents {
   thresholdsCrossed: number[]
 }
 
-function noTickEvents(): TickEvents {
+/**
+ * A tick in which nothing happened.
+ *
+ * Exported for the pause: `bootstrap.ts` needs the shape `advance` returns
+ * without advancing anything, and building one there would be a second copy of
+ * this list that nothing would keep in step.
+ */
+export function noTickEvents(): TickEvents {
   return {
     contactKilled: 0,
     salvageDropped: 0,

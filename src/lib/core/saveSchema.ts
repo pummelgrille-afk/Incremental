@@ -1,5 +1,7 @@
 import type { StageAddress } from '../entities/Zone'
 import { STARTING_ZONE_ID } from '../content/zones'
+import { DEFAULT_BINDINGS, type ActionId } from '../content/keybindings'
+import { normaliseBindings } from './keybindings'
 
 /**
  * The save schema.
@@ -14,7 +16,7 @@ import { STARTING_ZONE_ID } from '../content/zones'
  * def object — content changes between versions, saves must not.
  */
 
-export const SCHEMA_VERSION = 7
+export const SCHEMA_VERSION = 8
 
 /** Discarded on Rewinding. */
 export interface RunState {
@@ -129,12 +131,23 @@ export interface Settings {
   masterVolume: number
   musicVolume: number
   sfxVolume: number
-  /** P4 and Phase 43: accessibility toggles. */
+  /**
+   * Accessibility. Declared in Phase 8, connected in Phase 43 — see
+   * `docs/design/ui-spec.md` §6 for what each one actually reaches.
+   */
   screenShake: boolean
   reducedMotion: boolean
   colourblindPalette: 'none' | 'deuteranopia' | 'protanopia' | 'tritanopia'
   textScale: number
   showFps: boolean
+  /**
+   * Action id → binding, as `core/keybindings.ts` spells one.
+   *
+   * Stored whole rather than as a diff against the defaults: a diff would mean
+   * a player's binding silently moving when a default changed, which is the one
+   * thing a rebind is supposed to prevent.
+   */
+  keybindings: Record<ActionId, string>
 }
 
 export interface Statistics {
@@ -196,6 +209,7 @@ export function createDefaultSave(now = Date.now()): SaveData {
       reducedMotion: false,
       colourblindPalette: 'none',
       textScale: 1,
+      keybindings: { ...DEFAULT_BINDINGS },
       showFps: false,
     },
     statistics: {
@@ -380,6 +394,9 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
         : d.settings.colourblindPalette,
       textScale: Math.min(2, Math.max(0.75, num(settings.textScale, 1))),
       showFps: bool(settings.showFps, d.settings.showFps),
+      // Repaired rather than validated field by field: a binding map is the
+      // one part of settings a player can put arbitrary strings into by hand.
+      keybindings: normaliseBindings(settings.keybindings),
     },
     statistics: {
       totalSalvageEarned: num(stats.totalSalvageEarned, 0, 0),

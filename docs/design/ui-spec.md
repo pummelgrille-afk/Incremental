@@ -72,18 +72,29 @@ over a decision that cannot be undone.
 
 ## 3. The primitives
 
-In `src/lib/ui/primitives/`. Eight files, one component each.
+In `src/lib/ui/primitives/`. Twelve files, one component each — eight from
+Phase 42, four more added by Phase 43's settings screen.
 
 | Primitive | For | Consumers |
 |-----------|-----|-----------|
-| `Modal` | A dialog over the running field | StageSelect, PrestigeModal, WelcomeBack |
+| `Modal` | A dialog over the running field | StageSelect, PrestigeModal, WelcomeBack, MainMenu, SettingsMenu |
 | `Overlay` | A full-screen work surface | FormationEditor, UpgradeTree |
-| `Button` | Every action | 5 screens |
-| `Kbd` | A key, drawn as a key | HUD, Tutorial, and both overlays' hints |
+| `Button` | Every action | 7 screens |
+| `Kbd` | A key, drawn as a key | HUD, Tutorial, MainMenu, SettingsMenu, both overlays |
 | `Meter` | A bar reporting a fraction | HUD ×2 |
-| `Stat` | A labelled figure | HUD ×5, PrestigeModal, WelcomeBack |
+| `Stat` | A labelled figure | HUD ×5, PrestigeModal, WelcomeBack, MainMenu |
 | `Delta` | A pooled gain or loss, floating | HUD ×4 |
 | `Tooltip` | A card beside whatever is hovered | FormationEditor, UpgradeTree |
+| `Field` | A labelled setting, with the line explaining it | SettingsMenu |
+| `Toggle` | On/off, drawn from a real checkbox | SettingsMenu ×3 |
+| `Slider` | A continuous value, with its reading | SettingsMenu ×3 |
+| `Choice` | One of a handful, all visible at once | SettingsMenu ×2 |
+
+The four settings controls are all **real form elements**, visually restyled
+rather than replaced. Space, arrow keys, the label association and every
+assistive technology on earth keep working — none of which a div with a click
+handler gets, and all of which Phase 43 was specifically about. Enforced by
+`tests/ui.test.ts`.
 
 ### Modal or Overlay
 
@@ -176,22 +187,95 @@ existed.
 
 ---
 
-## 5. Accessibility, so far
+## 5. Accessibility
 
-Phase 43 owns accessibility. What Phase 42 put in place because it was cheaper
-to build than to retrofit:
+Started in Phase 42 where it was cheaper to build than to retrofit, finished in
+Phase 43:
 
-- **Focus moves into a Modal when it opens.** None of the three hand-rolled
-  dialogs did; Escape worked only because the handler was on the window, and a
-  tab press walked the HUD behind the scrim.
+- **Focus moves into a Modal when it opens, stays inside while it is open, and
+  goes back where it came from when it closes.** The trap recomputes what is
+  focusable on each Tab rather than caching it at open: these panels change
+  what they contain while they are up — the Rewind grows a confirm button, the
+  settings screen swaps a keycap for "press a key" — and a list captured at open
+  time sends Tab to a control that no longer exists.
 - **Focus is drawn, not inherited.** The platform ring is invisible against a
-  dark panel on several browsers, so `Button` and the stage tiles draw their
-  own.
+  dark panel on several browsers, so every interactive thing draws its own.
+  `tests/ui.test.ts` fails on a file that styles a control and no focus ring.
 - **`Meter` is a `progressbar`** with its value announced, rather than a styled
   div.
 - **`Tooltip` also raises on focus**, not only on hover, so the unit and node
   cards exist for a keyboard.
+- **Every action has a key, including the Flare**, which was mouse-only until
+  Phase 43. See section 6.
 
-What is still missing, and belongs to Phase 43: a focus trap inside an open
-dialog, restoring focus to the control that opened it, and the four settings in
-`saveSchema.ts` that are still read by nothing.
+### The four settings
+
+`screenShake`, `reducedMotion`, `colourblindPalette` and `textScale` sat in
+`saveSchema.ts` from Phase 8 to Phase 43 read by nothing, because there was no
+screen to put them on. What each reaches now:
+
+| Setting | Reaches |
+|---------|---------|
+| `textScale` | `--text-scale` on the root, so every `rem` follows — one line, because every size in this project was already in `rem` |
+| `reducedMotion` | `data-reduced-motion` on the root; one CSS rule covers the whole chrome, plus the sparks and the shake |
+| `colourblindPalette` | `content/palettes.ts`, selected by `render.ts` |
+| `screenShake` | A capped six-pixel kick when the Sun takes damage, and nothing else in the game |
+
+**Reduced motion reaches the chrome, never the field.** The floats, the flashes,
+the toast, the sparks. A Platform that stopped orbiting would not be a calmer
+game, it would be a broken one.
+
+**The system preference wins over the in-game toggle.** Someone who set
+`prefers-reduced-motion` has already answered the question, and a game treating
+its own default as an override is how that preference comes to mean nothing.
+The settings screen says so when it applies, so a toggle that looks stuck is
+explained rather than merely stuck.
+
+### Colour
+
+The default palette puts four of the five colours a player must tell apart on
+the red-green axis. `content/palettes.ts` carries three alternatives, separated
+on **two** channels — hue and lightness — because each deficiency leaves roughly
+one usable hue axis, and four values along one axis are four points on a line.
+
+`tests/palettes.test.ts` simulates each deficiency and asserts the pairs stay
+apart, including the one art-style.md section 6 rule 1 says matters most:
+incoming fire against your own.
+
+---
+
+## 6. Keys
+
+Ten actions, in `content/keybindings.ts`; resolution and repair in
+`core/keybindings.ts`, DOM-free and tested.
+
+**Bindings are a position, not a letter.** Stored as `event.code`, so the
+defaults keep their shape under one hand on AZERTY and Dvorak, where `event.key`
+for the same physical key is a different letter.
+
+**Conflicts are surfaced, not refused.** Doubling two panels onto one key is a
+choice. What was impossible before was seeing that you had.
+
+**Escape is fixed.** A player who binds everything to one key must still be able
+to reach the screen that would let them fix it.
+
+---
+
+## 7. Escape belongs to the router
+
+`bootstrap.ts` owns the key handler, and it listens in the **capture phase**.
+No component may register a window `keydown` handler; `tests/ui.test.ts` fails
+if one appears.
+
+This is not tidiness. When each open `Modal` listened on the window:
+
+- one Escape with two panels stacked closed **both**, and
+- closing the last one raced the router — which runs "close the topmost screen,
+  or open the menu if nothing is open" — into reopening the menu it had just
+  dismissed, because in the bubble phase it arrived after the dialog had already
+  closed itself.
+
+Escape is a binding like any other, and only one place knows the whole stacking
+order. `closeTopmost` walks section 2's order from the top down, notices first:
+a card or a toast is the least deliberate thing on screen, and the most likely
+thing a player is swatting at.

@@ -182,6 +182,38 @@ function score(policy: TargetingPolicy, contact: ContactInstance, origin: Vec2):
   }
 }
 
+/**
+ * Where a Flare fired from the keyboard lands.
+ *
+ * The pointer aims; a key cannot, so it needs a rule. This picks the **deepest**
+ * Contact — the one closest to the Sun — which is the same policy a Platform
+ * with `deepest` targeting uses and the most urgent thing on the field by the
+ * only measure that matters at the objective.
+ *
+ * Deliberately not the best shot available. A key that found the densest
+ * cluster would be strictly better than aiming, and the Flare is the one input
+ * this game asks a player to make; automating it well would remove it. This is
+ * the shot a player who cannot use a mouse still gets, and it is a worse one.
+ */
+export function deepestContactPoint(sim: SimulationState): Vec2 | null {
+  let best: ContactInstance | null = null
+  let bestScore = -Infinity
+
+  for (const contact of sim.contact) {
+    if (contact.hp <= 0) continue
+    const s = score('deepest', contact, ORIGIN)
+    if (s > bestScore) {
+      bestScore = s
+      best = contact
+    }
+  }
+
+  return best === null ? null : { x: best.position.x, y: best.position.y }
+}
+
+/** The Sun. `deepest` scores against it, and it never moves. */
+const ORIGIN: Vec2 = { x: 0, y: 0 }
+
 export interface PlatformAttack {
   platform: PlatformInstance
   target: ContactInstance
