@@ -75,6 +75,14 @@ export function buyTrack(save: SaveData, defId: string, track: SupportTrack): bo
   const cost = trackCost(save, defId, track)
   if (cost === null || save.meta.clearance < cost) return false
 
+  // Refused here as well as hidden in the view. The Spotter's recharge track is
+  // priced and purchasable and, because the unit is authored exactly at
+  // `SUPPORT.recharge.floorSeconds`, changes nothing — see `movesTheNeedle`. A
+  // rule that only the roster view enforces is a rule a preset, a test or a
+  // later caller can walk straight past.
+  const def = arrayById(defId)
+  if (def && !movesTheNeedle(save, def, track)) return false
+
   save.meta.clearance -= cost
   const entry = ledger(save, defId)
   entry[track] = (entry[track] ?? 0) + 1
@@ -144,6 +152,7 @@ export function supportRoster(save: SaveData): SupportView[] {
       tracks: SUPPORT_TRACKS.map((track) => {
         const cost = trackCost(save, def.id, track)
         const level = trackLevel(save, def.id, track)
+        const capped = level >= MAX_LEVEL[track] || !movesTheNeedle(save, def, track)
         return {
           track,
           name: TRACK_COPY[track].name,
@@ -151,12 +160,54 @@ export function supportRoster(save: SaveData): SupportView[] {
           level,
           maxLevel: MAX_LEVEL[track],
           cost,
-          atMax: unlocked && level >= MAX_LEVEL[track],
-          affordable: cost !== null && save.meta.clearance >= cost,
+          atMax: unlocked && capped,
+          affordable: cost !== null && save.meta.clearance >= cost && !capped,
         }
       }),
     }
   })
+}
+
+/**
+ * Would one more level of this track change anything?
+ *
+ * Almost always yes, and the exception is real: the Spotter is authored at
+ * `chargeInterval: 4.5`, which is exactly `SUPPORT.recharge.floorSeconds`. The
+ * floor is a **hard** balance bound — combat-spec.md §4 and the note in
+ * economy.ts: `chargeInterval` is the lever between Arrays and Platforms, and a
+ * later re-tune of the per-level step must not be able to cross it by accident.
+ * So a Spotter's recharge track is priced, offered, purchasable, and does
+ * literally nothing.
+ *
+ * Found in Phase 43's follow-up, while fixing a different bug on the same unit,
+ * and fixed here rather than in the tuning: the balance is deliberate and
+ * documented, so the wrong half is the *offer*. A track that cannot move is at
+ * its maximum in every sense a player cares about.
+ */
+function movesTheNeedle(save: SaveData, def: ArrayDef, track: SupportTrack): boolean {
+  const current = supportStats(save, def)
+  const next = supportStats(withOneMore(save, def.id, track), def)
+
+  return (
+    next.maxCharge !== current.maxCharge ||
+    next.chargeInterval !== current.chargeInterval ||
+    next.attack !== current.attack
+  )
+}
+
+/** A throwaway save with one more level in `track`, for the comparison above. */
+function withOneMore(save: SaveData, defId: string, track: SupportTrack): SaveData {
+  const tracks = save.meta.arrayUpgrades[defId] ?? {}
+  return {
+    ...save,
+    meta: {
+      ...save.meta,
+      arrayUpgrades: {
+        ...save.meta.arrayUpgrades,
+        [defId]: { ...tracks, [track]: (tracks[track] ?? 0) + 1 },
+      },
+    },
+  }
 }
 
 /** Total Clearance sunk into a Array's tracks. Used by the Rewind's before/after. */

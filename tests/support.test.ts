@@ -264,3 +264,54 @@ describe('the editor view', () => {
     expect(arrayById(ARRAY.id)).toBeDefined()
   })
 })
+
+describe('a track that cannot move is not for sale', () => {
+  /*
+   * Found in Phase 43's follow-up, while fixing the reported bug that upgrading
+   * a Spotter did nothing until it was remounted.
+   *
+   * The Spotter is authored at `chargeInterval: 4.5`, which is exactly
+   * `SUPPORT.recharge.floorSeconds`. The floor is a deliberate, documented hard
+   * bound — combat-spec.md §4 calls `chargeInterval` the lever between Arrays
+   * and Platforms — so the tuning is right and the *offer* was wrong: the track
+   * was priced, listed and purchasable, and changed nothing.
+   */
+
+  beforeEach(() => {
+    unlock(save, 'array', 'spotter')
+  })
+
+  it('is why this rule exists: the Spotter starts on the recharge floor', () => {
+    expect(arrayById('spotter')!.chargeInterval).toBe(SUPPORT.recharge.floorSeconds)
+  })
+
+  it('refuses the purchase rather than taking the Clearance', () => {
+    const before = save.meta.clearance
+
+    expect(buyTrack(save, 'spotter', 'recharge')).toBe(false)
+    expect(save.meta.clearance).toBe(before)
+    expect(trackLevel(save, 'spotter', 'recharge')).toBe(0)
+  })
+
+  it('shows the track as maxed rather than as an option', () => {
+    const spotter = supportRoster(save).find((a) => a.id === 'spotter')!
+    const recharge = spotter.tracks.find((t) => t.track === 'recharge')!
+
+    expect(recharge.atMax).toBe(true)
+    expect(recharge.affordable).toBe(false)
+  })
+
+  it('leaves the other two Spotter tracks alone', () => {
+    expect(buyTrack(save, 'spotter', 'capacity')).toBe(true)
+    expect(buyTrack(save, 'spotter', 'resonance')).toBe(true)
+  })
+
+  it('catches no other Array', () => {
+    // Only the Spotter sits on the floor. Nothing else may be caught by this.
+    for (const def of ARRAYS) {
+      if (def.id === 'spotter') continue
+      unlock(save, 'array', def.id)
+      expect(buyTrack(save, def.id, 'recharge'), def.id).toBe(true)
+    }
+  })
+})

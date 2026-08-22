@@ -59,6 +59,7 @@ import {
   removePlatform,
 } from './formation'
 import { MAX_CATCHUP_SECONDS, noTickEvents, Simulation } from './loop'
+import { syncFieldToSave } from './fieldSync'
 import { UPGRADE_BURST, UPGRADE_COLOUR } from '../content/effects'
 import { platformPosition } from '../systems/ai'
 import { createAudio, type AudioEngine } from './audio'
@@ -362,43 +363,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
    * mid-wave. Only what actually changed is touched, so units that stayed put
    * keep the damage they have taken.
    */
-  const syncFieldToSave = (): void => {
-    const sim = simulation.state
-
-    for (const platform of [...sim.platforms]) {
-      const key = `${platform.slot.ring}:${platform.slot.slot}`
-      if (saveData.run.formation[key] !== platform.def.id) {
-        removePlatform(sim, platform.slot.ring, platform.slot.slot)
-      }
-    }
-    for (const array of [...sim.arrays]) {
-      if (saveData.run.mounts[String(array.mount)] !== array.def.id) {
-        sim.arrays.splice(sim.arrays.indexOf(array), 1)
-      }
-    }
-
-    const platformLevels = levelsOf(saveData, 'platform')
-    for (const [key, defId] of Object.entries(saveData.run.formation)) {
-      const [ring, slot] = key.split(':').map(Number)
-      if (sim.platforms.some((m) => m.slot.ring === ring && m.slot.slot === slot)) continue
-      const def = platformById(defId)
-      if (def) placePlatform(sim, def, ring as RingIndex, slot, platformLevels[defId] ?? 1)
-    }
-
-    const arrayLevels = levelsOf(saveData, 'array')
-    for (const [mount, defId] of Object.entries(saveData.run.mounts)) {
-      if (sim.arrays.some((c) => c.mount === Number(mount))) continue
-      const def = arrayById(defId)
-      if (def) mountArray(sim, def, Number(mount), arrayLevels[defId] ?? 1, supportStats(saveData, def))
-    }
-
-    recomputeBonuses(sim)
-  }
-
   /** Apply an edit: persist, reconcile the field, republish. */
   const afterEdit = (refusal: string | null = null): void => {
     game.lastRefusal = refusal
-    syncFieldToSave()
+    syncFieldToSave(simulation.state, saveData)
     publishRoster()
   publishMap()
     publishTree()

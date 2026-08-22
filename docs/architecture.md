@@ -386,6 +386,7 @@ Established in Phase 8. Directories not listed are still empty skeletons.
 | `core/loop.ts` | Fixed-timestep tick in combat-spec §8 order; the Beat | 10 |
 | `core/formation.ts` | Unit placement and cached formation bonuses | 10 |
 | `core/bootstrap.ts` | Wires simulation, renderer, input and autosave; owns rAF | 10 |
+| `core/fieldSync.ts` | Reconcile the live field with the save; refresh what stays | 43 |
 | `core/render.ts` | Pixi scene reading simulation state | 7 → 10 |
 | `systems/ai.ts` | Targeting policies, annular-arc range, Chime lead | 10 |
 | `systems/spawn.ts` | Wave schedules, enemy motion, stat scaling | 10 |

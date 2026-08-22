@@ -8,7 +8,7 @@ between them.
 **Where we are:** Phases 1–43 done. Stages 1–5 complete; Stage 6 (UI/UX &
 Accessibility) is under way — Phase 44 (localization) is next.
 
-**Health:** 1046 tests across 45 files, `npm run check` clean, production build
+**Health:** 1064 tests across 46 files, `npm run check` clean, production build
 890 KB with every sprite inlined. Save schema 8.
 
 ---
@@ -48,6 +48,29 @@ The palette test also found something about the *shipped* palette: percussive
 gold against thermal orange is the tightest pair in the game at 88, under the
 floor the accessibility palettes are held to. Recorded rather than fixed —
 widening it is an art decision, not a threshold's call.
+
+### Two bugs fixed after it, both on the same unit
+
+A player reported that **upgrading a Spotter did nothing until it was unmounted
+and mounted again.** Both findings are worth keeping:
+
+- **Reconciliation only ever added and removed units.** A unit's derived numbers
+  — level scale, max HP, charge capacity, recharge rate, attack multiplier — are
+  cached on the instance at creation, which is right; what was missing was the
+  other half of the bargain, invalidating them. `syncFieldToSave` now
+  **refreshes** what stays put. It applied to Platform levels too, unreported.
+  The reconciler moved out of `bootstrap.ts` into `core/fieldSync.ts` as part of
+  the fix, because a rule inside a module that imports Pixi is a rule no test
+  can reach — and this one had been wrong for thirteen phases.
+- **The Spotter's recharge track was priced, offered, and did nothing.** It is
+  authored at `chargeInterval: 4.5`, exactly `SUPPORT.recharge.floorSeconds`.
+  The floor is a deliberate hard bound (combat-spec.md §4), so the tuning was
+  right and the *offer* was wrong. `buyTrack` now refuses a purchase that cannot
+  move a number, and the roster shows the track as maxed.
+
+**An upgrade raises the ceiling; it does not change the current state.** HP and
+charge are clamped to the new maximum, never scaled to it — repairs cost
+Salvage, and an upgrade must not be a cheaper repair.
 
 ---
 
@@ -244,7 +267,7 @@ src/lib/core/                loop, save, stageLoader, render, audio, and the
 src/lib/stores/              the only bridge into Svelte
 src/lib/ui/                  Svelte components; they decide nothing
 src/lib/ui/primitives/       the shared set those are built from
-tests/                       45 files; support/playthrough.ts drives whole runs
+tests/                       46 files; support/playthrough.ts drives whole runs
 ```
 
 Four boundaries that must not erode, all in `docs/architecture.md`:
@@ -264,7 +287,7 @@ Four boundaries that must not erode, all in `docs/architecture.md`:
 
 ```bash
 npm run dev          # http://localhost:5173 — note: localhost, not 127.0.0.1
-npm test             # 1046 tests
+npm test             # 1064 tests
 npm run check        # svelte-check + tsc
 npm run build
 ```
