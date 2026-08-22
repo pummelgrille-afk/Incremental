@@ -29,18 +29,25 @@ export interface BusGains {
  * configuration as `assetKey` before Phase 37 and the Platform colour table
  * before it. This is the function that makes them mean something.
  *
- * Squared, because loudness is perceptual and a linear fader spends most of its
- * travel in the top of the range: at a linear 0.5 a slider sounds nearly as
- * loud as at 1.0, which makes the control feel broken. Squaring is the cheap
- * approximation of the curve an ear actually hears.
+ * **The perceptual curve is applied once, at the master.** Loudness is
+ * perceptual and a linear fader spends most of its travel in the top of its
+ * range — at a linear 0.5 a slider sounds nearly as loud as at 1.0, which makes
+ * the control feel broken — so the master is squared.
+ *
+ * The other two are **trims**, and are left linear. Squaring all three, which
+ * is what the first version did, compounds: at the default 0.8 master and 0.8
+ * SFX it cut everything to 41% before a single sound was shaped, and the
+ * result measured 32 dB below full scale. Nothing was wrong with any individual
+ * number; they were multiplied together four deep and nobody had measured the
+ * end of the chain.
  */
 export function busGains(settings: Settings): BusGains {
   const master = clamp01(settings.masterVolume)
 
   return {
     master: master * master,
-    music: square(clamp01(settings.musicVolume)),
-    sfx: square(clamp01(settings.sfxVolume)),
+    music: clamp01(settings.musicVolume),
+    sfx: clamp01(settings.sfxVolume),
   }
 }
 
@@ -114,6 +121,3 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
-function square(value: number): number {
-  return value * value
-}

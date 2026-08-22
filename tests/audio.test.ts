@@ -133,9 +133,20 @@ describe('the music never buries a cue', () => {
     expect(droneCutoff(0.5)).toBeGreaterThan(DRONE_CUTOFF.calm)
   })
 
-  it('keeps the bed quieter than the loudest cue', () => {
-    const loudest = Math.max(...Object.values(CUES).map((cue) => cue.gain))
-    expect(DRONE_GAIN).toBeLessThan(loudest)
+  it('keeps the bed inside its own bus without clipping', () => {
+    /*
+     * Five drones sum before the music bus sees them, so the invariant is on
+     * the sum rather than on `DRONE_GAIN` alone.
+     *
+     * Note what this deliberately does *not* claim: that the bed is quieter
+     * than the cues. Raw gains are not comparable across a sine drone and a
+     * lowpassed noise burst — filtered noise keeps a fraction of its energy —
+     * so that balance is settled by measuring the output, and the figure is
+     * recorded in phase-41.md. Asserting it here would be asserting a number
+     * that does not mean what it looks like.
+     */
+    const summed = DRONES.reduce((total, drone) => total + drone.gain, 0)
+    expect(DRONE_GAIN * summed).toBeLessThan(1)
   })
 
   it('sits the bed below the cues in pitch', () => {
@@ -167,10 +178,21 @@ describe('the cue library', () => {
     expect(CUES.sunHit.gain).toBeGreaterThan(CUES.hit.gain)
   })
 
-  it('keeps every cue short of clipping on its own', () => {
+  it('leaves headroom on every cue', () => {
+    /*
+     * A ceiling per cue, and nothing about sums.
+     *
+     * Adding two cues' gains would repeat the category error the bed test above
+     * refuses: a lowpassed noise burst at 0.7 and a sine at 0.5 do not combine
+     * to 1.2 of anything. `manualOpen` is high precisely because filtering out
+     * everything above 1.2kHz throws most of white noise's energy away.
+     *
+     * What actually bounds the total is the sixteen-voice ceiling and the
+     * measured output level, neither of which is a property of this table.
+     */
     for (const [name, cue] of Object.entries(CUES)) {
       expect(cue.gain, name).toBeGreaterThan(0)
-      expect(cue.gain, name).toBeLessThan(0.5)
+      expect(cue.gain, name).toBeLessThanOrEqual(0.75)
     }
   })
 

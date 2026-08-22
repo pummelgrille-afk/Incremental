@@ -471,6 +471,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
    * the person most likely to want one is the one who has played longest.
    */
   const showManual = (): void => {
+    audio.play('manualOpen')
     game.tutorialQueue = replayTutorial(saveData).map((step) => ({
       id: step.id,
       name: step.name,
@@ -492,6 +493,16 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
    * an Almanac node lands since it belongs to no unit.
    */
   const pendingAcknowledgements: (string | null)[] = []
+
+  /**
+   * How many cards were queued last frame.
+   *
+   * The card is dismissed inside `ui/Tutorial.svelte`, which cannot reach the
+   * audio engine — `stores/` is the only bridge and it carries state, not
+   * events. The queue shrinking *is* the event, so it is read here rather than
+   * inventing a channel to announce it.
+   */
+  let lastTutorialCards = 0
 
   const playAcknowledgements = (): void => {
     if (pendingAcknowledgements.length === 0) return
@@ -946,6 +957,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
     saveData.statistics.playtimeSeconds += simulated
     autosaver.tick(elapsed)
+
+    if (game.tutorialQueue.length < lastTutorialCards) audio.play('pageTurn')
+    lastTutorialCards = game.tutorialQueue.length
 
     playAcknowledgements()
 

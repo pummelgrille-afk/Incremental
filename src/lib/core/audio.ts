@@ -71,8 +71,15 @@ export interface AudioEngine {
   /** Start audio, if the browser will now allow it. */
   resume(): void
   destroy(): void
-  /** Dev diagnostics. */
-  readonly stats: { voices: number; dropped: number; intensity: number }
+  /**
+   * Dev diagnostics.
+   *
+   * `level` is the RMS of everything reaching the output, measured rather than
+   * inferred. It exists because "is the music playing" is otherwise a question
+   * nobody can answer without speakers — and the first version of the music bed
+   * was, in fact, inaudible.
+   */
+  readonly stats: { voices: number; dropped: number; intensity: number; level: number }
 }
 
 /**
@@ -90,7 +97,7 @@ export function createSilentAudio(): AudioEngine {
     applySettings() {},
     resume() {},
     destroy() {},
-    stats: { voices: 0, dropped: 0, intensity: 0 },
+    stats: { voices: 0, dropped: 0, intensity: 0, level: 0 },
   }
 }
 
@@ -119,6 +126,13 @@ export function createAudio(settings: Settings): AudioEngine {
   const master = context.createGain()
   master.connect(context.destination)
 
+  // Tapped rather than inserted: an analyser passes audio through untouched,
+  // and this way nothing about the diagnostic can affect what is heard.
+  const analyser = context.createAnalyser()
+  analyser.fftSize = 2048
+  master.connect(analyser)
+  const levelBuffer = new Float32Array(analyser.fftSize)
+
   const musicBus = context.createGain()
   const sfxBus = context.createGain()
   musicBus.connect(master)
@@ -137,7 +151,7 @@ export function createAudio(settings: Settings): AudioEngine {
 
   const droneOscillators = DRONES.map((drone) => {
     const oscillator = context.createOscillator()
-    oscillator.type = 'sine'
+    oscillator.type = drone.wave === 'noise' ? 'triangle' : drone.wave
     oscillator.frequency.value = drone.frequency
 
     const gain = context.createGain()
@@ -304,7 +318,16 @@ export function createAudio(settings: Settings): AudioEngine {
     },
 
     get stats() {
-      return { voices, dropped, intensity }
+      analyser.getFloatTimeDomainData(levelBuffer)
+      let sum = 0
+      for (let i = 0; i < levelBuffer.length; i++) sum += levelBuffer[i] * levelBuffer[i]
+
+      return {
+        voices,
+        dropped,
+        intensity,
+        level: Math.sqrt(sum / levelBuffer.length),
+      }
     },
   }
 }

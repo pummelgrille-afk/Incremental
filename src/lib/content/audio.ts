@@ -76,8 +76,8 @@ export const CUES = {
     frequency: 0,
     attack: 0.004,
     release: 0.28,
-    gain: 0.35,
-    cutoff: 2200,
+    gain: 0.72,
+    cutoff: 4000,
     minInterval: 0,
   },
 
@@ -88,7 +88,7 @@ export const CUES = {
     endFrequency: 300,
     attack: 0.002,
     release: 0.05,
-    gain: 0.09,
+    gain: 0.3,
     cutoff: 1800,
     minInterval: 0.06,
   },
@@ -100,7 +100,7 @@ export const CUES = {
     endFrequency: 90,
     attack: 0.003,
     release: 0.16,
-    gain: 0.2,
+    gain: 0.55,
     cutoff: 900,
     minInterval: 0.045,
   },
@@ -118,7 +118,7 @@ export const CUES = {
     endFrequency: 520,
     attack: 0.001,
     release: 0.06,
-    gain: 0.14,
+    gain: 0.42,
     cutoff: 2600,
     minInterval: 0.07,
   },
@@ -136,7 +136,7 @@ export const CUES = {
     endFrequency: 70,
     attack: 0.01,
     release: 0.4,
-    gain: 0.3,
+    gain: 0.55,
     cutoff: 600,
     minInterval: 0.25,
   },
@@ -148,7 +148,7 @@ export const CUES = {
     endFrequency: 783.99,
     attack: 0.02,
     release: 0.9,
-    gain: 0.24,
+    gain: 0.5,
     cutoff: 3000,
     minInterval: 0,
   },
@@ -160,7 +160,7 @@ export const CUES = {
     endFrequency: 196,
     attack: 0.03,
     release: 1.1,
-    gain: 0.22,
+    gain: 0.48,
     cutoff: 1400,
     minInterval: 0,
   },
@@ -171,7 +171,7 @@ export const CUES = {
     frequency: 880,
     attack: 0.01,
     release: 0.5,
-    gain: 0.18,
+    gain: 0.45,
     cutoff: 4000,
     minInterval: 0,
   },
@@ -183,9 +183,48 @@ export const CUES = {
     endFrequency: 900,
     attack: 0.001,
     release: 0.04,
-    gain: 0.07,
+    gain: 0.2,
     cutoff: 3000,
     minInterval: 0.04,
+  },
+
+  /**
+   * The Manual opening.
+   *
+   * A book, not a menu: a soft low whumph rather than a click. Filtered noise
+   * with a slow tail and a low cutoff — the sound of something with weight
+   * being laid open, which is what the card's header has always claimed it is.
+   *
+   * The cutoff is the loudness control here, not the gain. Lowpassed white
+   * noise keeps only the fraction of its energy below the corner, so at 1200 Hz
+   * this measured *below* the music bed at a gain that looked generous on
+   * paper. 1800 keeps the character and clears the bed.
+   */
+  manualOpen: {
+    wave: 'noise',
+    frequency: 0,
+    attack: 0.012,
+    release: 0.4,
+    gain: 0.75,
+    cutoff: 1800,
+    minInterval: 0,
+  },
+
+  /**
+   * A page turning.
+   *
+   * The same material as the open, an octave brighter and a quarter as long.
+   * Paper is noise with a fast tail; anything tonal here would read as a
+   * notification instead.
+   */
+  pageTurn: {
+    wave: 'noise',
+    frequency: 0,
+    attack: 0.004,
+    release: 0.15,
+    gain: 0.7,
+    cutoff: 4200,
+    minInterval: 0.05,
   },
 
   /** Something bought — a unit levelled, a node taken. */
@@ -195,7 +234,7 @@ export const CUES = {
     endFrequency: 880,
     attack: 0.005,
     release: 0.24,
-    gain: 0.16,
+    gain: 0.4,
     cutoff: 3500,
     minInterval: 0.05,
   },
@@ -228,7 +267,7 @@ export const CONJUNCTION_BELL: CueDef = {
   frequency: 0,
   attack: 0.006,
   release: 1.6,
-  gain: 0.13,
+  gain: 0.26,
   cutoff: 5000,
   minInterval: 0.35,
 }
@@ -244,14 +283,50 @@ export const CONJUNCTION_BELL: CueDef = {
  * The base is low enough to sit under every cue above, which is the point: the
  * music must never be the reason a Sun hit went unheard.
  */
-export const DRONES: readonly { readonly frequency: number; readonly gain: number }[] = [
-  { frequency: 55, gain: 0.5 },
-  { frequency: 82.41, gain: 0.32 },
-  { frequency: 164.81, gain: 0.16 },
+export const DRONES: readonly {
+  readonly frequency: number
+  readonly gain: number
+  readonly wave: Waveform
+}[] = [
+  // The sub. Felt on a real speaker, harmless on a laptop, and carrying none
+  // of the bed's actual information — which is why the first version of this
+  // table, which was *only* voices down here, measured as playing and was
+  // inaudible on anything anyone owns.
+  { frequency: 55, gain: 0.34, wave: 'sine' },
+  // The body. Triangles rather than sines from here up: a sine has no
+  // harmonics at all, so a small speaker rolling off the fundamental
+  // reproduces literally nothing.
+  { frequency: 110, gain: 0.3, wave: 'triangle' },
+  { frequency: 164.81, gain: 0.24, wave: 'triangle' },
+  // The part a laptop can actually reproduce. An open fifth rather than a
+  // triad — a bed that committed to major or minor would have an opinion, and
+  // this one is a room tone.
+  { frequency: 220, gain: 0.2, wave: 'triangle' },
+  { frequency: 329.63, gain: 0.1, wave: 'triangle' },
 ]
 
-/** Cutoff the bed sweeps between, calm to busy. */
-export const DRONE_CUTOFF = { calm: 240, busy: 1100 } as const
+/**
+ * Cutoff the bed sweeps between, calm to busy.
+ *
+ * The calm figure was 240 Hz in the first pass, which put the filter *below*
+ * most of the bed and left only the sub-bass audible. It is above the top drone
+ * now, so what intensity opens is the harmonics rather than the notes.
+ */
+export const DRONE_CUTOFF = { calm: 700, busy: 2400 } as const
 
-/** Overall gain of the bed, before the music bus. Deliberately low. */
-export const DRONE_GAIN = 0.22
+/**
+ * Overall gain of the bed, before the music bus.
+ *
+ * Tuned by measuring the output, in two passes, because both failures are only
+ * visible at the end of the chain:
+ *
+ * 1. At 0.22 with only sub-bass voices the master RMS was 0.023 — about
+ *    -33 dBFS, which is "technically not silent" and practically nothing.
+ * 2. Raised to 0.62 it measured 0.087, and then the *cues* were the problem:
+ *    `hit` and `kill` measured at or below the bed, so the commonest sounds in
+ *    the game were inaudible under their own music.
+ *
+ * The bed is a constant and everything else is transient, so the constant is
+ * what has to give. See phase-41.md for the measured table.
+ */
+export const DRONE_GAIN = 0.34
