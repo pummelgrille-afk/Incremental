@@ -59,6 +59,8 @@ import {
   removePlatform,
 } from './formation'
 import { MAX_CATCHUP_SECONDS, Simulation } from './loop'
+import { UPGRADE_BURST, UPGRADE_COLOUR } from '../content/effects'
+import { platformPosition } from '../systems/ai'
 import { createRenderer, type Renderer } from './render'
 import { createRng, seedFrom } from './rng'
 import { SaveManager } from './save'
@@ -260,6 +262,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   game.treeActions = {
     purchase(nodeId: string) {
       if (!purchaseNode(saveData, nodeId)) return
+      pendingAcknowledgements.push(null)
       publishTree()
       autosaver.request('purchase')
     },
@@ -473,6 +476,55 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     autosaver.request('purchase')
   }
 
+  /*
+   * Acknowledgements for things bought behind a panel.
+   *
+   * PLAN.md Phase 40 asks for level-up and upgrade-unlock effects, and both
+   * happen inside an overlay that covers the whole screen — an effect played at
+   * the moment of purchase is an effect nobody sees. So it is queued and played
+   * on the first frame the field is actually visible.
+   *
+   * A def id names a unit to acknowledge at; null means the Sun, which is where
+   * an Almanac node lands since it belongs to no unit.
+   */
+  const pendingAcknowledgements: (string | null)[] = []
+
+  const playAcknowledgements = (): void => {
+    if (pendingAcknowledgements.length === 0) return
+    if (game.showFormation || game.showTree || game.showMap || game.showPrestige) return
+
+    const sim = simulation.state
+
+    for (const defId of pendingAcknowledgements) {
+      // A unit that is not fielded has nowhere on the field to be congratulated,
+      // so it falls back to the objective rather than firing from the origin by
+      // accident.
+      const targets =
+        defId === null ? [] : sim.platforms.filter((p) => p.def.id === defId)
+      const points =
+        targets.length > 0
+          ? targets.map((platform) => platformPosition(sim, platform))
+          : [{ x: 0, y: 0 }]
+
+      for (const point of points) {
+        sim.particles.burst({
+          x: point.x,
+          y: point.y,
+          angle: 0,
+          count: UPGRADE_BURST.count,
+          spread: UPGRADE_BURST.spread,
+          speed: UPGRADE_BURST.speed,
+          life: UPGRADE_BURST.life,
+          size: UPGRADE_BURST.size,
+          drag: UPGRADE_BURST.drag,
+          colour: UPGRADE_COLOUR,
+        })
+      }
+    }
+
+    pendingAcknowledgements.length = 0
+  }
+
   /** The parts of a moment the triggers read. */
   const achievementSnapshot = () => ({
     distinctPlatformsSlotted: new Set(Object.values(saveData.run.formation)).size,
@@ -525,7 +577,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       afterEdit(unlockUnit(saveData, kind, id) ? null : 'unaffordable')
     },
     levelUp(kind, id) {
-      afterEdit(levelUpUnit(saveData, kind, id) ? null : 'unaffordable')
+      const levelled = levelUpUnit(saveData, kind, id)
+      if (levelled && kind === 'platform') pendingAcknowledgements.push(id)
+      afterEdit(levelled ? null : 'unaffordable')
     },
     buyTrack(defId, track) {
       // The store types the track as a string so `stores/` need not import
@@ -842,6 +896,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
     saveData.statistics.playtimeSeconds += simulated
     autosaver.tick(elapsed)
+
+    playAcknowledgements()
 
     const renderStart = performance.now()
     renderer.render(simulation)

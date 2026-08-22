@@ -1,6 +1,7 @@
 import type { Projectile } from '../entities/Projectile'
 import type { ContactInstance } from '../entities/Contact'
 import { ringByIndex, slotAngle } from '../content/field'
+import { BLOCK_BURST, IMPACT_BURST, TYPE_COLOURS } from '../content/effects'
 import type { SimulationState } from '../core/simulation'
 import type { Pool } from '../utils/pool'
 import { angleDelta } from './ai'
@@ -144,6 +145,27 @@ function resolveContactProjectile(
     if (Math.abs(angleDelta(unitAngle, projectileAngle)) <= arc) {
       damagePlatform(platform, p.damage, sim.telemetry, sim.effects)
       sim.feed.emit('block', p.position.x, p.position.y, p.damage)
+      /*
+       * Brighter and wider than an ordinary impact, and thrown back the way the
+       * shot came from.
+       *
+       * A block is a *good* outcome the player arranged — combat-spec.md §5
+       * makes block arc the thing that carries survivability, and the balance
+       * harness found a DPS-maximising build to be a trap precisely because it
+       * gives block arc up. It should be visible that it worked.
+       */
+      sim.particles.burst({
+        x: p.position.x,
+        y: p.position.y,
+        angle: projectileAngle + Math.PI,
+        count: BLOCK_BURST.count,
+        spread: BLOCK_BURST.spread,
+        speed: BLOCK_BURST.speed,
+        life: BLOCK_BURST.life,
+        size: BLOCK_BURST.size,
+        drag: BLOCK_BURST.drag,
+        colour: TYPE_COLOURS[platform.def.damageType],
+      })
       result.platformHits++
       return true
     }
@@ -197,6 +219,21 @@ function hitContact(
     before - contact.hp,
     died ? (contact.def.assetKey ?? '') : '',
   )
+  // Four particles, not twenty. Six hundred projectiles may be in the air at
+  // once against a budget of four hundred particles, so a generous impact
+  // would empty the field on a normal late-wave tick.
+  sim.particles.burst({
+    x: contact.position.x,
+    y: contact.position.y,
+    angle: 0,
+    count: IMPACT_BURST.count,
+    spread: IMPACT_BURST.spread,
+    speed: IMPACT_BURST.speed,
+    life: IMPACT_BURST.life,
+    size: IMPACT_BURST.size,
+    drag: IMPACT_BURST.drag,
+    colour: TYPE_COLOURS[p.damageType],
+  })
   if (died) dead.add(contact.id)
 }
 

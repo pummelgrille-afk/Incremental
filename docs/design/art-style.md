@@ -219,6 +219,43 @@ the player cannot tell what will hit them.
    motion are player settings (Phase 43); nothing may depend on movement to be
    understood.
 
+### The library
+
+Numbers live in `content/effects.ts`, read by the systems that emit and never
+hardcoded in one. That matters more for effects than elsewhere, because these
+are the numbers most likely to be nudged by eye — and a number nudged by eye
+inside a system is a number nobody can find again.
+
+| Effect | Emitted by | Says |
+|--------|-----------|------|
+| Conjunction | `systems/synergy.ts` | the formation paid off — scaled by participants |
+| Impact | `systems/collision.ts` | a shot landed here |
+| Block | `systems/collision.ts` | your block arc worked, which is a good outcome |
+| Flare sparks | `core/loop.ts` | how wide the blast actually was |
+| Upgrade | `core/bootstrap.ts` | something was bought, played once the panel is shut |
+
+Colours come from the same damage-type table as the unit body and its tracer, so
+three separate places say the same thing about a type and none of them can
+disagree.
+
+### Rule 8: an effect's cost is its frequency, not its size
+
+The conjunction burst was authored at 14–38 particles, which looks modest until
+you measure how often it fires: a full formation of 48 Platforms conjuncts
+roughly **36 times a second**, and the effect cost 881 particles a second
+against a budget of 400. It emptied the field on the opening stage, and nothing
+failed — the pool discards overflow silently, so an exhausted field looks like
+effects that stop appearing.
+
+The fix was to emit **once per evaluation** rather than once per conjunction,
+taking the largest. At a 100 ms cadence the eye reads one event anyway, so the
+other 35 bought nothing but overflow. Peak across the whole ladder with a
+maximum formation went from *exhausted* to 167–188 of 400.
+
+Before adding an effect, multiply its count by how often the *worst* build fires
+it. `tests/particles.test.ts` does this against a full field on the first and
+last boss.
+
 ## 7. Animation
 
 Frames are ordinary sprites under a naming convention, not a new kind of asset:

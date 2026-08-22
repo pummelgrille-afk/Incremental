@@ -9,6 +9,7 @@ import type { AnyWaveDef } from '../entities/Wave'
 import { FLARE, RINGS } from '../content/field'
 import type { CombatFeed } from '../systems/feed'
 import type { TracerFeed } from '../systems/tracers'
+import type { ParticleField } from '../systems/particles'
 import type { Telemetry } from '../systems/telemetry'
 import type { UpgradeEffects } from '../entities/Upgrade'
 
@@ -114,6 +115,8 @@ export interface SimulationState {
   feed: CombatFeed
   /** Shot lines, on the same terms as `feed`. See systems/tracers.ts. */
   tracers: TracerFeed
+  /** Sparks and bursts, on the same terms again. See systems/particles.ts. */
+  particles: ParticleField
 
   platforms: PlatformInstance[]
   arrays: ArrayInstance[]

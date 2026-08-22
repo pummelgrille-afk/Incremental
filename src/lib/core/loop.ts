@@ -1,6 +1,7 @@
 import { MAX_PIERCE_MEMORY, type Projectile } from '../entities/Projectile'
 import { BUDGETS } from '../content/budgets'
 import { FLARE, CONJUNCTION, RINGS } from '../content/field'
+import { FLARE_BURST, FLARE_COLOUR } from '../content/effects'
 import { patternById } from '../systems/patterns'
 import { updateProjectiles } from '../systems/collision'
 import {
@@ -230,6 +231,7 @@ export class Simulation {
     this.advanceFlare(dt)
     sim.feed.update(dt)
     sim.tracers.update(dt)
+    sim.particles.update(dt)
     updateBuffs(sim, dt)
     updateObjective(sim, dt)
 
@@ -416,6 +418,22 @@ export class Simulation {
     const dead = new Set<number>()
     const radius = FLARE.radius + sim.effects.flareRadius
     const radiusSq = radius * radius
+
+    // Sparks under the expanding ring the renderer already draws. The ring says
+    // *where*; the sparks say *how much*, since the Regulation branch widens
+    // the blast and nothing on screen showed that it had.
+    sim.particles.burst({
+      x,
+      y,
+      angle: 0,
+      count: FLARE_BURST.count,
+      spread: FLARE_BURST.spread,
+      speed: FLARE_BURST.speed * (radius / FLARE.radius),
+      life: FLARE_BURST.life,
+      size: FLARE_BURST.size,
+      drag: FLARE_BURST.drag,
+      colour: FLARE_COLOUR,
+    })
 
     for (const contact of sim.contact) {
       const dx = contact.position.x - x

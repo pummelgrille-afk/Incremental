@@ -8,6 +8,7 @@ import { zoneById } from '../content/zones'
 import { createFlareState, createRingStates, type SimulationState } from './simulation'
 import { CombatFeed } from '../systems/feed'
 import { TracerFeed } from '../systems/tracers'
+import { ParticleField } from '../systems/particles'
 import { createTelemetry } from '../systems/telemetry'
 import { noUpgradeEffects, type UpgradeEffects } from '../entities/Upgrade'
 import { FLARE } from '../content/field'
@@ -154,6 +155,7 @@ export function loadStage(
     flare: createFlareState(FLARE.maxCharges + Math.floor(effects.flareCharges)),
     feed: new CombatFeed(),
     tracers: new TracerFeed(),
+    particles: new ParticleField(),
 
     platforms: [],
     arrays: [],

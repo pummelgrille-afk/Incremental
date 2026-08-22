@@ -389,6 +389,22 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   const tracerGraphic = new Graphics()
   projectileLayer.addChild(tracerGraphic)
 
+  /*
+   * The particle field.
+   *
+   * One Graphics, cleared and rebuilt per frame, like the tracers and the
+   * strike. Four hundred small circles rebuilt each frame is far cheaper than
+   * four hundred display objects kept in step with a pool that recycles
+   * underneath them — and it is what the pooled-sprite approach costs *anyway*
+   * once each one needs its own alpha and radius per frame.
+   *
+   * On the effect layer, above the field: a spark is short-lived and small
+   * enough that it cannot hide an incoming shot, and an impact drawn under the
+   * thing it hit would not read as an impact at all.
+   */
+  const particleGraphic = new Graphics()
+  effectLayer.addChild(particleGraphic)
+
   // Damage popups. Text objects are expensive to create, so the pool of them
   // matches the feed's capacity and is allocated once.
   const feedLayer = new Container()
@@ -938,6 +954,31 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
+  /**
+   * Draw the particles.
+   *
+   * Fades and shrinks on remaining life, which is the whole of the effect's
+   * shape — the field itself only moves them. Doing it here rather than storing
+   * an alpha per particle keeps the simulation side to position and velocity.
+   */
+  function drawParticles(simulation: Simulation) {
+    const particles = simulation.state.particles.items
+    particleGraphic.clear()
+
+    for (let i = 0; i < particles.length; i++) {
+      const particle = particles[i]
+      if (!particle.active) continue
+
+      const remaining = particle.life / particle.maxLife
+      // Squared on the radius and linear on the alpha: a spark that shrank as
+      // slowly as it dimmed would end as a large faint disc, which reads as
+      // fog rather than as a spark going out.
+      particleGraphic
+        .circle(particle.x, particle.y, particle.size * remaining * remaining)
+        .fill({ color: particle.colour, alpha: Math.min(1, remaining * 1.4) })
+    }
+  }
+
   const FEED_COLOURS: Record<string, number> = {
     damage: 0xe8e2d4,
     kill: PALETTE.sun,
@@ -1000,6 +1041,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       drawTracers(simulation)
       drawSun(simulation)
       drawStrike(simulation)
+      drawParticles(simulation)
       drawDeaths(simulation)
       drawFeed(simulation)
 

@@ -2,6 +2,12 @@ import { conjunctionScaleOf, type PlatformInstance } from '../entities/Platform'
 import type { ConjunctionScale } from '../entities/types'
 import { CONJUNCTION, RINGS, ringByIndex, slotAngle } from '../content/field'
 import { pairingOf, type TypePairing } from '../content/damageTypes'
+import {
+  CONJUNCTION_BURST,
+  CONJUNCTION_RADIUS,
+  TYPE_COLOURS,
+} from '../content/effects'
+import { RIM_RADIUS } from '../content/field'
 import { grantBonus } from './buffs'
 import { TELEMETRY_SOURCES } from './telemetry'
 import type { SimulationState } from '../core/simulation'
@@ -219,7 +225,56 @@ export function updateSynergy(sim: SimulationState, cooldowns: CooldownMap): Syn
     result.salvageDropped = reaped.salvageDropped
   }
 
+  emitConjunctionBurst(sim, result.fired)
+
   return result
+}
+
+/**
+ * The burst, at last — one per evaluation, for the largest alignment in it.
+ *
+ * `ConjunctionEvent.angle` has been documented as "where the render layer draws
+ * the burst" since Phase 18, and nothing ever drew it: the game's signature
+ * system fired in total silence.
+ *
+ * **One per evaluation rather than one per conjunction**, and that is a
+ * measurement rather than a preference. A full formation of 48 Platforms fires
+ * roughly 36 conjunctions a *second* — combinatorially many slot sets come into
+ * line, each with its own cooldown — and a burst apiece cost 881 particles per
+ * second against a budget of 400. It emptied the field on the opening stage.
+ *
+ * At a 100 ms cadence the eye reads one event anyway, so the extra 35 bought
+ * nothing but overflow. Taking the largest keeps the thing worth seeing: a
+ * Grand conjunction is the pay-off the whole formation puzzle is arranged for,
+ * and it must not be hidden behind a Minor that happened to fire beside it.
+ *
+ * Thrown outward from the participants' arc rather than from the Sun: the
+ * alignment happens on the rings, and a bloom from the centre would credit the
+ * objective for what the formation did.
+ */
+function emitConjunctionBurst(sim: SimulationState, fired: ConjunctionEvent[]): void {
+  if (fired.length === 0) return
+
+  let largest = fired[0]
+  for (const event of fired) {
+    if (event.participants.length > largest.participants.length) largest = event
+  }
+
+  const burst = CONJUNCTION_BURST[largest.scale]
+  const radius = RIM_RADIUS * CONJUNCTION_RADIUS
+
+  sim.particles.burst({
+    x: Math.cos(largest.angle) * radius,
+    y: Math.sin(largest.angle) * radius,
+    angle: largest.angle,
+    count: burst.count,
+    spread: burst.spread,
+    speed: burst.speed,
+    life: burst.life,
+    size: burst.size,
+    drag: burst.drag,
+    colour: TYPE_COLOURS[largest.participants[0].def.damageType],
+  })
 }
 
 /**
