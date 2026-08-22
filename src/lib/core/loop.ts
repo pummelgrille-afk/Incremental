@@ -64,6 +64,8 @@ export interface TickEvents {
   contactKilled: number
   salvageDropped: number
   sunHits: number
+  /** Array shots that landed. See CollisionResult.contactHits. */
+  contactHits: number
   conjunctionsFired: number
   /**
    * Participants in the largest conjunction this tick, or 0 for none.
@@ -86,6 +88,7 @@ function noTickEvents(): TickEvents {
     contactKilled: 0,
     salvageDropped: 0,
     sunHits: 0,
+    contactHits: 0,
     conjunctionsFired: 0,
     largestConjunction: 0,
     stageCleared: false,
@@ -188,6 +191,7 @@ export class Simulation {
       merged.contactKilled += events.contactKilled
       merged.salvageDropped += events.salvageDropped
       merged.sunHits += events.sunHits
+      merged.contactHits += events.contactHits
       merged.conjunctionsFired += events.conjunctionsFired
       merged.largestConjunction = Math.max(
         merged.largestConjunction,
@@ -278,6 +282,7 @@ export class Simulation {
     // 6 & 7. Projectile integration and collision.
     const collisions = updateProjectiles(sim, this.projectiles, dt)
     events.sunHits += collisions.sunHits
+    events.contactHits += collisions.contactHits
     events.contactKilled += collisions.contactKilled
     events.salvageDropped += collisions.salvageDropped
 

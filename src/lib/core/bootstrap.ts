@@ -1,3 +1,4 @@
+import { conjunctionScaleOf } from '../entities/Platform'
 import { platformById, PLATFORMS } from '../content/platforms'
 import { arrayById, ARRAYS } from '../content/arrays'
 import { STARTING_ZONE_ID, ZONES } from '../content/zones'
@@ -61,6 +62,7 @@ import {
 import { MAX_CATCHUP_SECONDS, Simulation } from './loop'
 import { UPGRADE_BURST, UPGRADE_COLOUR } from '../content/effects'
 import { platformPosition } from '../systems/ai'
+import { createAudio, type AudioEngine } from './audio'
 import { createRenderer, type Renderer } from './render'
 import { createRng, seedFrom } from './rng'
 import { SaveManager } from './save'
@@ -263,6 +265,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     purchase(nodeId: string) {
       if (!purchaseNode(saveData, nodeId)) return
       pendingAcknowledgements.push(null)
+      audio.play('purchase')
       publishTree()
       autosaver.request('purchase')
     },
@@ -418,6 +421,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     const earned = evaluateAchievements(saveData, event, snapshot)
     if (earned.length === 0) return
 
+    audio.play('achievement')
     game.achievementQueue = [
       ...game.achievementQueue,
       ...earned.map((a) => ({ id: a.id, name: a.name, description: a.description })),
@@ -578,6 +582,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     },
     levelUp(kind, id) {
       const levelled = levelUpUnit(saveData, kind, id)
+      if (levelled) audio.play('purchase')
       if (levelled && kind === 'platform') pendingAcknowledgements.push(id)
       afterEdit(levelled ? null : 'unaffordable')
     },
@@ -628,6 +633,16 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   let simulation = buildSimulation()
   const renderer: Renderer = await createRenderer(host)
 
+  /*
+   * Audio starts suspended and is resumed by the first real input.
+   *
+   * Not politeness — every browser refuses to start audio before a user
+   * gesture, so a game that tried would be silent with no error anywhere. The
+   * Flare is the natural place to wake it: it is the player's one live control,
+   * so the first sound arrives at the first moment they did something.
+   */
+  const audio: AudioEngine = createAudio(saveData.settings)
+
   game.showDiagnostics = saveData.settings.showFps
 
 
@@ -653,8 +668,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0) return
+    audio.resume()
     const world = renderer.toWorld(event.clientX, event.clientY)
-    simulation.strike(world.x, world.y)
+    if (simulation.strike(world.x, world.y)) audio.play('flare')
   }
 
   /**
@@ -678,12 +694,17 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     if (event.key === 'r') session.restart()
     // The synergy preview. Not persisted — it is a planning aid you open when
     // you are planning, unlike the diagnostics overlay.
-    if (event.key === 'f') game.showFormation = !game.showFormation
+    audio.resume()
+    if (event.key === 'f') {
+      game.showFormation = !game.showFormation
+      audio.play('ui')
+    }
     // The progression map. Always available: it is where a player finds out
     // there is anything past the zone they are on.
     if (event.key === 'm') {
       publishMap()
       game.showMap = !game.showMap
+      audio.play('ui')
     }
     // The tree stays hidden until it is revealed — economy-spec.md §3 wants a
     // first-time player meeting one progression system at a time.
@@ -785,12 +806,28 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       checkTutorial('conjunction', events.largestConjunction)
     }
 
+    /*
+     * The frame's sound.
+     *
+     * Every cue carries its own minimum interval (`content/audio.ts`), so this
+     * can fire on a boolean rather than counting: a frame with forty kills in
+     * it is one kill sound, which is what a listener hears anyway.
+     */
+    if (events.contactHits > 0) audio.play('hit')
+    if (events.contactKilled > 0) audio.play('kill')
+    if (events.sunHits > 0) audio.play('sunHit')
+    if (events.conjunctionsFired > 0) {
+      audio.conjunction(conjunctionScaleOf(events.largestConjunction))
+    }
+
     if (events.stageLost) {
+      audio.play('lost')
       checkAchievements('stage-lost', achievementSnapshot())
       checkTutorial('stage-lost')
     }
 
     if (events.stageCleared) {
+      audio.play('cleared')
       const address = stageAddressOf(simulation.state)
       recordDepth(saveData, simulation.state.stage.scalingIndex)
 
@@ -886,6 +923,19 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
      */
     const simulated = Math.min(elapsed, MAX_CATCHUP_SECONDS)
 
+    /*
+     * The mix follows the field, on simulated time for the same reason the
+     * earning rate does: a frame covering an hour must not swing the music as
+     * though an hour of combat had happened.
+     */
+    const sun = simulation.state.sun
+    audio.update({
+      dt: simulated,
+      contacts: simulation.state.contact.length,
+      outputFraction: sun.maxHp > 0 ? sun.hp / sun.maxHp : 0,
+      running: game.running,
+    })
+
     if (game.running) {
       saveData.run.salvagePerSecond = updateEarningRate(
         saveData.run.salvagePerSecond,
@@ -958,6 +1008,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       window.removeEventListener('beforeunload', onHide)
       document.removeEventListener('visibilitychange', onVisibilityChange)
       autosaver.flush('shutdown')
+      audio.destroy()
       renderer.destroy()
     },
   }
@@ -970,6 +1021,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
         return simulation
       },
       renderer,
+      // Exposed for the same reason the renderer is: the audio graph is a
+      // closure, and without a handle there is no way to see whether a cue
+      // actually fired short of listening to it.
+      audio,
       session,
       content: { PLATFORMS, ARRAYS },
       /** Pump the loop by hand. See `frameStep`. */

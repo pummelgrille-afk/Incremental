@@ -213,14 +213,28 @@ The rule from `CLAUDE.md`, made concrete:
 │         │ plain TypeScript — imports no framework        │
 │         ▼ read by                                        │
 │  src/lib/core/render.ts     Pixi scene, one canvas       │
+│  src/lib/core/audio.ts      Web Audio graph              │
 └──────────────────────────────────────────────────────────┘
 ```
 
 **Three rules that must not erode:**
 
-1. Nothing under `core/`, `systems/`, `entities/` or `content/` imports Svelte
-   *or* Pixi. Those modules must stay runnable in a plain Vitest process with no
-   DOM — that is what makes combat math and prestige logic testable in Phase 45.
+1. Nothing under `core/`, `systems/`, `entities/` or `content/` imports Svelte,
+   Pixi *or* a browser API. Those modules must stay runnable in a plain Vitest
+   process with no DOM — that is what makes combat math and prestige logic
+   testable in Phase 45.
+
+   **The output layer is the exception, and it is exactly two files:**
+   `core/render.ts` (Pixi) and `core/audio.ts` (Web Audio). Both sit at the
+   bottom of the diagram for the same reason — they are where the projection
+   leaves the program — and both are kept as thin as the job allows. Everything
+   *decidable* about what is drawn or heard lives beside them in modules that
+   import nothing: `core/animation.ts`, `core/backdrop.ts`, `core/audioMix.ts`
+   and the `content/` tables they read.
+
+   The test for whether something belongs in the exception is narrow: does it
+   need the API to answer the question? Choosing a frame does not. Choosing a
+   bus gain does not. Building a filter node does.
 2. `stores/` is the only bridge into Svelte, written once per tick at step 11 of
    the order in `combat-spec.md` §8.
 3. `render.ts` **reads** simulation state and never writes it. Rendering is a pure

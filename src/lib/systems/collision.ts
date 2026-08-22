@@ -37,6 +37,16 @@ const BLOCK_BAND = 10
 export interface CollisionResult {
   sunHits: number
   platformHits: number
+  /**
+   * Array shots that landed on a Contact.
+   *
+   * Counted separately from Platform attacks on purpose. A Platform attack is
+   * hitscan and there are up to 48 of them firing about once a second, which is
+   * a perfectly readable picture and an unlistenable buzz — so the audible hit
+   * is the rarer one, from at most eight Arrays. Same lesson as Phase 40's
+   * particle budget: what an effect costs is how often it fires.
+   */
+  contactHits: number
   contactKilled: number
   salvageDropped: number
 }
@@ -49,6 +59,7 @@ export function updateProjectiles(
   const result: CollisionResult = {
     sunHits: 0,
     platformHits: 0,
+    contactHits: 0,
     contactKilled: 0,
     salvageDropped: 0,
   }
@@ -90,7 +101,7 @@ export function updateProjectiles(
     if (p.faction === 'contact') {
       if (resolveContactProjectile(sim, p, distanceSq, result)) pool.releaseAt(i)
     } else {
-      if (resolveArrayProjectile(sim, p, dead, dt)) pool.releaseAt(i)
+      if (resolveArrayProjectile(sim, p, dead, dt, result)) pool.releaseAt(i)
     }
   }
 
@@ -297,6 +308,7 @@ function resolveArrayProjectile(
   p: Projectile,
   dead: Set<number>,
   dt: number,
+  result: CollisionResult,
 ): boolean {
   for (const contact of sim.contact) {
     if (dead.has(contact.id)) continue
@@ -314,6 +326,7 @@ function resolveArrayProjectile(
       radius * radius
     ) {
       hitContact(sim, p, contact, 1, dead)
+      result.contactHits++
 
       // Burst: everything else inside the radius, at reduced damage. Measured
       // from the Contact struck rather than from the projectile, so the splash
