@@ -220,6 +220,10 @@ The rule from `CLAUDE.md`, made concrete:
 └──────────────────────────────────────────────────────────┘
 ```
 
+Implementation details that would violate these quietly — orderings, caps, and
+constants that sit deliberately on a bound — are registered in
+`docs/design/invariants.md`.
+
 **Three rules that must not erode:**
 
 1. Nothing under `core/`, `systems/`, `entities/`, `content/` or `i18n/` imports

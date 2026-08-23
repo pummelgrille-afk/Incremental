@@ -364,6 +364,11 @@ right words exactly once. `T.svelte` — a sentence with a keycap or an emphasis
 run inside it — is the only component that touches `i18n/` for anything, and it
 takes the parser, not the locale.
 
+The UI's share of `docs/design/invariants.md` is short and worth knowing before
+touching an effect: the store is a projection and may only be *asked* for
+things, the conjunction preview must never run per frame, and `MainMenu`'s
+`untrack` is what stops the pause effect recursing.
+
 A slot that cannot wrap needs a budget in `i18n/budgets.ts`. Before adding one,
 check whether it could wrap instead: that is the fix, and the budget is the
 consolation prize.

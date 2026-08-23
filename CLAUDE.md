@@ -26,6 +26,12 @@ the way.
   Content is never hardcoded inside logic files.
 - Design decisions live in `docs/design/*.md` and are the source of truth.
   Update them when a design changes — do not let code and docs drift.
+- **The source carries no comments.** Every explanation lives in `docs/`.
+  `docs/design/invariants.md` is the register of implementation details that
+  break quietly — a constant deliberately equal to a bound, an ordering that
+  prevents an infinite loop, a call that must not run per frame. Read it before
+  changing a constant or an ordering that looks arbitrary, and add to it rather
+  than writing a comment when you create one.
 - One phase = one focused commit, with the matching `docs/phases/phase-N.md`
   checklist ticked off in that same commit.
 - Run `npm run check` and `npm test` before committing.

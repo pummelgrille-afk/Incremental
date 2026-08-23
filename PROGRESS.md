@@ -68,6 +68,27 @@ is on screen, and the test looks for the shape rather than the name.
 
 → `docs/design/i18n.md`, `docs/phases/phase-44.md`
 
+### Asked for after it: the comments came out
+
+Every prose comment was stripped from `src/`, `tests/` and `tools/` — 9,130
+lines, 474 KB, 36% of the source. The code is unchanged: the production build is
+**byte-for-byte identical**, because the minifier was already dropping all of
+it. `tools/strip-comments.mjs` and `tools/strip-comments.py` do the work and are
+kept; both use a real parser rather than a regex, and the reason is the one bug
+the first attempt had — a line rule that drops anything starting with `#` also
+ate two markdown headings out of a docstring in `tools/derive-clips.py`.
+
+Directives stayed: `svelte-ignore`, the `i18n-exempt` markers
+`tests/i18n.test.ts` reads, `@ts-*`, and the shebangs.
+
+**What the comments were carrying is now `docs/design/invariants.md`.** Most of
+them were rationale that the specs already hold, but a smaller set was
+implementation detail with a trap in it — `MAX_CATCHUP_SECONDS`, the boss
+phase's forward-only guard, the Spotter's `chargeInterval` sitting exactly on
+its floor, the `untrack` that stops the pause menu recursing. Those were written
+down nowhere else and are invisible from the code. Each entry says what breaks
+and points at the spec that owns the decision.
+
 ---
 
 ## What came before — Phase 43, menus, settings, accessibility
@@ -336,6 +357,7 @@ PLAN.md                      50 phases across 8 stages — the roadmap
 CLAUDE.md                    conventions: naming, layering, git rules
 docs/architecture.md         ADRs, layer boundaries, performance budgets
 docs/design/*.md             source of truth for decisions
+docs/design/invariants.md    what breaks quietly if you change it
 docs/phases/phase-N.md       what each phase actually did, and what it found
 tools/*.py                   asset preparation, run by hand, never at build time
 
