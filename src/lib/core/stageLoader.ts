@@ -13,15 +13,6 @@ import { createTelemetry } from '../systems/telemetry'
 import { noUpgradeEffects, type UpgradeEffects } from '../entities/Upgrade'
 import { FLARE } from '../content/field'
 
-/**
- * Reads a zone/stage definition from content and initializes the simulation.
- *
- * This is the scene-loading architecture PLAN.md Phase 8 asks for: stages are
- * *data loaded into one simulation*, not per-stage Svelte routes. Changing
- * stage never remounts the UI or rebuilds the Pixi scene — it swaps the state
- * the systems read.
- */
-
 export class StageLoadError extends Error {
   constructor(message: string) {
     super(message)
@@ -30,12 +21,6 @@ export class StageLoadError extends Error {
 }
 
 export interface StageLoadOptions {
-  /**
-   * The Almanac's aggregate for this run.
-   *
-   * Superseded `bonusOutput`, which was a single hand-placed hook for the
-   * Bracing branch; the tree now supplies every bonus through one object.
-   */
   effects?: UpgradeEffects
 }
 
@@ -51,13 +36,6 @@ export function resolveStage(address: StageAddress): { zone: ZoneDef; stage: Sta
   return { zone, stage }
 }
 
-/**
- * Validate that every content id a stage references actually resolves.
- *
- * Called on load rather than on spawn, so a typo in content/waves.ts surfaces
- * immediately instead of thirty seconds into a wave. Phase 45 runs this across
- * every stage as a test.
- */
 export function validateStage(stage: StageDef): string[] {
   const problems: string[] = []
 
@@ -65,14 +43,6 @@ export function validateStage(stage: StageDef): string[] {
     problems.push(`Stage "${stage.id}" has no waves`)
   }
 
-  /*
-   * Boss milestones — economy-spec.md §5, every 8th stage.
-   *
-   * Checked here rather than left as an unwired constant. Zone 1 stops at
-   * scaling index 3 so nothing trips it today, but the moment Phase 33 authors
-   * a stage on the interval without a boss, the content tests fail and say so.
-   * Phase 32 owns the encounters themselves.
-   */
   if (isBossStage(stage.scalingIndex) && !stage.waves.some(isBossWave)) {
     problems.push(
       `Stage "${stage.id}" is on the boss interval (scaling index ` +
@@ -82,8 +52,6 @@ export function validateStage(stage: StageDef): string[] {
 
   stage.waves.forEach((wave, index) => {
     if (isBossWave(wave)) {
-      // Checkable since Phase 32. A zone naming a boss that does not exist
-      // would otherwise load fine and then run a boss stage with no boss in it.
       if (!bossById(wave.bossId)) {
         problems.push(
           `Stage "${stage.id}" wave ${index} references unknown boss "${wave.bossId}"`,
@@ -109,13 +77,6 @@ export function validateStage(stage: StageDef): string[] {
   return problems
 }
 
-/**
- * Build a fresh SimulationState for a stage.
- *
- * Entities are not populated here: the player's formation is applied by
- * progression/, and Contact are spawned over time by systems/spawn.ts. What comes
- * back is an empty field with the Sun wound and the rings turning.
- */
 export function loadStage(
   address: StageAddress,
   options: StageLoadOptions = {},
@@ -150,8 +111,7 @@ export function loadStage(
 
     sun: createSun(maxOutput),
     rings: createRingStates(),
-    // Regulation grants whole extra charges, so it changes the maximum the
-    // Flare regenerates toward, not just the starting value.
+
     flare: createFlareState(FLARE.maxCharges + Math.floor(effects.flareCharges)),
     feed: new CombatFeed(),
     tracers: new TracerFeed(),
@@ -171,7 +131,6 @@ export function loadStage(
   }
 }
 
-/** Stages in play order across every zone, respecting unlock chains. */
 export function stageOrder(zones: readonly ZoneDef[]): StageAddress[] {
   return [...zones]
     .sort((a, b) => a.index - b.index)

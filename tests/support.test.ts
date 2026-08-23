@@ -34,9 +34,6 @@ beforeEach(() => {
 
 describe('Arrays are shaped, not levelled', () => {
   it('offers three tracks that pull against each other', () => {
-    // A Platform levels and gets uniformly stronger; a Array picks between
-    // burst, sustain and punch for the same scarce Clearance. That difference is
-    // the "distinct in feel" PLAN.md Phase 25 asks for.
     expect(SUPPORT_TRACKS).toEqual(['capacity', 'recharge', 'resonance'])
   })
 
@@ -47,8 +44,6 @@ describe('Arrays are shaped, not levelled', () => {
   })
 
   it('leaves an unupgraded Array exactly as its content authored it', () => {
-    // Buying nothing must behave as though the system did not exist, or every
-    // Phase 14 balance measurement moves.
     const stats = supportStats(save, ARRAY)
     expect(stats.maxCharge).toBe(ARRAY.maxCharge)
     expect(stats.chargeInterval).toBe(ARRAY.chargeInterval)
@@ -56,8 +51,6 @@ describe('Arrays are shaped, not levelled', () => {
   })
 
   it('prices each track independently', () => {
-    // Spending on capacity must not make recharge dearer — they are separate
-    // shapes, not one shared level.
     buyTrack(save, ARRAY.id, 'capacity')
     buyTrack(save, ARRAY.id, 'capacity')
 
@@ -119,19 +112,13 @@ describe('the tracks do what they say', () => {
             ? SUPPORT.recharge.maxLevel
             : SUPPORT.resonance.maxLevel,
       )
-      // Null rather than a price that can never be paid.
+
       expect(trackCost(save, ARRAY.id, track), track).toBeNull()
     }
   })
 })
 
 describe('recharge cannot cross the class-balance lever', () => {
-  /**
-   * `chargeInterval` is the lever between Arrays and Platforms. Phase 14
-   * measured 4 s as the point where a Array is strictly better per Filing than
-   * the Platforms it competes with, 6 s as the crossover, 7 s the other way.
-   * A Array that could wind past that stops being a trade.
-   */
   it('never drops below the authored floor, however many levels are bought', () => {
     for (let i = 0; i < 50; i++) buyTrack(save, ARRAY.id, 'recharge')
     expect(supportStats(save, ARRAY).chargeInterval).toBeGreaterThanOrEqual(
@@ -140,7 +127,6 @@ describe('recharge cannot cross the class-balance lever', () => {
   })
 
   it('keeps a fully wound Array short of the dominance point', () => {
-    // Phase 14's measurement: 4 s is where a Array becomes strictly better.
     for (let i = 0; i < SUPPORT.recharge.maxLevel; i++) {
       buyTrack(save, ARRAY.id, 'recharge')
     }
@@ -148,8 +134,6 @@ describe('recharge cannot cross the class-balance lever', () => {
   })
 
   it('floors even if a later re-balance raises the level cap', () => {
-    // The floor is enforced in `supportStats`, not by the cap, so widening the
-    // cap cannot cross the lever by accident.
     save.meta.arrayUpgrades[ARRAY.id] = { recharge: 99 }
     expect(supportStats(save, ARRAY).chargeInterval).toBe(SUPPORT.recharge.floorSeconds)
   })
@@ -173,7 +157,7 @@ describe('upgrades reach the field', () => {
 
     expect(array.maxCharge).toBe(stats.maxCharge)
     expect(array.chargeInterval).toBe(stats.chargeInterval)
-    // It starts full, so extra capacity is usable immediately.
+
     expect(array.charge).toBe(stats.maxCharge)
   })
 
@@ -208,8 +192,6 @@ describe('upgrades reach the field', () => {
   })
 
   it('raises the formation power the difficulty director reads', () => {
-    // Phase 19 rates a Array by its Charge economy, so upgrading it must move
-    // that number — otherwise the director would under-read an upgraded build.
     const bare = new Simulation(loadStage(STAGE), createRng(1))
     bare.state.arrays.length = 0
     mountArray(bare.state, ARRAY, 0)
@@ -258,7 +240,6 @@ describe('the editor view', () => {
   })
 
   it('does not confuse one Array with another', () => {
-    // The ledger is keyed per def; Phase 30 adds four to six more.
     buyTrack(save, ARRAY.id, 'capacity')
     expect(trackLevel(save, 'another-array', 'capacity')).toBe(0)
     expect(arrayById(ARRAY.id)).toBeDefined()
@@ -266,17 +247,6 @@ describe('the editor view', () => {
 })
 
 describe('a track that cannot move is not for sale', () => {
-  /*
-   * Found in Phase 43's follow-up, while fixing the reported bug that upgrading
-   * a Spotter did nothing until it was remounted.
-   *
-   * The Spotter is authored at `chargeInterval: 4.5`, which is exactly
-   * `SUPPORT.recharge.floorSeconds`. The floor is a deliberate, documented hard
-   * bound — combat-spec.md §4 calls `chargeInterval` the lever between Arrays
-   * and Platforms — so the tuning is right and the *offer* was wrong: the track
-   * was priced, listed and purchasable, and changed nothing.
-   */
-
   beforeEach(() => {
     unlock(save, 'array', 'spotter')
   })
@@ -307,7 +277,6 @@ describe('a track that cannot move is not for sale', () => {
   })
 
   it('catches no other Array', () => {
-    // Only the Spotter sits on the floor. Nothing else may be caught by this.
     for (const def of ARRAYS) {
       if (def.id === 'spotter') continue
       unlock(save, 'array', def.id)

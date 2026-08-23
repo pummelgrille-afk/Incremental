@@ -41,7 +41,6 @@ describe('loadStage', () => {
     expect(sim.rings).toHaveLength(RINGS.length)
     expect(sim.phase).toBe('wave-active')
 
-    // Entities are populated by progression/ and spawn.ts, not the loader.
     expect(sim.platforms).toHaveLength(0)
     expect(sim.contact).toHaveLength(0)
   })
@@ -67,7 +66,7 @@ describe('loadStage', () => {
     const boosted = loadStage(FIRST, {
       effects: { ...noUpgradeEffects(), flareCharges: 2 },
     })
-    // The maximum, not just the starting value — the Flare regenerates toward it.
+
     expect(boosted.flare.maxCharge).toBe(base.flare.maxCharge + 2)
     expect(boosted.flare.charge).toBe(boosted.flare.maxCharge)
   })
@@ -118,7 +117,6 @@ describe('validateStage', () => {
   })
 
   it('refuses to load a stage that fails validation', () => {
-    // Guard the contract itself: loadStage must not hand back a broken sim.
     expect(() => loadStage('service-floor:nowhere')).toThrow(StageLoadError)
   })
 })
@@ -167,7 +165,6 @@ describe('content integrity', () => {
   })
 
   it('increases scalingIndex monotonically across the play order', () => {
-    // Scaling must stay continuous across zone boundaries — economy-spec.md §5.
     const indices = [...ZONES]
       .sort((a, b) => a.index - b.index)
       .flatMap((z) => z.stages.map((s) => s.scalingIndex))
@@ -179,17 +176,6 @@ describe('content integrity', () => {
 })
 
 describe('loaded stages never mutate shared content', () => {
-  /**
-   * `loadStage` hands back a state whose `stage` and `zone` are **references
-   * into `content/zones.ts`**, not copies. `readonly` is compile-time only, so
-   * anything that writes through those references corrupts every later load in
-   * the process.
-   *
-   * This was not hypothetical: a Phase 17 tuning harness scaled wave counts in
-   * place and every subsequent run compounded on the last, producing a
-   * difficulty curve that did not exist. The conclusions drawn from it were
-   * wrong until the harness was fixed.
-   */
   function snapshot(): string {
     return JSON.stringify(
       ZONES.map((z) => ({
@@ -226,8 +212,7 @@ describe('loaded stages never mutate shared content', () => {
   it('does not let one loaded stage affect another', () => {
     const a = loadStage(FIRST)
     const b = loadStage(FIRST)
-    // Same underlying definition object, by design — the test is that nothing
-    // in the engine writes to it.
+
     expect(a.stage).toBe(b.stage)
   })
 })

@@ -10,28 +10,8 @@
   import Tooltip from './primitives/Tooltip.svelte'
   import T from './T.svelte'
 
-  /**
-   * The Almanac.
-   *
-   * Node positions are derived in `progression/upgradeTree.ts`, not authored —
-   * radial, because the game is an perihelion, and because the layout has to stay
-   * legible when Phase 34 grows it from twelve nodes to seventy-two.
-   *
-   * Each arm is drawn as a **constellation**: stars where the nodes sit, the
-   * prerequisite edges as the lines between them. The irregularity is in the
-   * layout rather than here — this file only decides that a node looks like a
-   * star and that a purchased one is lit.
-   *
-   * Drawn as SVG rather than Pixi: this is a menu, not the field. It wants
-   * crisp text and hit-testing at any zoom, and it must never compete with the
-   * simulation for the render budget.
-   */
-
   let { open = false }: { open?: boolean } = $props()
 
-  /* The hint line reads the player's actual binding, the same rule the HUD
-     follows since Phase 43: a hardcoded letter stops being a help the moment
-     the key is rebound, and lies to exactly the player who needed it. */
   const keyLabel = (action: ActionId) => bindingLabel(game.keybindings[action] ?? '')
 
   const BRANCH_LABELS: Record<UpgradeBranch, `branch.${UpgradeBranch}`> = {
@@ -41,21 +21,12 @@
     regulation: 'branch.regulation',
   }
 
-  /**
-   * An effect reads as a sign, a number and a term.
-   *
-   * Three shapes rather than twelve sentences: the *term* is the only part that
-   * differs between effects, and it lives in `i18n/en/terms.ts` because the
-   * roster card wants the same words. A translator handed "+12% attack" twelve
-   * times will eventually punctuate two of them differently.
-   */
   const EFFECT_TERMS = new Set([
     'attack', 'haste', 'conjunctionPotency', 'output', 'defence', 'blockArc',
     'salvage', 'recollection', 'repairCost', 'flareCharges', 'flareRadius',
     'conjunctionTolerance',
   ])
 
-  /** Flat counts read as counts; everything else reads as a percentage. */
   const FLAT = new Set(['output', 'flareCharges', 'flareRadius'])
   const ANGLE = new Set(['blockArc', 'conjunctionTolerance'])
 
@@ -68,7 +39,7 @@
       })
     }
     if (FLAT.has(kind)) return t('almanac.effect.flat', { value: magnitude, term })
-    // A repair-cost node reduces; every other proportional node adds.
+
     return t('almanac.effect.percent', {
       sign: kind === 'repairCost' ? '−' : '+',
       value: Math.round(magnitude * 100),
@@ -76,31 +47,22 @@
     })
   }
 
-  // --- Pan and zoom. -------------------------------------------------------
-
   let scale = $state(0.85)
   let panX = $state(0)
   let panY = $state(0)
 
-  /*
-   * The layout is centred on the origin, and SVG puts the origin in the
-   * top-left corner — so without this the tree hangs off the top and left of
-   * the viewport. Measured rather than assumed, because the panel is a grid
-   * column whose width depends on the window.
-   */
   let viewWidth = $state(0)
   let viewHeight = $state(0)
   const originX = $derived(viewWidth / 2 + panX)
   const originY = $derived(viewHeight / 2 + panY)
-  // Reactive because the template reads it for the grab cursor; the drag
-  // origins below are not, since nothing renders them.
+
   let dragging = $state(false)
   let dragFromX = 0
   let dragFromY = 0
 
   function onWheel(event: WheelEvent) {
     event.preventDefault()
-    // Multiplicative, so a notch feels the same at every zoom level.
+
     const next = scale * (event.deltaY < 0 ? 1.12 : 1 / 1.12)
     scale = Math.min(2.2, Math.max(0.35, next))
   }
@@ -129,19 +91,10 @@
     panY = 0
   }
 
-  // --- Selection and the path preview. -------------------------------------
-
   let selectedId = $state<string | null>(null)
 
   const selected = $derived(game.tree.find((n) => n.id === selectedId) ?? null)
 
-  /**
-   * The chain of nodes reaching the selection, and what it costs together.
-   *
-   * Quoted from the backend rather than summed here: each purchase raises its
-   * branch's depth, so adding up today's prices would under-quote every
-   * multi-step path — the one thing a planning affordance must not do.
-   */
   const path = $derived(
     selectedId && game.treeActions ? game.treeActions.preview(selectedId) : null,
   )
@@ -150,7 +103,6 @@
 
   const byId = $derived(new Map(game.tree.map((n) => [n.id, n])))
 
-  /** Every prerequisite edge, for drawing. */
   const edges = $derived(
     game.tree.flatMap((node) =>
       node.requires
@@ -171,19 +123,6 @@
     if (selectedId) game.treeActions?.purchase(selectedId)
   }
 
-  // --- Hover. ---------------------------------------------------------------
-
-  /**
-   * What the pointer is over, if anything.
-   *
-   * Separate from the selection on purpose. Reading what a node is used to
-   * *cost* you your selection — and the selection is the planning state, the
-   * thing holding the highlighted path across the tree. Browsing had to
-   * destroy planning, which is backwards.
-   *
-   * Suppressed while panning: a card following the tree as it slides under the
-   * pointer is unreadable, and it is not what the player is doing.
-   */
   let hovered = $state<{ node: TreeNodeView; anchor: DOMRect } | null>(null)
 
   function hover(node: TreeNodeView, event: PointerEvent): void {
@@ -255,18 +194,6 @@
             tabindex="0"
             aria-label={content('upgrade', node.id, 'name', node.name)}
             onpointerdown={(e) => {
-              /*
-               * Selection happens on pointer*down*, and the event stops here.
-               *
-               * The canvas calls `setPointerCapture` on itself to pan, which
-               * retargets every following mouse event — including the `click`
-               * — to the canvas. A click on a node therefore never reached the
-               * node, and the only way to select one was to tab to it and
-               * press Enter. Stopping the event before the canvas sees it
-               * fixes the cause rather than the symptom; the cost is that a
-               * drag cannot start on top of a node, which is a fair trade for
-               * a node that can be clicked.
-               */
               e.stopPropagation()
               selectedId = node.id
             }}
@@ -278,10 +205,7 @@
             onfocus={(e) => hover(node, e as unknown as PointerEvent)}
             onblur={() => (hovered = null)}
           >
-            <!-- A star, not a disc: four points on the axes with a soft waist,
-                 which is the shape the eye reads as a star at this size. The
-                 wide invisible disc under it keeps the click target generous
-                 without drawing a circle around every point. -->
+
             <circle class="hit" r="18" />
             <path
               class="star"
@@ -318,8 +242,7 @@
         {#if selected.purchased}
           <p class="state done">{t('almanac.purchased')}</p>
         {:else if path && path.ids.length > 1}
-          <!-- The planning affordance: what the whole chain costs, not just
-               this node, since the prerequisites are not optional. -->
+
           <p class="state">
             {t('almanac.path', { count: path.ids.length, total: path.total })}
           </p>
@@ -375,8 +298,6 @@
     cursor: grabbing;
   }
 
-  /* Thin, so the lines read as the joins of a constellation rather than as
-     pipework. A purchased chain is the one that brightens. */
   .edges line {
     stroke: var(--inert);
     stroke-width: 1;
@@ -396,7 +317,6 @@
     cursor: pointer;
   }
 
-  /* The hit target. Invisible, and wider than the star it sits under. */
   .node circle.hit {
     fill: transparent;
     stroke: none;
@@ -417,9 +337,6 @@
     stroke: var(--corona-dim);
   }
 
-  /* A purchased node is a lit star: filled, and the only thing on the canvas
-     that glows. It is how an invested arm reads as invested from across the
-     panel, without a legend. */
   .node.purchased .star {
     fill: var(--corona);
     stroke: #f0e6c8;
@@ -510,8 +427,6 @@
     line-height: 1.45;
   }
 
-  /* The hover card. Terser than the detail column on purpose: it answers
-     "what is this" while the column answers "what does it take". */
   .card-branch {
     display: block;
     font-size: 0.6rem;

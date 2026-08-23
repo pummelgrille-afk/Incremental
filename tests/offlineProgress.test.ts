@@ -46,7 +46,6 @@ describe('the formula', () => {
   })
 
   it('treats negative input as zero rather than paying out', () => {
-    // A clock that went backwards must not become income.
     expect(run(-HOUR).salvage).toBe(0)
     expect(run(HOUR, -5).salvage).toBe(0)
   })
@@ -69,8 +68,6 @@ describe('the cap', () => {
   })
 
   it('reports the overflow rather than hiding it', () => {
-    // economy-spec.md §4: telling the player they lost nothing when they did
-    // erodes trust in an idle game's numbers.
     const result = run(OFFLINE.capSeconds + 2 * HOUR)
     expect(result.effectiveSeconds).toBe(OFFLINE.capSeconds)
     expect(result.wastedSeconds).toBeCloseTo(2 * HOUR, 6)
@@ -94,11 +91,6 @@ describe('the cap', () => {
 })
 
 describe('efficiency stays below parity', () => {
-  /**
-   * balancing.csv annotates `efficiency_max`: "must stay below 1.0 always". At
-   * parity, leaving the game would be the optimal play — the one outcome this
-   * whole section exists to prevent.
-   */
   it('is a fraction to begin with', () => {
     expect(OFFLINE.efficiency).toBeLessThan(1)
     expect(OFFLINE.maxEfficiency).toBeLessThan(1)
@@ -123,8 +115,6 @@ describe('efficiency stays below parity', () => {
   })
 
   it('keeps eight offline hours well under the same time active', () => {
-    // §4's stated intent: at maximum investment, eight offline hours are worth
-    // roughly two active hours.
     const maxed = effects({ offlineEfficiency: 10, offlineCap: 1000 * HOUR })
     const eight = run(8 * HOUR, 3, maxed)
     const activeEight = 8 * HOUR * 3
@@ -152,7 +142,6 @@ describe('what the summary is told', () => {
   })
 
   it('does not interrupt when nothing was earned', () => {
-    // A long absence with no earning rate still has nothing to say.
     expect(isWorthReporting(run(10 * HOUR, 0))).toBe(false)
   })
 
@@ -163,17 +152,9 @@ describe('what the summary is told', () => {
 
 describe('the Recovery nodes are wired', () => {
   it('raises the cap and the efficiency through the tree', () => {
-    // A new effect kind with no node using it is untested configuration, which
-    // is the failure this project keeps finding.
     const save = createDefaultSave(0)
     save.meta.recollection = 10_000
 
-    /*
-     * Bought through `pathTo` rather than as a hardcoded chain. Phase 34
-     * rewired Recovery's prerequisites while filling the branch out, and a list
-     * of ids written against the old graph fails for a reason that has nothing
-     * to do with what this test is checking.
-     */
     for (const target of ['recovery-standing-orders', 'recovery-the-whole-week']) {
       for (const step of pathTo(save, target).steps) {
         expect(purchase(save, step.node.id), step.node.id).toBe(true)
@@ -187,7 +168,6 @@ describe('the Recovery nodes are wired', () => {
 })
 
 describe('the earning rate offline progress is paid from', () => {
-  /** A steady earner: 2 Salvage a second, sampled a frame at a time. */
   const settle = (seconds: number, perSecond = 2): number => {
     let rate = 0
     for (let t = 0; t < seconds; t += 1 / 60) {
@@ -197,7 +177,6 @@ describe('the earning rate offline progress is paid from', () => {
   }
 
   it('follows a steady earner', () => {
-    // Not all the way there — the window is deliberately slow — but most of it.
     expect(settle(RATE_WINDOW_SECONDS * 3)).toBeGreaterThan(1.8)
   })
 
@@ -209,22 +188,11 @@ describe('the earning rate offline progress is paid from', () => {
     const settled = settle(RATE_WINDOW_SECONDS * 3)
     let rate = settled
 
-    // Four seconds between waves, earning nothing.
     for (let t = 0; t < 4; t += 1 / 60) rate = updateEarningRate(rate, 0, 1 / 60)
 
     expect(rate).toBeGreaterThan(settled * 0.9)
   })
 
-  /*
-   * The trap this function exists to name.
-   *
-   * `Simulation.advance` clamps its catch-up, so a frame covering an hour plays
-   * a fraction of a second of it. Handing the hour to this — which is what the
-   * frame loop did until the caller was fixed — divides that fraction's drops
-   * by 3600 and sets the smoothing to 1, replacing the rate outright. The next
-   * absence is then paid at nearly zero, which is what "offline progress stopped
-   * working after I left the tab in the background" looks like from the inside.
-   */
   it('is destroyed by wall-clock time and survives simulated time', () => {
     const settled = settle(RATE_WINDOW_SECONDS * 3)
     const droppedWhileCatchingUp = 2 * 0.5

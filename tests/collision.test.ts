@@ -62,13 +62,11 @@ describe('hurtboxes are decoupled from sprites', () => {
   })
 
   it('uses the Contact own radius, not one shared constant', () => {
-    // A hit just outside the small hurtbox must miss, and the same offset
-    // against a bigger one must connect.
     const small = contactById('skiff')!.hurtboxRadius
     const large = contactById('hulk')!.hurtboxRadius
     expect(large).toBeGreaterThan(small)
 
-    const offset = small + 3.5 + 1 // just past burr's reach
+    const offset = small + 3.5 + 1
     const burr = stationaryContact('skiff', 200, 0)
     projectile('array', 200 + offset, 0)
     updateProjectiles(sim.state, sim.projectiles, TICK_SECONDS)
@@ -82,7 +80,6 @@ describe('hurtboxes are decoupled from sprites', () => {
   })
 
   it('keeps the Sun hitbox smaller than what is drawn', () => {
-    // Errs toward the player: near misses read as misses.
     expect(sim.state.sun.hitboxRadius).toBeLessThan(34)
   })
 })
@@ -92,7 +89,6 @@ describe('block arc', () => {
     const unit = placePlatform(sim.state, platformById('anchor')!, 2, 0)
     const before = unit.hp
 
-    // Slot 0 at phase 0 sits at angle 0 on ring 2.
     projectile('contact', RINGS[1].radius, 0, 25)
     const result = updateProjectiles(sim.state, sim.projectiles, TICK_SECONDS)
 
@@ -104,7 +100,6 @@ describe('block arc', () => {
     const unit = placePlatform(sim.state, platformById('anchor')!, 2, 0)
     const before = unit.hp
 
-    // Same bearing, far inside the band.
     projectile('contact', 90, 0, 25)
     const result = updateProjectiles(sim.state, sim.projectiles, TICK_SECONDS)
 
@@ -164,15 +159,13 @@ describe('the combat feed', () => {
   })
 
   it('emits no popup for a Sun hit', () => {
-    // Playtest: a number at the point of impact competes with the white flash
-    // and the HUD bar, which already carry it. Two channels, one worse.
     const before = sim.state.sun.hp
     projectile('contact', 0, 0, 20)
     const result = updateProjectiles(sim.state, sim.projectiles, TICK_SECONDS)
 
     expect(result.sunHits).toBe(1)
     expect(sim.state.sun.hp).toBeLessThan(before)
-    // The hit is still communicated — just not as a popup.
+
     expect(sim.state.sun.hitFlash).toBeGreaterThan(0)
     expect(sim.state.feed.items.filter((e) => e.active)).toHaveLength(0)
   })
@@ -197,8 +190,6 @@ describe('the combat feed', () => {
   })
 
   it('discards overflow instead of growing', () => {
-    // Presentation, not state: dropping a popup changes no outcome, and an
-    // unbounded feed would allocate on the hot path.
     const feed = new CombatFeed()
     for (let i = 0; i < FEED_CAPACITY + 20; i++) feed.emit('damage', 0, 0, 1)
 
@@ -226,7 +217,6 @@ describe('the combat feed', () => {
   })
 
   it('never influences the simulation', () => {
-    // The feed is drawn, never read by systems. Filling it must not change a run.
     const a = new Simulation(loadStage(STAGE), createRng(7))
     const b = new Simulation(loadStage(STAGE), createRng(7))
     for (let i = 0; i < 200; i++) b.state.feed.emit('damage', i, i, i)

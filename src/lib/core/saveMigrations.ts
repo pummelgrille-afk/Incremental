@@ -1,47 +1,9 @@
 import { SCHEMA_VERSION } from './saveSchema'
 import { DEFAULT_BINDINGS } from '../content/keybindings'
 
-/**
- * Save schema migrations.
- *
- * The machinery exists from day one even though there is nothing to migrate
- * yet. ADR-002 is explicit about why: migrations are cheap to design now and
- * painful to retrofit. The first time a field changes shape, the only work is
- * adding one entry here.
- *
- * A migration takes a save at version N and returns it at version N+1. It runs
- * on **raw parsed JSON**, before validation, because a save written by an older
- * build will not satisfy the current schema until it has been migrated.
- *
- * **Each migration speaks the vocabulary of the version it produces, not the
- * vocabulary of the current build.** Steps 1→5 were written before the solar
- * reskin and still say `filings`, `chimeUpgrades`, `chimesEverMounted`; that is
- * correct, because a save at version 4 genuinely has a field called
- * `filingsPerSecond`. Step 5→6 is where the whole vocabulary changes at once.
- * Renaming the earlier steps to match today's field names would make them lie
- * about what they produce, and the next migration to read one of those fields
- * would find nothing there.
- */
-
 export type RawSave = Record<string, unknown>
 export type Migration = (save: RawSave) => RawSave
 
-/**
- * Keyed by the version being migrated *from*. To add one:
- *
- *   1. Bump SCHEMA_VERSION in saveSchema.ts.
- *   2. Add an entry here keyed on the old version.
- *   3. Add a test with a fixture of the old shape.
- *
- * Migrations must be pure and must not throw on unexpected input — a save that
- * cannot be migrated should degrade to defaults during validation, not crash.
- */
-/**
- * Content ids the solar reskin renamed. Saves store ids, so every one of these
- * has to be carried across or the referenced content silently disappears —
- * a Detent in a saved formation would resolve to nothing and the slot would
- * come back empty.
- */
 const PLATFORM_IDS: Readonly<Record<string, string>> = {
   hammer: 'bolt',
   detent: 'anchor',
@@ -71,17 +33,14 @@ const NODE_IDS: Readonly<Record<string, string>> = {
   'regulation-second-beat': 'regulation-second-flare',
 }
 
-/** The Array upgrade track "winding" became "recharge". */
 const TRACK_IDS: Readonly<Record<string, string>> = { winding: 'recharge' }
 
-/** Unknown ids pass through unchanged — content drift is tolerated elsewhere. */
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
 const remap = (id: string, table: Readonly<Record<string, string>>): string =>
   table[id] ?? id
 
-/** `"escapement-floor:first-shift"` → `"service-floor:first-shift"`. */
 function remapStage(address: string): string {
   const colon = address.indexOf(':')
   if (colon < 0) return remap(address, ZONE_IDS)
@@ -115,16 +74,6 @@ function remapValues(
 const strings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
 
-/**
- * The onboarding steps as they stood when schema 7 was written.
- *
- * A literal rather than an import from `content/tutorial.ts`, for the reason
- * the file comment above gives: a migration speaks the vocabulary of the
- * version it produces. If Phase 40 adds a tenth step, a save migrated by *this*
- * step must not retroactively be marked as having seen it — it never existed
- * when that save was upgraded, and a genuinely new system is worth explaining
- * once even to a returning player.
- */
 const TUTORIAL_IDS_AT_SCHEMA_7 = [
   'standing-watch',
   'the-flare',
@@ -138,18 +87,6 @@ const TUTORIAL_IDS_AT_SCHEMA_7 = [
 ]
 
 export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
-  /**
-   * 7 → 8: keys become data.
-   *
-   * The bindings lived inside `core/bootstrap.ts` as a run of `event.key`
-   * comparisons from Phase 10 until Phase 43, so there is nothing in an
-   * existing save to carry across — every save was, in effect, on the
-   * defaults. This writes them in explicitly rather than leaving the field
-   * absent and letting `normalise` fill it, for one reason: **a stored map
-   * pins a player's keys against a future default changing under them.** A
-   * save that says nothing is a save that agrees to whatever the next version
-   * decides, and the whole point of a rebind is that it does not.
-   */
   7: (save) => {
     const settings = isObject(save.settings) ? save.settings : {}
 
@@ -165,25 +102,6 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
     }
   },
 
-  /**
-   * 6 → 7: onboarding remembers what it has already said.
-   *
-   * The addition is `meta.tutorialSeen`. The interesting part is what it is
-   * seeded with: **a save that has cleared anything is marked as having seen
-   * every step**, and only a save that has never cleared a stage starts the
-   * sequence.
-   *
-   * Without that, every existing player would be met by a card explaining what
-   * Salvage is, then one explaining Clearance, then one explaining the panel
-   * they have had open for six hours — an onboarding sequence delivered to
-   * someone who is demonstrably onboarded. The condition is `clearedStages`
-   * rather than playtime because it is the one signal that cannot be produced
-   * by leaving the game open on a menu.
-   *
-   * A save that has genuinely never cleared a stage keeps the sequence, which
-   * is right: they are mid-onboarding whether or not the tutorial existed when
-   * they started.
-   */
   6: (save) => {
     const meta = (save.meta ?? {}) as Record<string, unknown>
     const cleared = Array.isArray(meta.clearedStages) ? meta.clearedStages.length : 0
@@ -202,25 +120,6 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
     }
   },
 
-  /**
-   * 5 → 6: the solar reskin renames every persisted field and every content id.
-   *
-   * By far the largest migration, and the only one that is a *rename* rather
-   * than an addition. Nothing here changes a value: `filings` becomes
-   * `salvage`, `keys` becomes `clearance`, `hammer` becomes `bolt`, and the
-   * player's balances, roster and tree are carried across untouched. A save
-   * that survives this step is the same save under different names.
-   *
-   * Both halves matter and the second is easy to forget. Renaming only the
-   * *fields* would leave a formation full of ids like `detent` that no longer
-   * resolve to anything, and the units would quietly vanish from their slots on
-   * the next load with no error anywhere — the same failure mode as a save
-   * referencing deleted content, except self-inflicted.
-   *
-   * Unknown ids pass through rather than being dropped. A save carrying content
-   * from a build this one does not know about is the validator's problem, and
-   * it already tolerates it.
-   */
   5: (save) => {
     const run = (save.run ?? {}) as Record<string, unknown>
     const meta = (save.meta ?? {}) as Record<string, unknown>
@@ -277,9 +176,7 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
           if (entry === null || typeof entry !== 'object') return entry
           const preset = entry as Record<string, unknown>
           const out: Record<string, unknown> = { ...preset }
-          // Only remap what is actually there. Writing `formation: {}` onto a
-          // preset that had no formation would be this migration inventing
-          // fields, which is the validator's job and not a migration's.
+
           if (preset.formation !== undefined) {
             out.formation = remapValues(preset.formation, PLATFORM_IDS)
           }
@@ -297,38 +194,6 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = Object.freeze({
     }
   },
 
-  /**
-   * 1 → 2: Phase 24 added `meta.presets`.
-   *
-   * The first real migration, and it is the boring kind on purpose — a new
-   * field with a safe empty default. `meta` is read defensively because this
-   * runs on raw parsed JSON, before validation: a hand-edited or truncated save
-   * must degrade to defaults rather than throw here.
-   */
-  /**
-   * 2 → 3: Phase 25 added `meta.chimeUpgrades`.
-   *
-   * Same shape as the previous step, and deliberately so: a new field with a
-   * safe empty default, `meta` read defensively because this runs before
-   * validation.
-   */
-  /**
-   * 3 → 4: Phase 27 added `run.filingsPerSecond`.
-   *
-   * Defaults to 0, which means a save migrated from an older build earns
-   * nothing for the absence that carried it across the upgrade. That is the
-   * honest default — the old build never recorded a rate, so inventing one
-   * would be paying out for a number nobody measured.
-   */
-  /**
-   * 4 → 5: Phase 28 added `run.chimesEverMounted`.
-   *
-   * Defaults to **false**, which is generous — a save carried across the
-   * upgrade counts as never having mounted a Chime, so an in-flight run can
-   * still earn "Documented Procedure". The alternative would deny an
-   * achievement for something the old build never recorded either way, and
-   * erring toward the player is the right side to err on for a cosmetic award.
-   */
   4: (save) => {
     const run = (save.run ?? {}) as Record<string, unknown>
     return {
@@ -382,19 +247,12 @@ export class MigrationError extends Error {
   }
 }
 
-/**
- * Step a raw save up to the current schema version.
- *
- * Returns the migrated save plus the chain applied, so the caller can log what
- * happened to a player's file.
- */
 export function migrate(raw: RawSave): { save: RawSave; applied: number[] } {
   let save = raw
   const applied: number[] = []
 
   let version = typeof save.schemaVersion === 'number' ? save.schemaVersion : 0
 
-  // Guard against a malformed migration that fails to advance the version.
   let guard = 0
   while (version < SCHEMA_VERSION) {
     const migration = MIGRATIONS[version]
@@ -423,7 +281,6 @@ export function migrate(raw: RawSave): { save: RawSave; applied: number[] } {
   return { save, applied }
 }
 
-/** True when this save predates the current schema and needs stepping up. */
 export function needsMigration(raw: RawSave): boolean {
   const version = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 0
   return version < SCHEMA_VERSION

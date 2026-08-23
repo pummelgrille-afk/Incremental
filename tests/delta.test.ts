@@ -1,19 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { PooledDelta } from '../src/lib/utils/delta'
 
-/**
- * The HUD's gain and loss readouts, as arithmetic.
- *
- * Everything interesting about them is here rather than in a component: how
- * fast movement pools, when it expires, and what happens when a number moves
- * both ways inside one window. A `.svelte` file cannot be asked any of that.
- */
-
 const WINDOW = 1.1
 
 describe('pooling', () => {
   it('adopts the first value in silence', () => {
-    // Otherwise a loaded save's whole balance animates as though just earned.
     const d = new PooledDelta(WINDOW)
     d.push(880, 0)
 
@@ -22,7 +13,6 @@ describe('pooling', () => {
   })
 
   it('accumulates a rise rather than reporting each step', () => {
-    // Twenty kills in a second is one "+240", not twenty floats.
     const d = new PooledDelta(WINDOW)
     d.push(0, 0)
     for (let i = 1; i <= 20; i++) d.push(i * 12, i * 0.02)
@@ -51,7 +41,6 @@ describe('pooling', () => {
   })
 
   it('extends the window while movement continues', () => {
-    // A sustained stream must not blink out mid-stream at a fixed age.
     const d = new PooledDelta(WINDOW)
     d.push(0, 0)
     for (let t = 0; t <= 4; t += 0.5) d.push(t * 100 + 100, t)
@@ -62,7 +51,6 @@ describe('pooling', () => {
 
 describe('the freshest movement wins', () => {
   it('clears a standing gain when the value falls', () => {
-    // Spending Salvage must not leave the kill that funded it advertised.
     const d = new PooledDelta(WINDOW)
     d.push(100, 0)
     d.push(160, 0.1)
@@ -74,7 +62,6 @@ describe('the freshest movement wins', () => {
   })
 
   it('clears a standing loss when the value rises', () => {
-    // Repairing the Sun mid-wave: the damage is over, say so.
     const d = new PooledDelta(WINDOW)
     d.push(1000, 0)
     d.push(700, 0.1)
@@ -106,7 +93,6 @@ describe('priming and clearing', () => {
   })
 
   it('drops what it knew, so the next push is silent again', () => {
-    // What a stage load needs: full Output on a fresh stage is not a heal.
     const d = new PooledDelta(WINDOW)
     d.push(1000, 0)
     d.push(400, 0.5)

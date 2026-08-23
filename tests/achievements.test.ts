@@ -25,8 +25,6 @@ beforeEach(() => {
 
 describe('the authored list', () => {
   it('transcribes the names narrative.md authored', () => {
-    // The copy belongs to the design doc, not to content/achievements.ts. If
-    // these drift, the doc is no longer the source of truth it claims to be.
     const names = ACHIEVEMENTS.map((a) => a.name)
     expect(names).toEqual([
       'Signed for the Shift',
@@ -51,8 +49,6 @@ describe('the authored list', () => {
   })
 
   it('earns nothing on a fresh save', () => {
-    // Every trigger must be false for a player who has done nothing, or the
-    // list opens half-complete.
     expect(evaluate(save, 'load')).toEqual([])
     expect(earnedCount(save)).toBe(0)
   })
@@ -68,7 +64,6 @@ describe('awarding', () => {
   })
 
   it('never awards the same achievement twice', () => {
-    // Safe to call on every stage clear forever, which is how it is used.
     save.meta.clearedStages.push(FIRST)
     evaluate(save, 'stage-cleared')
 
@@ -89,8 +84,6 @@ describe('awarding', () => {
   })
 
   it('can award several at once', () => {
-    // A first clear that was also untouched lands two on the same tick, which
-    // is why the UI queues rather than replaces.
     save.meta.clearedStages.push(FIRST)
     const earned = evaluate(save, 'stage-cleared', { clearedUntouched: true })
 
@@ -101,7 +94,6 @@ describe('awarding', () => {
   })
 
   it('survives a trigger that throws rather than taking the run with it', () => {
-    // Content is data; one bad predicate must not crash a session.
     const exploding: AchievementDef = {
       id: 'boom',
       name: 'Boom',
@@ -126,7 +118,6 @@ describe('each trigger', () => {
   it('Within Tolerance — needs an untouched clear, on the clear itself', () => {
     save.meta.clearedStages.push(FIRST)
 
-    // Losing Output: not earned.
     evaluate(save, 'stage-cleared', { clearedUntouched: false })
     expect(isEarned(save, 'within-tolerance')).toBe(false)
 
@@ -135,8 +126,6 @@ describe('each trigger', () => {
   })
 
   it('Within Tolerance — is not earned by an untouched *loss*', () => {
-    // The flag only means anything on a clear; a stage lost at full Output is
-    // not a thing, but the trigger should not depend on that staying true.
     evaluate(save, 'stage-lost', { clearedUntouched: true })
     expect(isEarned(save, 'within-tolerance')).toBe(false)
   })
@@ -168,18 +157,12 @@ describe('each trigger', () => {
   })
 
   it('Documented Procedure — is denied by a Array mounted earlier in the run', () => {
-    /*
-     * The whole reason the flag is sticky and lives on the run: a per-zone or
-     * per-moment check would let a player unmount before the final clear and
-     * collect it on a technicality.
-     */
     grantStartingLoadout(save)
     save.meta.clearance = 100
     save.run.salvage = 10_000
     unlock(save, 'array', 'long-baseline')
     mountArray(save, 'long-baseline', 0)
 
-    // Unmounting does not clear the flag.
     save.run.mounts = {}
 
     evaluate(save, 'stage-cleared', { zoneCompleted: true })
@@ -189,7 +172,6 @@ describe('each trigger', () => {
   it('The Undermaster Will Hear of This — needs a loss with everything owned fielded', () => {
     save.meta.platforms = { bolt: 1, anchor: 1 }
 
-    // Only one of the two types on the field.
     evaluate(save, 'stage-lost', { distinctPlatformsSlotted: 1, unlockedPlatforms: 2 })
     expect(isEarned(save, 'the-undermaster-will-hear-of-this')).toBe(false)
 
@@ -204,7 +186,6 @@ describe('each trigger', () => {
   })
 
   it('The Undermaster — is not earned by owning nothing', () => {
-    // A player with an empty roster trivially has "all of it" fielded.
     evaluate(save, 'stage-lost', { distinctPlatformsSlotted: 0, unlockedPlatforms: 0 })
     expect(isEarned(save, 'the-undermaster-will-hear-of-this')).toBe(false)
   })
@@ -221,7 +202,6 @@ describe('each trigger', () => {
 
 describe('catching up on load', () => {
   it('awards state-shaped achievements a save already qualifies for', () => {
-    // A save from before this phase must not be permanently denied them.
     save.meta.clearedStages.push(FIRST)
     save.statistics.conjunctionsFired = 4
     save.meta.rewindCount = 2
@@ -233,8 +213,6 @@ describe('catching up on load', () => {
   })
 
   it('does not award event-shaped ones on load', () => {
-    // "A conjunction of three just fired" is not something a save records, so
-    // loading must not invent it.
     save.statistics.conjunctionsFired = 99
     const earned = evaluate(save, 'load').map((a) => a.id)
 
@@ -255,9 +233,6 @@ describe('the listing', () => {
   })
 
   it('counts against content, not against the save array', () => {
-    // A save carrying an id that no longer exists must not report more earned
-    // than there are — the same content-drift tolerance the rest of the save
-    // layer has.
     save.meta.achievements.push('removed-in-a-later-version')
     expect(earnedCount(save)).toBe(0)
   })
@@ -265,8 +240,6 @@ describe('the listing', () => {
 
 describe('a real zone completion', () => {
   it('is reachable with the authored zone', () => {
-    // Guards against the trigger asking for something the content cannot
-    // produce — a permanently grey row.
     const zone = ZONES[0]
     for (const stage of zone.stages) {
       save.meta.clearedStages.push(`${zone.id}:${stage.id}` as StageAddress)

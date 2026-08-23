@@ -1,13 +1,4 @@
 <script lang="ts">
-  /**
-   * A continuous value, with its current reading beside it.
-   *
-   * The reading is not decoration. Three volume faders with no numbers on them
-   * cannot be described to anyone, cannot be restored to where they were, and
-   * cannot be talked about in a bug report — and these three in particular took
-   * two phases to get right precisely because nobody could say what they were
-   * set to.
-   */
 
   interface Props {
     id: string
@@ -16,7 +7,7 @@
     max?: number
     step?: number
     onchange: (value: number) => void
-    /** How the current value is written. Defaults to a percentage. */
+
     format?: (value: number) => string
     label?: string
   }

@@ -23,7 +23,6 @@ beforeEach(() => {
   save = createDefaultSave(0)
 })
 
-/** Clear a whole zone, in order, the way a player would. */
 function clearZone(zoneId: string): void {
   const zone = zoneById(zoneId)!
   for (const s of zone.stages) applyStageClear(save, stageAddress(zone.id, s.id))
@@ -31,9 +30,6 @@ function clearZone(zoneId: string): void {
 
 describe('the ladder', () => {
   it('transcribes the zone names narrative.md authored, in order', () => {
-    // The copy belongs to the design doc, as with the bosses and the
-    // achievements. If these drift, the doc has stopped being the source of
-    // truth it claims to be.
     expect(zonesInOrder().map((z) => z.name)).toEqual([
       'The Service Floor',
       'The Fast Orbit',
@@ -52,9 +48,6 @@ describe('the ladder', () => {
   })
 
   it('is continuous and starts at one', () => {
-    // scalingIndex is global, not per zone — every formula in economy-spec.md
-    // §5 reads it, so a gap or a repeat would be a step in the difficulty curve
-    // that nothing authored.
     const indices = zonesInOrder().flatMap((z) => z.stages.map((s) => s.scalingIndex))
     expect(indices[0]).toBe(1)
     for (let i = 1; i < indices.length; i++) {
@@ -91,8 +84,6 @@ describe('the ladder', () => {
   })
 
   it('loads every authored stage', () => {
-    // The loader validates content. Forty stages is more than anyone will
-    // eyeball, so this is the guard that a typo in any of them fails loudly.
     for (const zone of ZONES) {
       for (const s of zone.stages) {
         expect(() => loadStage(stageAddress(zone.id, s.id))).not.toThrow()
@@ -102,12 +93,6 @@ describe('the ladder', () => {
 })
 
 describe('bosses are reachable', () => {
-  /*
-   * The problem this phase existed to fix. Boss stages fall on the scaling
-   * interval; narrative.md assigns bosses to zones. With three-stage zones the
-   * two never coincided, and Phase 32 shipped five bosses nothing could reach.
-   */
-
   it('puts a boss on every stage the interval calls for, and nowhere else', () => {
     for (const zone of ZONES) {
       for (const s of zone.stages) {
@@ -120,8 +105,6 @@ describe('bosses are reachable', () => {
   })
 
   it('makes every boss the final stage of its zone', () => {
-    // What narrative.md describes. A boss in the middle of a zone would read as
-    // an obstacle rather than a milestone.
     for (const zone of ZONES) {
       const bossIndexes = zone.stages
         .map((s, i) => (s.waves.some(isBossWave) ? i : -1))
@@ -156,8 +139,6 @@ describe('bosses are reachable', () => {
   })
 
   it('puts the first boss inside a first run', () => {
-    // economy-spec.md §3 puts the first Rewind at roughly stage 8. A first boss
-    // deeper than that would never be met before the tree it reveals is needed.
     const first = ZONES.flatMap((z) => z.stages)
       .filter((s) => s.waves.some(isBossWave))
       .sort((a, b) => a.scalingIndex - b.scalingIndex)[0]
@@ -174,11 +155,6 @@ describe('zone unlocking', () => {
   })
 
   it('opens the next zone when the previous one is fully cleared', () => {
-    /*
-     * `ZoneDef.requires` and `meta.unlockedZones` both existed from Phase 8 and
-     * nothing ever wrote to the second. Every zone past the first was
-     * unreachable, and nothing noticed because there was no second zone.
-     */
     clearZone('service-floor')
     expect(isZoneUnlocked(save, 'fast-orbit')).toBe(true)
     expect(isZoneUnlocked(save, 'the-veil'), 'only one step').toBe(false)
@@ -204,9 +180,6 @@ describe('zone unlocking', () => {
   })
 
   it('catches up several zones at once', () => {
-    // A save repaired or migrated from an older build may satisfy more than one
-    // prerequisite. Unlocking one step per call would leave it short of what it
-    // earned, with no way to notice.
     clearZone('service-floor')
     clearZone('fast-orbit')
     clearZone('the-veil')
@@ -226,8 +199,6 @@ describe('zone unlocking', () => {
   })
 
   it('survives a Rewind, because a Rewind never takes access', () => {
-    // economy-spec.md §3: a Rewind resets power within a run, never access to
-    // content already unlocked.
     clearZone('service-floor')
     expect(isZoneUnlocked(save, 'fast-orbit')).toBe(true)
 
@@ -248,8 +219,6 @@ describe('stage unlocking', () => {
   })
 
   it('keeps a cleared stage open', () => {
-    // Re-clearing awards nothing, so there is no exploit — and closing it would
-    // strand a player who wants an easier stage to farm Salvage on.
     applyStageClear(save, 'service-floor:first-shift')
     expect(isStageUnlocked(save, 'service-floor:first-shift')).toBe(true)
   })
@@ -283,8 +252,6 @@ describe('nextStageFor', () => {
   })
 
   it('never returns null while content exists', () => {
-    // The field must never be empty. A save that has cleared everything gets
-    // the deepest stage rather than nothing.
     for (const zone of ZONES) clearZone(zone.id)
     expect(nextStageFor(save)).not.toBeNull()
   })
@@ -292,8 +259,6 @@ describe('nextStageFor', () => {
 
 describe('the map view', () => {
   it('reports every zone, locked ones included', () => {
-    // Locked zones are shown rather than hidden: a player should see there is
-    // more out there, or a ladder reads as a corridor.
     const view = mapView(save)
     expect(view).toHaveLength(ZONES.length)
     expect(view.filter((z) => !z.unlocked).length).toBe(ZONES.length - 1)

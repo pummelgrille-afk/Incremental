@@ -45,7 +45,7 @@ describe('motion archetypes', () => {
     const s = spawn('skiff', 320, 0)
     for (let i = 0; i < 40; i++) updateContactMotion(sim.state, TICK_SECONDS)
     expect(radiusOf(s)).toBeLessThan(320)
-    // The weave puts it off the radial it started on.
+
     expect(Math.abs(s.position.y)).toBeGreaterThan(0)
   })
 
@@ -64,14 +64,12 @@ describe('motion archetypes', () => {
     const s = spawn('picket', 320)
     const target = contactById('picket')!.traits!.orbitRadius!
 
-    // Closes.
     for (let i = 0; i < 200; i++) {
       updateContactMotion(sim.state, TICK_SECONDS)
       if (radiusOf(s) <= target + 5) break
     }
     expect(radiusOf(s)).toBeLessThanOrEqual(target + 5)
 
-    // Then holds it exactly, rather than drifting in a band.
     for (let i = 0; i < 100; i++) updateContactMotion(sim.state, TICK_SECONDS)
     expect(radiusOf(s)).toBeCloseTo(target, 6)
   })
@@ -86,9 +84,7 @@ describe('motion archetypes', () => {
   it('orbiters split direction, so they do not form one convoy', () => {
     const a = spawn('picket', 206, 0)
     const b = spawn('picket', 206, 0)
-    // Ids differ in parity, so the two circle opposite ways. Check velocity.y:
-    // at angle 0 the tangent is vertical, so velocity.x is zero for both and
-    // its sign carries no information.
+
     for (let i = 0; i < 20; i++) updateContactMotion(sim.state, TICK_SECONDS)
     expect(Math.sign(a.velocity.y)).not.toBe(Math.sign(b.velocity.y))
     expect(Math.sign(a.velocity.y)).not.toBe(0)
@@ -106,7 +102,6 @@ describe('shielded', () => {
       expect(s.hp).toBe(full)
     }
 
-    // The next hit lands.
     damageContact(s, 10)
     expect(s.hp).toBeLessThan(full)
   })
@@ -172,8 +167,6 @@ describe('splitters', () => {
   })
 
   it('children exist immediately, so a wave cannot read as cleared', () => {
-    // Spawning them a step later would leave sim.contact empty for one tick, and
-    // objectiveRules would call the wave complete.
     const parent = spawn('brood', 200)
     reapContact(sim.state, new Set([parent.id]))
     expect(sim.state.contact.length).toBeGreaterThan(0)
@@ -187,10 +180,6 @@ describe('splitters', () => {
 })
 
 describe('content integrity', () => {
-  /**
-   * Nothing clamps splitting at runtime, by design — clamping would rewrite
-   * authored difficulty. So a split cycle must be impossible to author.
-   */
   it('has no split cycles', () => {
     for (const def of CONTACT) {
       const seen = new Set<string>([def.id])
@@ -214,7 +203,6 @@ describe('content integrity', () => {
   })
 
   it('gives every behavioural hook at least one live user', () => {
-    // A hook with no content using it is untested configuration.
     expect(CONTACT.some((s) => s.traits?.splitsInto)).toBe(true)
     expect(CONTACT.some((s) => s.traits?.shieldHits)).toBe(true)
     expect(CONTACT.some((s) => s.traits?.vulnerableWhileTelegraphing)).toBe(true)
@@ -241,18 +229,7 @@ describe('content integrity', () => {
   })
 })
 
-/**
- * Spawn bearings.
- *
- * Zone 1 stopped using arc-based waves after the Phase 17 playtest — every
- * shipped wave now takes the `else` branch of `spawnPosition`. That left the
- * arc branch as authored-but-unexercised configuration, which is precisely the
- * shape of the `wall(1)` NaN bug Phase 16 found. `massed` and `pincer` are kept
- * for Phase 33, so they are covered here directly rather than by whatever
- * content happens to use them.
- */
 describe('spawn bearings', () => {
-  /** Shortest signed difference; raw atan2 values cannot be compared directly. */
   function angleDelta(a: number, b: number): number {
     let d = (a - b) % (Math.PI * 2)
     if (d > Math.PI) d -= Math.PI * 2
@@ -260,7 +237,6 @@ describe('spawn bearings', () => {
     return d
   }
 
-  /** Run one wave's spawns against a **cloned** stage — never shared content. */
   function bearings(wave: WaveDef, seed: number, arcOffset = 0): number[] {
     const state = loadStage(STAGE)
     const stage = { ...state.stage, waves: [wave] }
@@ -268,7 +244,7 @@ describe('spawn bearings', () => {
 
     const rng = createRng(seed)
     const total = wave.groups.reduce((n, g) => n + g.count, 0)
-    // Step past every due time in one call, so ordering matches a real tick.
+
     state.waveElapsed = 1000
     updateSpawning(state, rng, -1)
 
@@ -287,7 +263,6 @@ describe('spawn bearings', () => {
   })
 
   it('gives different bearings for different seeds', () => {
-    // The whole point of the change: a wave is not memorisable across runs.
     expect(bearings(scattered('skiff', 20, 0.1), 1)).not.toEqual(
       bearings(scattered('skiff', 20, 0.1), 2),
     )
@@ -296,7 +271,7 @@ describe('spawn bearings', () => {
   it('keeps an arc wave inside its arc, jitter included', () => {
     const width = Math.PI / 3
     const count = 16
-    // Jitter may carry a spawn half a neighbour-gap past either end.
+
     const contact = (width / (count - 1)) * 0.5
     for (const a of bearings(massed('skiff', count, 0, width), 5)) {
       expect(Math.abs(angleDelta(a, 0))).toBeLessThanOrEqual(width / 2 + contact + 1e-9)
@@ -311,7 +286,6 @@ describe('spawn bearings', () => {
   })
 
   it('never produces a non-finite position', () => {
-    // wall(1) once yielded NaN from exactly this class of arc arithmetic.
     for (const count of [1, 2, 3, 40]) {
       for (const a of bearings(massed('skiff', count, 0, Math.PI / 4), 2)) {
         expect(Number.isFinite(a)).toBe(true)

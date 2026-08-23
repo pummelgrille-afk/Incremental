@@ -10,19 +10,10 @@ import { createContact } from '../src/lib/systems/spawn'
 import { contactById } from '../src/lib/content/contacts'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
-/**
- * Budgets are **content constraints**, enforced here rather than by clamping at
- * runtime. Silently truncating a wave would change authored difficulty
- * invisibly, which is a worse failure than a brief frame dip.
- *
- * See docs/architecture.md, "Performance budgets", for the measurements these
- * numbers come from.
- */
-
 describe('budget definitions', () => {
   it('leaves headroom inside the 60 fps frame', () => {
     expect(TARGET_FRAME_MS).toBeLessThan(FRAME_BUDGET_MS)
-    // The remainder belongs to the browser: style, compositing, GC.
+
     expect(TARGET_FRAME_MS / FRAME_BUDGET_MS).toBeLessThanOrEqual(0.75)
   })
 
@@ -31,17 +22,11 @@ describe('budget definitions', () => {
   })
 
   it('sizes the unit budget to the field that exists', () => {
-    // Nothing can slot more Platforms than there are slots.
     expect(BUDGETS.units).toBe(TOTAL_SLOTS + RIM_MOUNTS)
   })
 })
 
 describe('content stays inside the Contact budget', () => {
-  /**
-   * Worst case for a wave: everything it schedules is alive at once.
-   * Conservative by construction — kills only reduce it — so a pass here is a
-   * real guarantee, not an estimate.
-   */
   function worstCaseConcurrent(waveGroups: readonly { count: number }[]): number {
     return waveGroups.reduce((n, g) => n + g.count, 0)
   }
@@ -74,7 +59,7 @@ describe('content stays inside the Contact budget', () => {
         }
       }
     }
-    // Authored content is nowhere near the budget yet; Phase 33 will close this.
+
     expect(worst).toBeLessThan(BUDGETS.contact)
   })
 })
@@ -82,7 +67,6 @@ describe('content stays inside the Contact budget', () => {
 describe('runtime instrumentation', () => {
   const STAGE: StageAddress = 'service-floor:first-shift'
 
-  /** Fill the field with real Contact, bypassing the wave schedule. */
   function flood(sim: Simulation, count: number): void {
     const def = contactById('skiff')!
     for (let i = sim.state.contact.length; i < count; i++) {
@@ -102,7 +86,7 @@ describe('runtime instrumentation', () => {
     sim.tick(TICK_SECONDS)
 
     expect(sim.peakContact).toBeGreaterThanOrEqual(50)
-    // The engine must never silently drop scheduled spawns.
+
     expect(sim.state.contact.length).toBeGreaterThanOrEqual(50)
   })
 
@@ -115,13 +99,11 @@ describe('runtime instrumentation', () => {
     sim.tick(TICK_SECONDS)
 
     expect(sim.ticksOverContactBudget).toBeGreaterThan(0)
-    // Over budget is reported, never enforced by dropping entities.
+
     expect(sim.state.contact.length).toBe(before)
   })
 
   it('caps projectiles at the budget, because patterns cannot be predicted', () => {
-    // The one place a runtime cap is right: refusing a bullet degrades
-    // gracefully, where refusing a spawn would rewrite difficulty.
     const sim = new Simulation(loadStage(STAGE), createRng(1))
     for (let i = 0; i < 2000; i++) sim.tick(TICK_SECONDS)
     expect(sim.projectiles.live).toBeLessThanOrEqual(BUDGETS.projectiles)

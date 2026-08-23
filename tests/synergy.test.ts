@@ -34,7 +34,6 @@ beforeEach(() => {
   sim.state.arrays.length = 0
 })
 
-/** Slot 0 on every ring sits at angle 0 while the phases are zero. */
 function alignAtZero(ids: string[]) {
   return ids.map((id, i) =>
     placePlatform(sim.state, platformById(id)!, (i + 1) as 1 | 2 | 3, 0),
@@ -54,9 +53,6 @@ function contactAt(defId: string, angle: number, radius = 200): ContactInstance 
 
 describe('type opposition', () => {
   it('reproduces the two pairs the matrix is built around', () => {
-    // damageTypes.ts documents Shear<->Percussive and Thermal<->Resonant.
-    // Derived rather than listed, so this asserts the derivation still agrees
-    // with the prose above it.
     expect(opposesType('shear', 'percussive')).toBe(true)
     expect(opposesType('percussive', 'shear')).toBe(true)
     expect(opposesType('thermal', 'resonant')).toBe(true)
@@ -116,14 +112,12 @@ describe('pairing a group', () => {
 
 describe('conjunction detection', () => {
   it('reports the pairing of its participants', () => {
-    // Bolt and Anchor are both percussive.
     alignAtZero(['bolt', 'anchor'])
     const [event] = findConjunctions(sim.state)
     expect(event.pairing).toBe('matched')
   })
 
   it('reports interference for opposed participants', () => {
-    // Bolt is percussive, Rake is shear.
     alignAtZero(['bolt', 'rake'])
     const [event] = findConjunctions(sim.state)
     expect(event.pairing).toBe('interference')
@@ -131,7 +125,6 @@ describe('conjunction detection', () => {
 })
 
 describe('pairing changes what a conjunction does', () => {
-  /** Total damage a two-unit conjunction deals to one Contact on the axis. */
   function pulseDamage(ids: string[], angle: number): number {
     sim.state.platforms.length = 0
     sim.state.contact.length = 0
@@ -143,16 +136,11 @@ describe('pairing changes what a conjunction does', () => {
   }
 
   it('amplifies a matched pair over a mixed one', () => {
-    // Both percussive against both-different is the cleanest comparison
-    // available with three allies, so compare matched against the unmodified
-    // multiplier directly instead.
     expect(CONJUNCTION.pairing.matched).toBeGreaterThan(CONJUNCTION.pairing.mixed)
     expect(CONJUNCTION.pairing.interference).toBeLessThan(CONJUNCTION.pairing.mixed)
   })
 
   it('reaches further under interference than a matched pair does', () => {
-    // The trade interference offers: less magnitude, more arc. A Contact outside
-    // the normal pulse arc is hit only by the wider one.
     const wide = (CONJUNCTION.pulseArc + CONJUNCTION.interferenceArc) / 2
 
     const matched = pulseDamage(['bolt', 'anchor'], wide)
@@ -182,8 +170,6 @@ describe('conjunction buffs follow the stacking rule', () => {
   })
 
   it('does not stack across repeated firings', () => {
-    // A fresh cooldown map each call is the worst case: the conjunction fires
-    // every time. The shield must still land on its own ceiling.
     const [, anchor] = alignAtZero(['bolt', 'anchor'])
 
     updateSynergy(sim.state, createCooldowns())
@@ -194,8 +180,6 @@ describe('conjunction buffs follow the stacking rule', () => {
   })
 
   it('does not extend duration with scale', () => {
-    // Magnitude scales with the conjunction; duration is authored and fixed,
-    // or the two would compound into permanent uptime.
     const [, anchor] = alignAtZero(['bolt', 'anchor'])
     updateSynergy(sim.state, createCooldowns())
     const minor = anchor.buffs.shield.remaining
@@ -212,9 +196,6 @@ describe('conjunction buffs follow the stacking rule', () => {
     const duration = anchor.def.conjunctionEffect.duration!
     updateSynergy(sim.state, createCooldowns())
 
-    // Aged directly rather than by ticking: the two units are still aligned,
-    // so a live simulation would legitimately re-grant the shield the moment
-    // the 6 s conjunction cooldown lapsed. That is the next test.
     for (let i = 0; i < Math.ceil(duration / TICK_SECONDS) + 1; i++) {
       updateBuffs(sim.state, TICK_SECONDS)
     }
@@ -222,8 +203,6 @@ describe('conjunction buffs follow the stacking rule', () => {
   })
 
   it('never banks more than one duration, however long an alignment lingers', () => {
-    // Uptime is bounded by cooldown against duration, not by stacking. One
-    // shared cooldown map is the realistic case.
     const [, anchor] = alignAtZero(['bolt', 'anchor'])
     const duration = anchor.def.conjunctionEffect.duration!
     const cooldowns = createCooldowns()
@@ -243,7 +222,6 @@ describe('the preview', () => {
   })
 
   it('reports nothing for two units on the same ring', () => {
-    // They hold a fixed angular offset, so they can never align.
     placePlatform(sim.state, platformById('bolt')!, 2, 0)
     placePlatform(sim.state, platformById('anchor')!, 2, 4)
     expect(timeToNextConjunction(sim.state)).toBeNull()
@@ -259,8 +237,6 @@ describe('the preview', () => {
   })
 
   it('leaves the ring phases exactly as it found them', () => {
-    // It simulates forward by writing phases directly; a preview that moved
-    // the field would be a preview that changed the game.
     placePlatform(sim.state, platformById('bolt')!, 1, 2)
     placePlatform(sim.state, platformById('anchor')!, 3, 9)
     for (let i = 0; i < 37; i++) sim.tick(TICK_SECONDS)
@@ -271,7 +247,6 @@ describe('the preview', () => {
   })
 
   it('predicts an alignment that actually arrives', () => {
-    // The preview is only worth showing if the field agrees with it.
     placePlatform(sim.state, platformById('bolt')!, 1, 1)
     placePlatform(sim.state, platformById('anchor')!, 2, 7)
 
@@ -288,7 +263,7 @@ describe('the preview', () => {
   it('does not look past its horizon', () => {
     placePlatform(sim.state, platformById('bolt')!, 1, 0)
     placePlatform(sim.state, platformById('anchor')!, 2, 0)
-    // Zero horizon can find nothing, whatever the formation.
+
     expect(timeToNextConjunction(sim.state, 0)).toBeNull()
   })
 
@@ -304,8 +279,6 @@ describe('the preview', () => {
 
 describe('ring periods keep alignments irregular', () => {
   it('keeps every pair of periods coprime', () => {
-    // 8 : 14 : 22 reduces to 4 : 7 : 11. A common factor would make
-    // conjunctions repeat on a short cycle and turn planning into memorising.
     const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
     const periods = RINGS.map((r) => r.period / 2)
 

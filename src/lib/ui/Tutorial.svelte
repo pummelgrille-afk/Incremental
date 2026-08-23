@@ -4,30 +4,9 @@
   import Button from './primitives/Button.svelte'
   import Kbd from './primitives/Kbd.svelte'
 
-  /**
-   * The onboarding card.
-   *
-   * PLAN.md Phase 36 asks for "contextual tooltips/first-time popups rather
-   * than a forced tutorial", so this is deliberately **not** a modal. It does
-   * not dim the field, it does not take focus, it does not stop the wave, and
-   * it does not have a next button. It appears in the corner when a system
-   * becomes relevant, and it goes away when the player is done with it.
-   *
-   * Which is also why it sits above the field but leaves it clickable: the
-   * Flare is the player's only live input, and a card that blocked it while
-   * explaining it would be its own worst example.
-   *
-   * Nothing here decides *when* to appear. `progression/tutorial.ts` owns that,
-   * because a rule living in a template is a rule nothing can test.
-   */
-
   const card = $derived(game.tutorialQueue[0] ?? null)
 
   function dismiss() {
-    // The step was marked seen when it was raised, not here — dismissing is
-    // only ever about this card leaving the screen. A player who reloads
-    // mid-card does not get it again, which is the right side to err on: an
-    // explanation repeating itself reads worse than one missed.
     game.tutorialQueue = game.tutorialQueue.slice(1)
   }
 </script>
@@ -65,7 +44,7 @@
     border-radius: var(--radius);
     box-shadow: 0 0.6rem 1.6rem rgba(0, 0, 0, 0.55);
     font-size: 0.78rem;
-    /* Above the field, but the field stays clickable around it. */
+
     pointer-events: auto;
   }
 

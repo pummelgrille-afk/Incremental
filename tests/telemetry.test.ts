@@ -43,16 +43,12 @@ function playStage(seed: number) {
 
 describe('the collector', () => {
   it('exists in a dev build', () => {
-    // Vitest runs with DEV true, which is also what makes every test below
-    // meaningful. If this ever fails, the rest are vacuous.
     expect(import.meta.env.DEV).toBe(true)
     expect(createTelemetry()).toBeInstanceOf(Telemetry)
     expect(sim.state.telemetry).not.toBeNull()
   })
 
   it('attributes by definition, not by instance', () => {
-    // Two Hammers are one row. "Is a Bolt worth its cost" is a content
-    // question; per-instance numbers only measure which slot got lucky.
     const t = new Telemetry()
     t.damage('bolt', 10)
     t.damage('bolt', 15)
@@ -69,15 +65,11 @@ describe('the collector', () => {
   })
 
   it('divides DPS by unit-seconds, not wall clock', () => {
-    // A unit slotted halfway through a stage must not read as half as good as
-    // an identical one present throughout. That would say nothing about the
-    // unit, which is the only thing this measures.
     const t = new Telemetry()
     t.damage('bolt', 100)
     t.present(['bolt'], 10)
     expect(t.dps('bolt')).toBeCloseTo(10, 6)
 
-    // Same damage, twice the presence: half the DPS.
     const u = new Telemetry()
     u.damage('bolt', 100)
     u.present(['bolt'], 20)
@@ -131,8 +123,6 @@ describe('recording a real stage', () => {
   })
 
   it('gives a faster attacker a higher DPS than a tank', () => {
-    // Ground truth from balancing.csv: Rake is the damage unit, Anchor holds.
-    // If this inverts, either the roster or the telemetry is wrong.
     const s = playStage(4)
     const t = s.state.telemetry!
     expect(t.dps('rake')).toBeGreaterThan(t.dps('anchor'))
@@ -186,8 +176,6 @@ describe('recording a real stage', () => {
   })
 
   it('attributes a Array shot even when the Array outlives its projectile', () => {
-    // sourceDefId rides on the projectile precisely so attribution does not
-    // need a lookup at impact time.
     const s = playStage(7)
     expect(s.state.telemetry!.sources.get('long-baseline')?.damageDealt).toBeGreaterThan(0)
   })
@@ -195,8 +183,6 @@ describe('recording a real stage', () => {
 
 describe('telemetry is a sink, never a source', () => {
   it('never changes the outcome of a run', () => {
-    // The same argument that licenses the combat feed. If a system could read a
-    // value back out, recording would stop being free.
     const withTelemetry = playStage(11)
 
     const without = new Simulation(loadStage(STAGE), createRng(11))
@@ -213,8 +199,6 @@ describe('telemetry is a sink, never a source', () => {
   })
 
   it('runs a full stage with the collector absent', () => {
-    // What a production build does. It must not merely avoid crashing — it must
-    // reach the same end state.
     const s = new Simulation(loadStage(STAGE), createRng(2))
     s.state.telemetry = null
     referenceFormation(s.state)
@@ -227,8 +211,6 @@ describe('telemetry is a sink, never a source', () => {
 
 describe('damage attribution adds up', () => {
   it('never credits more damage than the enemy had HP', () => {
-    // Overkill counted at face value would inflate whichever unit happened to
-    // land the last hit, and the whole point is comparing units.
     const s = playStage(4)
     const t = s.state.telemetry!
 
@@ -251,32 +233,11 @@ describe('damage attribution adds up', () => {
 })
 
 describe('stripped from a production build', () => {
-  /**
-   * PLAN.md Phase 20 asks for this to be gated so it does not ship. Nothing but
-   * a real build can verify that, so this test runs one — it is deliberately
-   * the slowest test in the suite.
-   *
-   * What is guaranteed is that the **collector** is gone: `createTelemetry`
-   * compiles to `return null`, `Telemetry` loses its only reference, and rollup
-   * drops the class. What remains is a handful of `sim.telemetry?.…` no-ops and
-   * two string constants, which is the price of not wrapping every call site in
-   * its own `import.meta.env.DEV` block.
-   */
   it('does not ship the collector', async () => {
     const { execSync } = await import('node:child_process')
     const { readFileSync, readdirSync } = await import('node:fs')
     const { join } = await import('node:path')
 
-    /*
-     * NODE_ENV must be forced.
-     *
-     * Vitest runs with NODE_ENV=test, and a child build inherits it — which
-     * makes Vite treat the build as non-production and define
-     * `import.meta.env.DEV` as **true**. The ternary in `createTelemetry` then
-     * folds the wrong way and the class ships. That is an artefact of running
-     * the build from inside a test, not of the shipped build, and it cost a
-     * false failure here before it was understood.
-     */
     execSync('npm run build', {
       stdio: 'pipe',
       env: { ...process.env, NODE_ENV: 'production' },
@@ -288,8 +249,6 @@ describe('stripped from a production build', () => {
       .map((f) => readFileSync(join(dir, f), 'utf8'))
       .join('')
 
-    // Field names unique to the collector. Minification renames locals but not
-    // object property names, so these survive if the class does.
     for (const marker of ['unitSeconds', 'damageDealt', 'damageTaken']) {
       expect(bundle.includes(marker), `"${marker}" reached the bundle`).toBe(false)
     }

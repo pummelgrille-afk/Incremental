@@ -12,21 +12,6 @@
   import Choice from './primitives/Choice.svelte'
   import Kbd from './primitives/Kbd.svelte'
 
-  /**
-   * Settings.
-   *
-   * Four of the things on this screen — screen shake, reduced motion, the
-   * palette and text scale — have been in `saveSchema.ts` since Phase 8 and
-   * were read by **nothing** until this phase. They were not forgotten so much
-   * as unreachable: there was no settings screen to put them on, so each phase
-   * that could have connected one had no surface to connect it to.
-   *
-   * Nothing here decides anything. Every control calls through
-   * `game.settingsActions`, because `bootstrap.ts` owns the save and a setting
-   * this file could write directly would be a setting that could disagree with
-   * the file it is supposed to live in.
-   */
-
   let { open = false }: { open?: boolean } = $props()
 
   const actions = $derived(game.settingsActions)
@@ -50,14 +35,8 @@
     { value: '1.5', label: t('settings.text-size.largest') },
   ])
 
-  /*
-   * Every language is named in itself and never translated — a player who has
-   * landed in a language they cannot read finds their way out by recognising
-   * their own, and "Anglais" does not help them.
-   */
   const LANGUAGES = locale.all.map((l) => ({ value: l.code, label: l.endonym }))
 
-  /** Rebindable actions, grouped in authored order. `menu` is fixed and hidden. */
   const GROUPS = [
     { id: 'Play', label: 'settings.keys.group.play' },
     { id: 'Panels', label: 'settings.keys.group.panels' },
@@ -65,7 +44,6 @@
   ] as const
   const bindable = ACTIONS.filter((a) => !a.fixed)
 
-  /** Import is a paste box rather than a file picker: it is one line of text. */
   let importing = $state(false)
   let importText = $state('')
   let importProblem = $state<string | null>(null)
@@ -73,7 +51,7 @@
 
   function doImport() {
     const problem = game.settingsActions?.importSave(importText.trim()) ?? t('save.error.unavailable')
-    // On success the page reloads and nothing below this line runs.
+
     importProblem = problem
   }
 </script>
@@ -167,7 +145,7 @@
     >
       {#snippet note()}
         {#if game.systemReducedMotion}
-          <!-- Said out loud, because otherwise the toggle looks broken. -->
+
           <span class="forced">{t('settings.reduced-motion.forced')}</span>
         {/if}
       {/snippet}
@@ -206,9 +184,7 @@
           <Field label={content('action', action.id, 'name', action.name)} for="bind-{action.id}">
             {#snippet note()}
               {#if clashes.length > 0}
-                <!-- Surfaced, not refused. Doubling two panels onto one key is
-                     a choice; the thing that was impossible before was seeing
-                     that you had. -->
+
                 <span class="clash">
                   {t('settings.keys.clash', {
                     actions: clashes
@@ -260,8 +236,7 @@
     </div>
 
     {#if exported}
-      <!-- Shown, not downloaded. A file the page hands the player is a file
-           some browsers will refuse; a selectable string always works. -->
+
       <label class="save-box" for="export-text">
         <span>{t('settings.save.exported')}</span>
         <textarea id="export-text" readonly rows="3" value={exported}></textarea>

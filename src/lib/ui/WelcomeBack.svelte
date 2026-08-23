@@ -6,27 +6,8 @@
   import Button from './primitives/Button.svelte'
   import Stat from './primitives/Stat.svelte'
 
-  /**
-   * The "welcome back" summary.
-   *
-   * economy-spec.md §4 asks it to report elapsed time, Salvage earned, **and —
-   * honestly — what was missed**: "telling the player they lost nothing when
-   * they did is the kind of thing that erodes trust in an idle game's numbers."
-   *
-   * So this reports the shortfall against active play, names the three things
-   * that cannot happen while away, and says plainly when time ran past the cap.
-   * A summary that only showed the number going up would be the flattering
-   * version, and the spec rules it out.
-   */
-
   const summary = $derived(game.offlineSummary)
 
-  /*
-   * Assembled from three keyed forms rather than one, and pluralised by the
-   * locale's own rules rather than by `=== 1`. English needs two forms and
-   * would have let `minute${s}` stand; a language with six would not, and the
-   * fix would then have been in every file that prints a duration.
-   */
   function duration(seconds: number): string {
     if (seconds < 60) return t('duration.seconds', { count: Math.round(seconds) })
     const minutes = Math.round(seconds / 60)
@@ -68,8 +49,7 @@
         <span>{duration(summary.effectiveSeconds)}</span>
       </li>
       {#if summary.wastedSeconds > 0}
-        <!-- Said plainly. Quietly dropping the overflow is the flattering
-             version, and economy-spec.md §4 rules it out. -->
+
         <li class="missed">
           <span>{t('offline.over-cap', { duration: duration(summary.capSeconds) })}</span>
           <span>

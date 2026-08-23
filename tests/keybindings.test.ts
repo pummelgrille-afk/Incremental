@@ -11,15 +11,6 @@ import {
 } from '../src/lib/core/keybindings'
 import { ACTIONS, DEFAULT_BINDINGS } from '../src/lib/content/keybindings'
 
-/**
- * Rebinding, as arithmetic on strings.
- *
- * All of it lives outside the component and outside `bootstrap.ts` for the
- * usual reason: the interesting questions here — what happens when two actions
- * share a key, what a save is allowed to claim — cannot be asked of a run of
- * `event.key === 'f'` comparisons inside a rAF callback.
- */
-
 const defaults = (): Bindings => ({ ...DEFAULT_BINDINGS })
 
 describe('the default set', () => {
@@ -55,22 +46,14 @@ describe('matching a press to an action', () => {
   })
 
   it('does not fire a plain binding when a modifier is held', () => {
-    // Ctrl+R is the browser's reload. A game that restarted the stage on it
-    // would be taking a key that is not its to take.
     expect(actionFor({ code: 'KeyR' }, defaults())).toBe('restart')
     expect(actionFor({ code: 'KeyR', ctrl: true }, defaults())).toBeNull()
   })
 
   it('matches on physical position, not the printed letter', () => {
-    /*
-     * The reason bindings are stored as `code`. On AZERTY the key that carries
-     * `KeyF` still sits where a QWERTY player's F is; `event.key` there would
-     * be a different letter, and the default set — F, M, T, H, R, chosen as a
-     * shape under one hand — would scatter across the board.
-     */
     const bindings = defaults()
     expect(actionFor({ code: 'KeyM' }, bindings)).toBe('map')
-    // What `event.key` would have carried is never consulted.
+
     expect(actionFor({ code: 'Semicolon' }, bindings)).toBeNull()
   })
 
@@ -78,7 +61,6 @@ describe('matching a press to an action', () => {
     const bindings = defaults()
     bindings.map = 'KeyF'
 
-    // Authored order in ACTIONS decides, not object enumeration order.
     const first = ACTIONS.find((a) => bindings[a.id] === 'KeyF')
     expect(actionFor({ code: 'KeyF' }, bindings)).toBe(first?.id)
   })
@@ -92,8 +74,6 @@ describe('conflicts', () => {
   })
 
   it('reports both sides of a clash', () => {
-    // Surfaced, not refused: doubling two panels onto one key is a choice, and
-    // the thing that was impossible before was *seeing* that you had.
     const bindings = defaults()
     bindings.tree = 'KeyF'
 
@@ -147,10 +127,6 @@ describe('reading a stored map', () => {
   })
 
   it('repairs the menu key however the save spells it', () => {
-    /*
-     * `menu` is fixed. A save claiming Escape is something else would let a
-     * player lock themselves out of the only screen that could put it back.
-     */
     const bindings = normaliseBindings({ menu: 'KeyQ' })
     expect(bindings.menu).toBe(DEFAULT_BINDINGS.menu)
   })

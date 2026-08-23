@@ -1,11 +1,4 @@
-/**
- * The always-on readout, the sidebar, and the four banners.
- *
- * The banners are the reason this file has more prose than the rest: a stopped
- * field with no sentence on it reads as a freeze, which is a bug report Phase
- * 33 actually received. Each of the three states that stops the field says what
- * has happened and what happens next.
- */
+
 export const HUD = {
   'hud.wave': '{stage} — wave {current}/{total}',
   'hud.pause': 'Pause',
@@ -33,14 +26,6 @@ export const HUD = {
   'hud.lost.body': 'Output exhausted. Nothing is lost but the shift.',
   'hud.lost.next': '{restart} to wind it again.',
 
-  /*
-   * The tabs carry the *short* form — "Almanac", not "The Almanac".
-   *
-   * They are not the same string as the panel's title and were never written
-   * as one: a tab is a place, and the article belongs on the title bar of the
-   * thing it opens. Collapsing the two onto `term.*` would have widened three
-   * of the six tabs by four characters for nothing.
-   */
   'sidebar.label': 'Panels',
   'sidebar.formation': 'Formation',
   'sidebar.map': 'Perihelion',

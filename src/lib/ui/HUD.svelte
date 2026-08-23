@@ -12,34 +12,10 @@
   import Button from './primitives/Button.svelte'
   import T from './T.svelte'
 
-  /**
-   * The always-on readout: Output, the currencies, where you are, and the
-   * Flare.
-   *
-   * Everything here is drawn from primitives, and the reason is not tidiness —
-   * it is that the HUD is the one surface a player looks at *while doing
-   * something else*. A label that is 0.65rem here and 0.62rem in the Rewind
-   * modal costs a fraction of a second of re-reading every time they move
-   * between the two, and they move between them constantly.
-   *
-   * **What moves is what is animated.** Phase 42's readability brief comes down
-   * to one rule: a number the player must react to gets a float, and a number
-   * they merely need to know does not. Output and Salvage move on the scale of
-   * a second and carry deltas; Clearance and Recollection move on the scale of
-   * a run and are drawn quiet.
-   */
-
   let { showDiagnostics = false }: { showDiagnostics?: boolean } = $props()
 
   const low = $derived(game.outputFraction < 0.3)
 
-  /**
-   * The hint line reads the player's actual bindings.
-   *
-   * It listed the defaults as literal letters until Phase 43 made keys
-   * rebindable, at which point a hardcoded hint stops being a help and becomes
-   * a lie — and the player it lies to is exactly the one who needed the hint.
-   */
   const key = (action: ActionId) => bindingLabel(game.keybindings[action] ?? '')
 </script>
 
@@ -51,10 +27,7 @@
         <Delta value={game.outputLoss} direction="loss" />
         <Delta value={game.outputGain} direction="gain" />
         {#snippet after()}
-          <!-- `struck` flashes the bar's own border on a hit. Under a full
-               formation the bar can lose a fifth of its width between two
-               glances and never be seen moving; the flash is what makes a
-               fast, survivable hit distinguishable from a slow, fatal one. -->
+
           <Meter
             label={t('term.output')}
             fraction={game.outputFraction}
@@ -64,9 +37,6 @@
         {/snippet}
       </Stat>
 
-      <!-- Under the bar rather than beside the Flare, because it is a
-           statement about the *stage*, not about the player's one live input.
-           The HUD around it is inert, so this row opts back in. -->
       <div class="controls">
         <button
           class:on={game.paused}
@@ -87,9 +57,6 @@
       {/snippet}
     </Stat>
 
-    <!-- The permanent currencies. Kept visually quieter than Salvage: they
-         change on the scale of a run, not a second, and a counter that never
-         moves competing for attention with one that always does is noise. -->
     <Stat label={t('term.clearance')} tone="quiet">{compact(game.clearance)}</Stat>
     <Stat label={t('term.recollection')} tone="quiet">{compact(game.recollection)}</Stat>
 
@@ -110,8 +77,7 @@
           <span class="pip" class:filled={i < game.flaresReady}></span>
         {/each}
       </div>
-      <!-- `instant`, because this one updates every frame. A 120 ms ease on a
-           250 ms cooldown reports a state the player has already left. -->
+
       <Meter
         label={t('hud.flare-charge')}
         fraction={game.flareProgress}
@@ -120,15 +86,6 @@
       />
     </div>
 
-    <!--
-      The panel shortcuts used to be listed here and are not any more: the
-      sidebar carries each one on the button it belongs to, which is where a
-      player will actually look for it. A list of seven keycaps under the field
-      is something you read once and then stop seeing.
-
-      The Flare keeps its line, because it is the one action with no button
-      anywhere — clicking the field is discoverable, but the key is not.
-    -->
     <p class="hint">
       <T key="hud.strike-hint">
         {#snippet flare()}<Kbd>{key('flare')}</Kbd>{/snippet}
@@ -170,7 +127,7 @@
       </dl>
 
       {#if game.telemetryRows.length > 0}
-        <!-- Dev-only: the collector does not exist in a production build. -->
+
         <dl class="telemetry">
           <dt class="sep head">source</dt><dd class="sep head">dps · share</dd>
           {#each game.telemetryRows as row (row.id)}
@@ -187,9 +144,7 @@
   <!-- /i18n-exempt -->
 
   {#if game.standby}
-    <!-- The between-state. It says what it costs, because standing down
-         restarts the stage and a player should not learn that by losing four
-         cleared waves to it. -->
+
     <div class="banner held">
       <strong>{t('hud.standby.title')}</strong>
       <span>{t('hud.standby.body')}</span>
@@ -202,19 +157,14 @@
       </div>
     </div>
   {:else if game.paused}
-    <!-- Said plainly and centrally. A stopped field with no explanation is the
-         exact thing Phase 33 had to fix on the clear banner, and a pause that
-         did not announce itself would reintroduce it. -->
+
     <div class="banner paused">
       <strong>{t('hud.paused.title')}</strong>
       <span>{t('hud.paused.body')}</span>
       <span class="next">
         <T key="hud.paused.next">
           {#snippet pause()}<Kbd>{key('pause')}</Kbd>{/snippet}
-          <!-- Through `bindingLabel` like every other key, rather than the
-               literal "Esc" this used to print: a keycap's text is the
-               keyboard's word, not this file's, and `menu` is fixed to Escape
-               so there is nothing to look up but the label. -->
+
           {#snippet escape()}<Kbd>{key('menu')}</Kbd>{/snippet}
         </T>
       </span>
@@ -233,8 +183,7 @@
           )}
         </span>
       {/if}
-      <!-- Says what happens next. Without this the stopped field read as a
-           freeze, which is exactly what a playtest reported. -->
+
       {#if game.nextStageIn > 0}
         <span class="next">
           {t('hud.cleared.next-in', { seconds: Math.ceil(game.nextStageIn) })}

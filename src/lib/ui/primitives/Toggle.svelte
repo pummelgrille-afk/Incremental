@@ -1,19 +1,10 @@
 <script lang="ts">
-  /**
-   * An on/off switch.
-   *
-   * A real checkbox underneath, visually hidden rather than replaced. The
-   * switch a player sees is drawn from it with a sibling selector, so keyboard
-   * focus, Space to toggle, the label association and every assistive
-   * technology on earth keep working — none of which a div with a click handler
-   * gets, and all of which this phase is specifically about.
-   */
 
   interface Props {
     id: string
     checked: boolean
     onchange: (value: boolean) => void
-    /** Read out when the visible label is not enough on its own. */
+
     label?: string
   }
 
@@ -38,7 +29,6 @@
     display: inline-flex;
   }
 
-  /* Hidden from sight, never from the keyboard or the accessibility tree. */
   input {
     position: absolute;
     inset: 0;

@@ -1,74 +1,32 @@
 import type { Damageable } from './types'
 
-/**
- * The Sun — the defended objective at the centre of the field.
- *
- * Its health stat is Output. At zero the Perihelion stops and the **stage** is
- * lost; the *run* is not (docs/design/game-loop.md). Losing costs time, never
- * progress, which is what keeps failure from reading as punishment (P5).
- *
- * This entity holds state and the rules that are intrinsic to it (what damage
- * does, what a repair costs). Rules about *the stage* — when it is lost, when it
- * is cleared, how waves advance — live in systems/objectiveRules.ts, because
- * they depend on the whole simulation rather than on this object alone.
- */
-
 export interface SunState extends Damageable {
-  /** Alias of hp, in the game's own vocabulary. */
   readonly output: number
   readonly maxOutput: number
 
-  /**
-   * Collision radius — deliberately smaller than the rendered sprite so near
-   * misses read as misses. See combat-spec.md §5.
-   */
   readonly hitboxRadius: number
 
-  /** Output per second while recovering. See `REGEN_IN_COMBAT`. */
   regenPerSecond: number
 
-  /** Absorbs damage before Output. Granted by conjunctions and upgrades. */
   shield: number
-  /** Seconds until the shield lapses. Zero means no active shield. */
+
   shieldRemaining: number
 
-  /** Set on hit so the render layer can react without polling the sim. */
   hitFlash: number
 
-  /** Emergency repairs used this stage. Drives the escalating cost. */
   repairsThisStage: number
 
-  /** Lowest Output fraction reached. Feeds achievements and telemetry. */
   lowestFraction: number
 
-  /**
-   * Output fraction at the end of the previous tick.
-   *
-   * Threshold crossings are detected against this rather than within a single
-   * function, because damage lands at steps 6-8 of the tick while recovery runs
-   * at step 2 (combat-spec.md section 8). Comparing inside one step would
-   * compare a value to itself.
-   */
   previousFraction: number
 }
 
 export const SUN_HITBOX_RADIUS = 28
 
-/**
- * Regeneration is paused while a wave is live.
- *
- * Decided in Phase 12. `game-loop.md` says damage carries into the next wave as
- * reduced Output — continuous regeneration would erode that, letting sustained
- * pressure be out-healed rather than survived. Confining recovery to the gap
- * between waves keeps the carry-over meaningful and turns the gap into a real
- * flare instead of dead time.
- */
 export const REGEN_IN_COMBAT = false
 
-/** Fraction of max Output an emergency repair restores. economy-spec.md §1. */
 export const REPAIR_FRACTION = 0.25
 
-/** Thresholds that fire an event when crossed downward. */
 export const OUTPUT_THRESHOLDS = [0.5, 0.25, 0.1] as const
 
 export function createSun(maxOutput: number): SunState {
@@ -92,7 +50,6 @@ export function createSun(maxOutput: number): SunState {
   }
 }
 
-/** The stage-loss condition. The only thing that ends a stage unsuccessfully. */
 export function isOverwhelmed(m: SunState): boolean {
   return m.hp <= 0
 }
@@ -101,35 +58,15 @@ export function outputFraction(m: SunState): number {
   return m.maxHp > 0 ? m.hp / m.maxHp : 0
 }
 
-/**
- * Grant a shield. A stronger shield replaces a weaker one rather than stacking;
- * stacking would let a player bank conjunctions into an invulnerability window,
- * which fights the "no wall" principle in economy-spec.md §5.
- */
 export function grantShield(m: SunState, amount: number, duration: number): void {
   if (amount >= m.shield) {
     m.shield = amount
     m.shieldRemaining = duration
   } else {
-    // A weaker grant only extends an existing shield's life.
     m.shieldRemaining = Math.max(m.shieldRemaining, duration)
   }
 }
 
-/*
- * The cost of a repair lives in `progression/currencies.ts` with the other
- * three Salvage sinks, not here. It had its curve inline as default parameters
- * — the drift CLAUDE.md's convention exists to prevent — and an entity reaching
- * into `content/` to fix that would have inverted the layering instead.
- */
-
-/**
- * Emergency repair: restore a fixed fraction of maximum Output.
- *
- * Returns false when already at full, so the caller never charges for nothing.
- * The escalating cost is what keeps this a panic button rather than a strategy
- * (economy-spec.md invariant 6).
- */
 export function repair(m: SunState): boolean {
   if (m.hp >= m.maxHp) return false
   m.hp = Math.min(m.maxHp, m.hp + m.maxHp * REPAIR_FRACTION)

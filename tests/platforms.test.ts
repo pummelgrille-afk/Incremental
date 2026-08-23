@@ -37,14 +37,12 @@ describe('the launch roster', () => {
   })
 
   it('opens with a unit that is free and resolvable', () => {
-    // A save that cannot field anything is a save that cannot be played.
     const starter = platformById(STARTING_PLATFORM_ID)
     expect(starter, STARTING_PLATFORM_ID).toBeDefined()
     expect(starter!.unlockCost).toBe(0)
   })
 
   it('charges for everything else', () => {
-    // Exactly one free unit. A second would make the opening grant arbitrary.
     const free = PLATFORMS.filter((p) => p.unlockCost === 0)
     expect(free.map((p) => p.id)).toEqual([STARTING_PLATFORM_ID])
   })
@@ -57,14 +55,6 @@ describe('the launch roster', () => {
 })
 
 describe('nothing in the roster is declared-but-unused', () => {
-  /*
-   * The recurring failure in this project is configuration with no content
-   * using it: `thermal`, `control`, `support`, `targeting: 'none'` and the
-   * `repair` conjunction effect were all declared and all unreachable before
-   * this roster. Asserted against the type unions rather than a hand-written
-   * list, so declaring a fifth role and forgetting to author one fails here.
-   */
-
   it('fields every UnitRole', () => {
     const roles: UnitRole[] = ['tank', 'damage', 'support', 'control']
     const present = new Set(PLATFORMS.map((p) => p.role))
@@ -95,12 +85,6 @@ describe('nothing in the roster is declared-but-unused', () => {
 
 describe('every armour class has an answer', () => {
   it('gives the player a favourable type against each one a Contact wears', () => {
-    /*
-     * The concrete bug this catches: `thermal` is the only type favourable
-     * against `seized`, and nothing in the roster dealt thermal, so a Hulk
-     * could only ever be fought at neutral. An armour class with no favourable
-     * counter is a wall rather than a puzzle.
-     */
     const dealt = new Set(PLATFORMS.map((p) => p.damageType))
     const worn = new Set(CONTACT.map((c) => c.armour))
 
@@ -114,14 +98,12 @@ describe('every armour class has an answer', () => {
 
 describe('the roles are mechanically distinct, not just labelled', () => {
   it('gives support a unit that deals no damage at all', () => {
-    // A support unit that also deals damage is a damage unit with a smaller
-    // number, and the role would mean nothing.
     const pacifist = PLATFORMS.filter((p) => p.attack === 0)
     expect(pacifist.length).toBeGreaterThan(0)
     for (const p of pacifist) {
       expect(p.role, p.id).toBe('support')
       expect(p.targeting, p.id).toBe('none')
-      // Its only contribution outside a conjunction is its body.
+
       expect(p.blockArc, p.id).toBeGreaterThan(0)
     }
   })
@@ -134,8 +116,6 @@ describe('the roles are mechanically distinct, not just labelled', () => {
   })
 
   it('keeps every radial reach inside the field', () => {
-    // A unit reaching past the outermost orbit would silently clamp, which
-    // reads as a stat that does nothing.
     for (const p of PLATFORMS) {
       expect(p.radialReach, p.id).toBeLessThan(RINGS.length)
     }
@@ -144,8 +124,6 @@ describe('the roles are mechanically distinct, not just labelled', () => {
 
 describe('repair', () => {
   function alignedConjunction(ids: string[]) {
-    // One unit per orbit at slot 0 with every ring at phase 0: aligned by
-    // construction, which is the cheapest way to force a conjunction.
     const placed = ids.map((id, i) =>
       placePlatform(sim.state, platformById(id)!, RINGS[i].index as RingIndex, 0),
     )
@@ -154,11 +132,6 @@ describe('repair', () => {
   }
 
   it('heals every participant, not only the unit that brought it', () => {
-    /*
-     * The one conjunction effect that reaches past its own unit. A Tuner deals
-     * no damage, so if its conjunction healed only itself it would contribute
-     * nothing to anybody and "support" would be a label on a worse damage unit.
-     */
     const [tuner, bolt] = alignedConjunction(['tuner', 'bolt'])
     tuner.hp = 10
     bolt.hp = 10
@@ -170,8 +143,6 @@ describe('repair', () => {
   })
 
   it('never overheals past maxHp', () => {
-    // Uncapped, it would compound with the 6 s conjunction cooldown into a line
-    // that never meaningfully takes damage.
     const [tuner, bolt] = alignedConjunction(['tuner', 'bolt'])
     bolt.hp = bolt.maxHp - 1
 
@@ -184,19 +155,11 @@ describe('repair', () => {
 
 describe('the unlock curve', () => {
   it('costs more than one zone can pay for', () => {
-    /*
-     * Clearance is first-clear-only, so a zone yields a fixed 13 (three stages
-     * plus the completion bonus). If the roster cost less than that, zone 1
-     * would hand over everything and Phase 33's zones would have nothing to
-     * unlock.
-     */
     const total = PLATFORMS.reduce((sum, p) => sum + p.unlockCost, 0)
     expect(total).toBeGreaterThan(13)
   })
 
   it('never charges more for a weaker unit than the free one', () => {
-    // A sanity floor on the curve: paying for something strictly worse than the
-    // starter would be a trap rather than a choice.
     const starter = platformById(STARTING_PLATFORM_ID)!
     for (const p of PLATFORMS) {
       if (p.unlockCost === 0) continue

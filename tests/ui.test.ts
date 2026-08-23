@@ -2,19 +2,6 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-/**
- * Enforces the primitive set in docs/design/ui-spec.md.
- *
- * The same argument tests/boundaries.test.ts makes about layers: these rules
- * are broken by reflex — one convenient `<button>`, one `z-index: 21` — and the
- * damage is invisible in review because each individual copy looks fine. It is
- * only fine until there are five of them with three different disabled states,
- * which is exactly where Phase 42 found this codebase.
- *
- * Nothing here is about taste. Every rule below names a specific thing that had
- * already drifted.
- */
-
 const UI = join(import.meta.dirname, '..', 'src', 'lib', 'ui')
 const PRIMITIVES = join(UI, 'primitives')
 
@@ -32,7 +19,6 @@ const ALL = componentsIn(UI)
 const SCREENS = ALL.filter((f) => !f.startsWith(PRIMITIVES))
 const PRIMITIVE_FILES = ALL.filter((f) => f.startsWith(PRIMITIVES))
 
-/** The `<style>` block only. Prose in a comment is not a style rule. */
 function styleOf(file: string): string {
   const source = readFileSync(file, 'utf8')
   const start = source.indexOf('<style>')
@@ -45,40 +31,23 @@ function name(file: string): string {
 
 describe('the primitive set', () => {
   it('is actually being looked at', () => {
-    // A sweep over a file list that silently becomes empty passes forever.
     expect(PRIMITIVE_FILES.length).toBeGreaterThanOrEqual(12)
     expect(SCREENS.length).toBeGreaterThanOrEqual(10)
   })
 
   it('is where every button is styled', () => {
-    /*
-     * Five components each carried their own `button { … }` before Phase 42,
-     * and they had drifted: two padding scales, two radii, and a disabled state
-     * that was a flat grey in four and a lowered opacity in the fifth.
-     *
-     * A component may still style a *named* control that is not an action —
-     * StageSelect's `.stage` is a place on a map, not one of Button's three
-     * variants — so the rule is about the bare element selector.
-     */
     const offenders = SCREENS.filter((file) => /^\s*button\s*[{,:]/m.test(styleOf(file))).map(name)
 
     expect(offenders).toEqual([])
   })
 
   it('is where every keycap is styled', () => {
-    // The same `kbd` rule had been retyped in four components.
     const offenders = SCREENS.filter((file) => /^\s*kbd\s*[{,:]/m.test(styleOf(file))).map(name)
 
     expect(offenders).toEqual([])
   })
 
   it('is where every dialog is built', () => {
-    /*
-     * Three components each hand-rolled a scrim, a centred box, click-outside
-     * and an Escape handler. Three copies meant three scrim alphas — 0.72, 0.80
-     * and 0.82 — chosen one at a time, and none of the three moved focus into
-     * the panel it had just opened.
-     */
     const offenders = SCREENS.filter((file) => {
       const source = readFileSync(file, 'utf8')
       return source.includes('role="dialog"') || /\.scrim\s*\{/.test(source)
@@ -90,11 +59,6 @@ describe('the primitive set', () => {
 
 describe('the stacking order', () => {
   it('is named, never a bare number', () => {
-    /*
-     * `z-index: 10 | 15 | 20 | 30` were chosen independently across six files
-     * with nothing anywhere saying what the order *was*. The tokens in
-     * app.css say it once; a literal here means someone has guessed again.
-     */
     const offenders: string[] = []
 
     for (const file of ALL) {
@@ -109,12 +73,6 @@ describe('the stacking order', () => {
 
 describe('a primitive', () => {
   it('never reads the game', () => {
-    /*
-     * The line that keeps this set reusable. A primitive that reaches into the
-     * store is a screen with fewer props — it can only be used where that state
-     * means what it meant the first time, and the next caller ends up copying
-     * it rather than using it.
-     */
     const offenders = PRIMITIVE_FILES.filter((file) =>
       /from\s+'[^']*stores\//.test(readFileSync(file, 'utf8')),
     ).map(name)
@@ -123,8 +81,6 @@ describe('a primitive', () => {
   })
 
   it('never imports another screen', () => {
-    // Primitives compose with each other and with content passed in. One
-    // importing a screen would invert the dependency and close the cycle.
     const offenders: string[] = []
 
     for (const file of PRIMITIVE_FILES) {
@@ -139,11 +95,6 @@ describe('a primitive', () => {
 
 describe('the palette', () => {
   it('is read from tokens, not retyped', () => {
-    /*
-     * Each of these had been written out by hand in three or more files, which
-     * is how the danger red ended up meaning both "the Sun is dying" and "this
-     * control is disabled" depending on which component you were looking at.
-     */
     const retyped: Record<string, string> = {
       '#f87171': '--danger',
       '#f0b06c': '--warn',
@@ -166,14 +117,6 @@ describe('the palette', () => {
 
 describe('the keyboard', () => {
   it('leaves Escape to the one handler that knows the stacking order', () => {
-    /*
-     * Phase 43, learned by driving it. Every open Modal used to listen on the
-     * window, so a single Escape with two panels stacked closed **both** — and
-     * closing the last one raced `bootstrap.ts` into reopening the menu it had
-     * just dismissed. Escape is a binding like any other and belongs to the
-     * router; a component listening for it is a component that cannot know
-     * what else is open.
-     */
     const offenders = ALL.filter((file) => {
       const source = readFileSync(file, 'utf8')
       return /<svelte:window[^>]*onkeydown/.test(source)
@@ -183,12 +126,6 @@ describe('the keyboard', () => {
   })
 
   it('draws its own focus ring wherever it can land', () => {
-    /*
-     * The platform ring is invisible against a dark panel in several browsers.
-     * Every file that styles something interactive has to say what focus looks
-     * like, or a keyboard player is navigating a panel that never tells them
-     * where they are.
-     */
     const interactive = /^\s*(button|input|textarea|\.stage|\.option)\s*[{,:]/m
     const offenders = ALL.filter((file) => {
       const style = styleOf(file)
@@ -201,13 +138,6 @@ describe('the keyboard', () => {
 
 describe('a control', () => {
   it('is a real element, not a div wearing a role', () => {
-    /*
-     * The switches and the segmented choices are drawn from a hidden checkbox
-     * and hidden radios rather than replacing them. Space, arrow keys, the
-     * label association and every assistive technology on earth keep working —
-     * none of which a div with a click handler gets, and all of which this
-     * phase is specifically about.
-     */
     for (const file of ['Toggle.svelte', 'Choice.svelte', 'Slider.svelte']) {
       const source = readFileSync(join(PRIMITIVES, file), 'utf8')
       expect(source, file).toMatch(/<input[\s>]/)

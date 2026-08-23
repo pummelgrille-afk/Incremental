@@ -10,39 +10,13 @@
   import Tooltip from './primitives/Tooltip.svelte'
   import T from './T.svelte'
 
-  /**
-   * The formation editor.
-   *
-   * Phase 18 built the read-only half of this file — the synergy preview
-   * combat-spec.md §3 calls a hard requirement. Phase 24 adds the editing half
-   * around it, which is the right place for it: the preview *is* the planning
-   * information you want while arranging, not a separate readout.
-   *
-   * The slot ring is **HTML, not SVG**, unlike the Almanac. Drag and
-   * drop, focus and keyboard handling all come free on real elements, and the
-   * layout is thirty positioned circles rather than a graph — none of the
-   * reasons the tree needed SVG apply.
-   *
-   * Slots are drawn at their **formation** angle, not their live rotated one.
-   * A slot is a fixed address in the machine; showing it spinning would make
-   * the thing you are editing a moving target.
-   */
-
   let { open = false }: { open?: boolean } = $props()
 
   const CENTRE = 250
   const MOUNT_RADIUS = 232
 
-  /* The hint reads the player's actual binding, as the HUD has since Phase 43. */
   const keyLabel = (action: ActionId) => bindingLabel(game.keybindings[action] ?? '')
 
-  /*
-   * Editor radii are the field's own radii, scaled to fit the box — not a
-   * second table. The hand-written `{ 1: 78, 2: 132, 3: 186 }` this replaces
-   * had no entry for a fourth orbit, so adding one put every slot on it at
-   * NaN. A layout table that has to be kept in step with content/field.ts is a
-   * table that will eventually fall out of step with it.
-   */
   const editorRadius = (radius: number) => (radius / RIM_RADIUS) * MOUNT_RADIUS
 
   interface SlotPosition {
@@ -52,7 +26,6 @@
     y: number
   }
 
-  /** Every ring slot, positioned the way the field lays them out. */
   const slotPositions: SlotPosition[] = RINGS.flatMap((ring) =>
     Array.from({ length: ring.slots }, (_, slot) => {
       const angle = (slot / ring.slots) * Math.PI * 2 - Math.PI / 2
@@ -76,8 +49,6 @@
 
   const occupied = $derived(new Map(game.fielded.map((f) => [`${f.ring}:${f.slot}`, f])))
   const mounts = $derived(new Map(game.mounted.map((m) => [m.slot, m])))
-
-  // --- Dragging. -----------------------------------------------------------
 
   type Carried =
     | { kind: 'roster'; unit: RosterView }
@@ -112,7 +83,6 @@
     }
   }
 
-  /** Dropping a fielded unit outside any slot takes it off the field. */
   function dropOutside() {
     const held = carried
     carried = null
@@ -123,13 +93,6 @@
     else if (held.kind === 'mount') game.formationActions?.unmount(held.mount)
   }
 
-  /**
-   * A refusal reason is an id from `progression/`, not a sentence.
-   *
-   * The set is closed, so the lookup is a key rather than a map of English —
-   * and the fallback prints the raw reason, which is a visible bug rather than
-   * a blank line if a new reason ever arrives without its copy.
-   */
   const REFUSAL_KEYS = new Set([
     'occupied', 'not-unlocked', 'unaffordable', 'invalid-slot', 'preset-limit', 'partial',
   ])
@@ -138,8 +101,6 @@
     REFUSAL_KEYS.has(reason)
       ? t(`formation.refusal.${reason}` as 'formation.refusal.occupied')
       : reason
-
-  // --- Presets. ------------------------------------------------------------
 
   let presetName = $state('')
 
@@ -150,15 +111,6 @@
     presetName = ''
   }
 
-  // --- The unit card. ------------------------------------------------------
-  //
-  // A roster row says a name, a level and a price, none of which answers "what
-  // does this one *do*". The card does, on hover and on keyboard focus.
-  //
-  // Positioned by measurement rather than by CSS: the panel it lives in scrolls
-  // and clips its overflow, so a card anchored inside a row would be cut off at
-  // the top and bottom of the list. Fixed positioning takes it out of that box.
-
   const CARD_WIDTH = 260
 
   let inspecting = $state<{ unit: RosterView; anchor: DOMRect } | null>(null)
@@ -166,22 +118,10 @@
   function inspect(event: { currentTarget: EventTarget | null }, unit: RosterView) {
     const row = event.currentTarget as HTMLElement | null
     if (!row) return
-    // Only the rectangle. Where a card fits beside it is the primitive's
-    // problem, and it is the half this file used to get wrong: it clamped
-    // against a hardcoded 250px guess at its own height, which was right for a
-    // fielded unit and short for a locked one, whose extra paragraph ran off
-    // the bottom of the window.
+
     inspecting = { unit, anchor: row.getBoundingClientRect() }
   }
 
-  /*
-   * Three unions from `entities/types.ts`, spelled out for the card.
-   *
-   * The labels are in `i18n/en/terms.ts` rather than here: an enum member is
-   * not a label, and this file was the third place turning one into English by
-   * hand. The sets guard the lookup — an unmapped member prints as itself,
-   * which is visible, rather than as an empty phrase, which is not.
-   */
   const ROLES = new Set(['tank', 'damage', 'support', 'control'])
   const TARGETINGS = new Set(['nearest', 'lowestHp', 'highestThreat', 'deepest', 'none'])
   const CONJUNCTIONS = new Set(['damagePulse', 'shield', 'haste', 'repair'])
@@ -199,18 +139,9 @@
   const damageTypeName = (type: string): string =>
     DAMAGE_TYPES.has(type) ? t(`damage-type.${type}` as 'damage-type.shear') : type
 
-  /**
-   * A unit's name, translated if this language has it.
-   *
-   * The view carries the id *and* the authored English, so this is a lookup
-   * with a guaranteed fallback: a language that has translated the chrome and
-   * none of the units reads as English unit names in a translated editor,
-   * rather than as a column of ids.
-   */
   const unitName = (kind: 'platform' | 'array', id: string, english: string): string =>
     content(kind, id, 'name', english)
 
-  /** One decimal for the small numbers, none for the large ones. */
   const stat = (value: number) => (value >= 10 ? Math.round(value) : value.toFixed(1))
 
   const PAIRING_KEYS = {
@@ -359,8 +290,7 @@
     </section>
 
     <aside class="side">
-      <!-- The synergy preview, kept from Phase 18. It belongs beside the
-           editor: this is the information you plan an arrangement with. -->
+
       <div class="synergy">
         <span class="label">{t('formation.conjunction')}</span>
         {#if countdown === null}
@@ -403,11 +333,7 @@
             </span>
 
             {#if unit.unlocked}
-              <!-- What fielding it costs, where the decision is made. The
-                   price is the formation's next slot rather than the unit —
-                   the summary under the ring says so — but a player reading a
-                   roster wants the number beside the thing they are about to
-                   drag, not underneath the diagram. -->
+
               <span
                 class="fieldcost"
                 class:short={game.salvage < fieldCost}
@@ -450,8 +376,7 @@
       </ul>
 
       <h3>{t('formation.arrays')}</h3>
-      <!-- Arrays are *shaped*, not levelled: burst, sustain or punch, pulling
-           against each other for the same Clearance. combat-spec.md §4. -->
+
       <ul class="support">
         {#each game.supportRoster as array (array.id)}
           <li class="unit" class:locked={!array.unlocked}>
@@ -786,8 +711,6 @@
     color: var(--muted);
   }
 
-  /* Dimmed rather than hidden when it cannot be paid: the price is the thing
-     the player is deciding against, so it has to stay readable. */
   .fieldcost.short {
     color: #7a6a48;
   }
@@ -889,8 +812,6 @@
     border-radius: 0.2rem;
   }
 
-  /* The preset-name field was the one control in the game with no focus ring
-     of its own — found by tests/ui.test.ts in Phase 43, not by looking. */
   input:focus-visible {
     outline: 2px solid var(--corona);
     outline-offset: 1px;

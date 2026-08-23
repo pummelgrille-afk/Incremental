@@ -36,7 +36,6 @@ beforeEach(() => {
   sim = new Simulation(loadStage(FIRST), createRng(1))
 })
 
-/** The build every balance pass since Phase 14 has been measured against. */
 function referenceFormation(state: SimulationState, level = 1) {
   placePlatform(state, platformById('anchor')!, 1, 0, level)
   placePlatform(state, platformById('anchor')!, 1, 3, level)
@@ -55,9 +54,6 @@ const simpleWave: WaveDef = {
 
 describe('the authored curve', () => {
   it('grows HP faster than damage, so stalls precede walls', () => {
-    // economy-spec.md §5. Reversing these would make the failure mode "dying
-    // suddenly" instead of "this is taking too long", and the stall is the
-    // signal the whole Rewind loop rests on.
     expect(SCALING.enemyHpGrowth).toBeGreaterThan(SCALING.enemyDamageGrowth)
 
     const hp = scaleHp(100, 10, 1) / 100
@@ -86,7 +82,6 @@ describe('boss milestones', () => {
   })
 
   it('does not call the very first stage a boss', () => {
-    // Index 0 is divisible by everything; a boss cannot be the opening stage.
     expect(isBossStage(0)).toBe(false)
   })
 
@@ -105,13 +100,10 @@ describe('boss milestones', () => {
   })
 
   it('gives a boss far more HP than damage', () => {
-    // A boss should be a long fight, not a one-shot. economy-spec.md §5.
     expect(SCALING.bossHpMultiplier).toBeGreaterThan(SCALING.bossDamageMultiplier * 4)
   })
 
   it('fails validation for a stage on the interval with no boss wave', () => {
-    // The trigger has a live consumer rather than sitting as a loose constant:
-    // the moment Phase 33 authors a boss-interval stage without one, this fires.
     const problems = validateStage({
       id: 'milestone',
       name: 'Milestone',
@@ -163,9 +155,6 @@ describe('formation power', () => {
   })
 
   it('rates a Array by its Charge, not its fire rate', () => {
-    // A Array is gated by Charge (combat-spec.md §4). Rating it at burst speed
-    // would read it as several times stronger than it plays, and the director
-    // would punish a build for owning one.
     const array = mountArray(sim.state, arrayById('long-baseline')!, 0)
     const burst = array.def.attack / array.def.baseInterval
     expect(formationPower(sim.state)).toBeLessThan(burst)
@@ -176,8 +165,6 @@ describe('formation power', () => {
   })
 
   it('does not count the Flare', () => {
-    // The Flare is the player's input, not their formation. Scaling waves
-    // against how well someone plays is the rubber-banding this design rejects.
     placePlatform(sim.state, platformById('bolt')!, 2, 0)
     const before = formationPower(sim.state)
     sim.strike(200, 0)
@@ -187,8 +174,6 @@ describe('formation power', () => {
 
 describe('over-level pressure is one-sided', () => {
   it('does nothing to an under-levelled formation', () => {
-    // No mercy scaling: the stall is the signal to Rewind (game-loop.md), and a
-    // director that eased off would hide it.
     placePlatform(sim.state, platformById('anchor')!, 1, 0)
     expect(pressure(sim.state, simpleWave)).toBeLessThan(OVER_LEVEL.threshold)
     expect(overLevelBonus(sim.state, simpleWave)).toBe(0)
@@ -199,9 +184,6 @@ describe('over-level pressure is one-sided', () => {
   })
 
   it('leaves the reference formation untouched on every authored stage', () => {
-    // The build every balance measurement is calibrated against. If the
-    // director fires here it is rebalancing the game, not answering farming,
-    // and docs/phases/phase-17.md and phase-19.md stop being true.
     for (const zone of ZONES) {
       for (const stage of zone.stages) {
         const state = loadStage(`${zone.id}:${stage.id}` as StageAddress)
@@ -245,8 +227,6 @@ describe('directing a wave', () => {
   })
 
   it('keeps a wave dense rather than long when it adds enemies', () => {
-    // Stretching a wave to fit more enemies raises clear time without raising
-    // pressure, which is the opposite of the intent.
     const state = loadStage(FIRST)
     referenceFormation(state, 40)
 
@@ -266,9 +246,6 @@ describe('directing a wave', () => {
   })
 
   it('never mutates the content it was given', () => {
-    // sim.stage is a live reference into content/zones.ts and `readonly` is
-    // compile-time only. A Phase 17 harness wrote through it and invented a
-    // difficulty cliff that did not exist.
     const state = loadStage(LAST)
     referenceFormation(state)
     const wave = state.stage.waves[0] as WaveDef
@@ -279,8 +256,6 @@ describe('directing a wave', () => {
   })
 
   it('is what spawning and the wave total both read', () => {
-    // Three call sites disagreeing about a count is a wave that never
-    // completes, because the clear check waits for a total that never arrives.
     const s = new Simulation(loadStage(LAST), createRng(3))
     referenceFormation(s.state)
     s.tick(TICK_SECONDS)
@@ -292,8 +267,6 @@ describe('directing a wave', () => {
   })
 
   it('keeps every authored stage inside the entity budget when directed', () => {
-    // The cap on the bonus exists partly for this. An overrun is a content bug
-    // to surface, not something the engine silently truncates.
     for (const zone of ZONES) {
       for (const stage of zone.stages) {
         const state = loadStage(`${zone.id}:${stage.id}` as StageAddress)
@@ -321,7 +294,6 @@ describe('a directed stage still finishes', () => {
   })
 
   it('clears even when the director has added enemies', () => {
-    // The bonus must raise difficulty, not deadlock the clear check.
     const s = new Simulation(loadStage(FIRST), createRng(5))
     referenceFormation(s.state, 40)
     expect(overLevelBonus(s.state, s.state.stage.waves[0])).toBe(OVER_LEVEL.maxCountBonus)
@@ -356,10 +328,6 @@ describe('the wave yardstick', () => {
   })
 
   it('is a rate, so a longer wave of the same spacing is not a heavier one', () => {
-    // Worth stating: 20 enemies at one spacing deliver HP at essentially the
-    // same rate as 4, they just do it for longer. The director asks "can this
-    // formation keep pace with arrivals", which is a rate question. Attrition
-    // over a long wave is the Sun's problem, not the director's.
     const short: WaveDef = { groups: [{ defId: 'skiff', count: 4, delay: 0, interval: 0.5 }], gapAfter: 4 }
     const long: WaveDef = { groups: [{ defId: 'skiff', count: 20, delay: 0, interval: 0.5 }], gapAfter: 4 }
     const ratio = waveHpRate(sim.state, long) / waveHpRate(sim.state, short)
@@ -379,7 +347,6 @@ describe('the wave yardstick', () => {
   })
 
   it('rises across the authored stages', () => {
-    // The curve has to actually go up, or none of this means anything.
     const rates = ZONES[0].stages.map((stage) => {
       const state = loadStage(`${ZONES[0].id}:${stage.id}` as StageAddress)
       return waveHpRate(state, state.stage.waves[0])

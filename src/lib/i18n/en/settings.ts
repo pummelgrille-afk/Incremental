@@ -1,11 +1,4 @@
-/**
- * Settings, and the save-handling copy that lives on it.
- *
- * The hints are the longest strings in the game and the most load-bearing: each
- * one is the only explanation of a control the player has no other way to
- * understand. They are also the strings a translator will expand the furthest,
- * which is why `Field` wraps its hint and nothing here is budgeted to a line.
- */
+
 export const SETTINGS = {
   'settings.sound': 'Sound',
   'settings.master': 'Master',
@@ -40,9 +33,6 @@ export const SETTINGS = {
   'settings.diagnostics': 'Diagnostics',
   'settings.diagnostics.hint': 'Frame times, entity counts and budgets.',
 
-  // The language picker names itself in each language, never in the current
-  // one: a player who has landed in a language they cannot read has to be able
-  // to find their way out by recognising their own.
   'settings.language': 'Language',
   'settings.language.hint':
     'Every language is named in itself, so this row is readable from any of ' +
@@ -72,7 +62,6 @@ export const SETTINGS = {
   'settings.save.placeholder': 'perihelion…',
   'settings.save.replace': 'Replace my save',
 
-  // Thrown by `core/save.ts`, which carries the key rather than the sentence.
   'save.error.unavailable': 'Unavailable',
   'save.error.empty': 'Nothing to import.',
   'save.error.not-a-save': 'That does not look like a Perihelion save string.',

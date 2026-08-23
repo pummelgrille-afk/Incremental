@@ -4,29 +4,8 @@ import { ARRAYS, arrayById } from '../content/arrays'
 import type { DamageType, TargetingPolicy, UnitRole } from '../entities/types'
 import type { SaveData } from '../core/saveSchema'
 
-/**
- * The roster: which units a player owns, and how far each is levelled.
- *
- * Both are bought with **Clearance**, which are first-clear only (economy-spec.md
- * §1). That separation is load-bearing: Clearance measure content *seen*, so the
- * roster curve is authored rather than grindable, and a long idle session can
- * never substitute for it.
- *
- * Like the rest of `progression/`, everything here is a pure function of the
- * save plus its arguments. Nothing reaches into a running simulation.
- */
-
-/** A Platform or a Array — the two are levelled identically. */
 export type UnitKind = 'platform' | 'array'
 
-/**
- * The slice of a PlatformDef or ArrayDef the roster panel reads.
- *
- * Structural rather than a union of the two def types, so this module still
- * needs to know nothing about the difference between them. `conjunctionEffect`
- * is optional because only a Platform has one — an Array never joins a
- * conjunction (combat-spec.md §4).
- */
 export interface UnitDefLike {
   readonly id: string
   readonly name: string
@@ -54,16 +33,6 @@ function ledger(save: SaveData, kind: UnitKind): Record<string, number> {
   return kind === 'platform' ? save.meta.platforms : save.meta.arrays
 }
 
-/**
- * Ensure the starting Platform is owned.
- *
- * Its `unlockCost` is 0, but a save that has never bought anything would
- * otherwise have an empty roster and no way to field a formation — a new player
- * cannot spend Clearance they have not earned.
- *
- * Returns whether it granted, so the caller can pair the grant with a free
- * placement exactly once. Idempotent; called on load.
- */
 export function grantStartingRoster(save: SaveData): boolean {
   if (save.meta.platforms[STARTING_PLATFORM_ID] !== undefined) return false
   save.meta.platforms[STARTING_PLATFORM_ID] = 1
@@ -74,7 +43,6 @@ export function isUnlocked(save: SaveData, kind: UnitKind, id: string): boolean 
   return ledger(save, kind)[id] !== undefined
 }
 
-/** 0 when not owned. Owned units start at 1. */
 export function levelOf(save: SaveData, kind: UnitKind, id: string): number {
   return ledger(save, kind)[id] ?? 0
 }
@@ -83,12 +51,6 @@ export function unlockCost(kind: UnitKind, id: string): number {
   return defFor(kind, id)?.unlockCost ?? Infinity
 }
 
-/**
- * Clearance to raise a unit one level, or null when it is already at the ceiling.
- *
- * Null rather than Infinity so a caller has to handle "cannot" rather than
- * quietly rendering an unaffordable price the player can never reach.
- */
 export function levelCost(save: SaveData, kind: UnitKind, id: string): number | null {
   const level = levelOf(save, kind, id)
   if (level < 1) return null
@@ -96,17 +58,10 @@ export function levelCost(save: SaveData, kind: UnitKind, id: string): number | 
   return Math.ceil(ROSTER.levelCost.base * ROSTER.levelCost.growth ** (level - 1))
 }
 
-/**
- * Total stat multiplier at a level.
- *
- * Flat rather than compounding — see `content/economy.ts` for why. Level 1 is
- * exactly 1, so an unlevelled roster behaves as though this did not exist.
- */
 export function levelScale(level: number): number {
   return 1 + Math.max(0, level - 1) * ROSTER.levelScaling
 }
 
-/** Unlock a unit, or refuse. Refusal changes nothing. */
 export function unlock(save: SaveData, kind: UnitKind, id: string): boolean {
   if (isUnlocked(save, kind, id)) return false
 
@@ -119,7 +74,6 @@ export function unlock(save: SaveData, kind: UnitKind, id: string): boolean {
   return true
 }
 
-/** Raise a unit one level, or refuse. */
 export function levelUp(save: SaveData, kind: UnitKind, id: string): boolean {
   const cost = levelCost(save, kind, id)
   if (cost === null || save.meta.clearance < cost) return false
@@ -129,14 +83,6 @@ export function levelUp(save: SaveData, kind: UnitKind, id: string): boolean {
   return true
 }
 
-/**
- * What a unit is and does, at the level it is currently at.
- *
- * Stats are the **effective** ones, not the authored ones: a levelled unit is
- * described by what it will do when fielded, or the panel is quoting a number
- * the player will never see. `levelScale` is the same multiplier the stage
- * loader applies.
- */
 export interface UnitProfile {
   description: string
   role: UnitRole
@@ -145,9 +91,9 @@ export interface UnitProfile {
   attack: number
   maxHp: number
   defence: number
-  /** Seconds between attacks, before haste. */
+
   interval: number
-  /** What it contributes to a conjunction, or null for an Array. */
+
   conjunction: { kind: string; magnitude: number } | null
 }
 
@@ -157,9 +103,9 @@ export interface RosterEntry {
   name: string
   unlocked: boolean
   level: number
-  /** Clearance to unlock, when locked. */
+
   unlockCost: number
-  /** Clearance for the next level, null at the ceiling or when locked. */
+
   levelCost: number | null
   atMaxLevel: boolean
   canUnlock: boolean
@@ -167,13 +113,6 @@ export interface RosterEntry {
   profile: UnitProfile
 }
 
-/**
- * Describe a unit at a level.
- *
- * Level 0 — not yet unlocked — is described at level 1, which is what the
- * player would get if they bought it. Quoting zeroes for a unit on sale would
- * be worse than quoting its opening stats.
- */
 function profileOf(def: UnitDefLike, level: number): UnitProfile {
   const scale = levelScale(Math.max(1, level))
 
@@ -192,7 +131,6 @@ function profileOf(def: UnitDefLike, level: number): UnitProfile {
   }
 }
 
-/** Every authored unit with its state, for the formation editor. */
 export function rosterOf(save: SaveData, kind: UnitKind): RosterEntry[] {
   return defsFor(kind).map((def) => {
     const unlocked = isUnlocked(save, kind, def.id)
@@ -215,7 +153,6 @@ export function rosterOf(save: SaveData, kind: UnitKind): RosterEntry[] {
   })
 }
 
-/** Levels keyed by def id, in the shape `applyFormation` wants. */
 export function levelsOf(save: SaveData, kind: UnitKind): Record<string, number> {
   return { ...ledger(save, kind) }
 }

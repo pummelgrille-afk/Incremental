@@ -4,18 +4,6 @@
   import Modal from './primitives/Modal.svelte'
   import Button from './primitives/Button.svelte'
 
-  /**
-   * The progression map.
-   *
-   * Reads a projection the store publishes from `progression/map.ts` — which
-   * stages are enterable is a progression rule, and a rule expressed in a
-   * template is a rule nothing can test.
-   *
-   * Locked zones are shown, not hidden. A player should be able to see that
-   * there is more out there and roughly how much; hiding it turns a ladder into
-   * a corridor and removes the reason to finish the zone they are on.
-   */
-
   let { open = false }: { open?: boolean } = $props()
 
   function enter(address: string, unlocked: boolean): void {
@@ -87,8 +75,7 @@
           {/each}
         </ul>
       {:else}
-        <!-- Named but not described. Knowing a place exists is the
-             incentive; knowing what is in it is the reward. -->
+
         <p class="sealed">{t('map.sealed')}</p>
       {/if}
     </section>
@@ -156,13 +143,6 @@
     gap: 0.3rem;
   }
 
-  /*
-   * Not a `<Button>`. A stage is a place on a map, and the primitive's three
-   * variants are all statements about *what an action does* — none of them
-   * describes a destination that can be current, cleared, or sealed. Forcing it
-   * through would mean a fourth variant used exactly once, which is how a
-   * shared set stops being shared.
-   */
   .stage {
     width: 100%;
     display: flex;

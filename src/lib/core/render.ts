@@ -25,30 +25,6 @@ import { backdropGeometry, type BackdropLayerGeometry } from './backdrop'
 import { SPRITE_MANIFEST, spriteFrames } from './assetLoader'
 import { TICK_SECONDS, type Simulation } from './loop'
 
-/**
- * The Pixi render layer.
- *
- * **Reads simulation state and never writes it** (docs/architecture.md). A
- * dropped frame must not change the simulation.
- *
- * The simulation runs at a fixed 20 Hz while this draws at display rate, so
- * positions are extrapolated forward by `alpha * TICK_SECONDS` using each
- * entity's velocity. That is cheaper than storing previous positions and
- * interpolating, and exact for the constant-velocity motion that dominates —
- * projectiles and ring rotation.
- *
- * **Art and instrumentation are separate layers**, and Phase 37 fixed the split
- * rather than blurring it. A Contact and the Sun draw a sprite when their
- * content names one; the telegraph ring, the health arc and the Output arc stay
- * vector on top of it. Those are a readout rather than a picture — see
- * docs/design/art-style.md §"Instrumentation is never art" — and a readout
- * baked into a 40px sprite is a readout that stops being legible the moment
- * anything scales.
- *
- * Everything without a sprite is still a Graphics primitive in the palette, and
- * falls back to one silently. Phases 38–40 supply the rest.
- */
-
 const PALETTE = {
   background: 0x0b0a08,
   ringTrack: 0x2a2417,
@@ -63,21 +39,8 @@ const PALETTE = {
   conjunction: 0xfff1a8,
 } as const
 
-/**
- * The colours a player has to tell apart, as a swappable set.
- *
- * Shot colour by damage type makes the type matrix — in `content/damageTypes.ts`
- * since Phase 8 — visible on the field: a player could previously see that one
- * unit killed faster than another with no way to see *why*. A tracer is the
- * natural place to say it, and it costs nothing.
- *
- * Which set is in use is a **setting**, because the default one puts four of
- * the five colours in that sentence on the red-green axis. The tables and the
- * argument are in `content/palettes.ts`; this layer only asks for one.
- */
 let active: FieldPalette = PALETTES.none
 
-/** Presentation settings the renderer honours. Pushed by bootstrap. */
 export interface RenderSettings {
   colourblindPalette: ColourblindPalette
   screenShake: boolean
@@ -90,63 +53,23 @@ let reducedMotion = false
 export interface Renderer {
   render(simulation: Simulation, dt?: number): void
   resize(): void
-  /** Re-read the player's palette and motion settings. */
+
   applySettings(settings: RenderSettings): void
   destroy(): void
-  /** Screen coordinates (clientX/clientY) to simulation world space. */
+
   toWorld(clientX: number, clientY: number): { x: number; y: number }
   readonly canvas: HTMLCanvasElement
 }
 
-/**
- * The sprite key a Contact draws under, or undefined for the primitive.
- *
- * Read from content rather than mapped here, which is what makes `assetKey` a
- * live field rather than the declared-and-unused one it was from Phase 8 until
- * this phase.
- */
 const SUN_SPRITE = 'sun'
 
-/**
- * Projectile art, by faction.
- *
- * Hostile fire takes the green comet and owned fire the blue, which is
- * art-style.md §6 rule 1 doing its job: incoming fire is the thing that must be
- * read first, and green against a near-black field at 0.52 saturation is the
- * loudest pair of the two.
- */
 const PROJECTILE_SPRITES: Record<'contact' | 'array', string> = {
   contact: 'projectile-1',
   array: 'projectile-2',
 }
 
-/**
- * Which way the comet art points, in image space.
- *
- * Measured rather than assumed: the head of both supplied comets sits at 134°
- * and 137° from the sprite's own centroid — down and to the left, since image
- * y grows downward. A sprite is turned by `heading - this`, so a shot travelling
- * along +x puts its head on +x.
- *
- * Both assets agree to within three degrees, so one constant covers them. New
- * comet art must be drawn on the same heading or re-measured; there is no way
- * for the renderer to work it out per texture without inspecting pixels at load
- * time, which is a cost paid on every boot to save an author one convention.
- */
 const COMET_HEADING = (135 * Math.PI) / 180
 
-/**
- * Load every sprite in the manifest into a texture, by key.
- *
- * **Nearest-neighbour, always.** These are pixel sprites authored on a 40px
- * grid and drawn at roughly half that; bilinear filtering on pixel art at a
- * non-integer scale is the exact thing art-style.md forbids, and it turns a
- * crisp silhouette into a smear at the size the player actually sees it.
- *
- * A texture that fails to load is skipped rather than thrown: the renderer
- * falls back to the primitive it drew before this phase, and a missing file is
- * a content bug for `tests/assets.test.ts` to fail on — not a black screen.
- */
 async function loadTextures(): Promise<Map<string, Texture>> {
   const textures = new Map<string, Texture>()
 
@@ -157,7 +80,6 @@ async function loadTextures(): Promise<Map<string, Texture>> {
         texture.source.scaleMode = 'nearest'
         textures.set(key, texture)
       } catch {
-        // Deliberately silent here; the test is where this is caught.
       }
     }),
   )
@@ -165,42 +87,30 @@ async function loadTextures(): Promise<Map<string, Texture>> {
   return textures
 }
 
-/** A sprite sized so its longest edge is `size` px, centred on its position. */
 function spriteAt(texture: Texture, size: number): Sprite {
   const sprite = new Sprite(texture)
   sprite.anchor.set(0.5)
-  // Scaled by the longest edge rather than per-axis: the supplied art is
-  // trimmed to its own bounds, so the two edges differ and stretching each to
-  // `size` would distort every sprite by a different amount.
+
   const scale = size / Math.max(texture.width, texture.height)
   sprite.scale.set(scale)
   return sprite
 }
 
-/**
- * A unit's sprite plus where it is in its animation.
- *
- * `clips` is resolved once when the view is created, because the frames a key
- * has cannot change at runtime — the manifest is built at module load. What
- * moves per frame is the state, the clock, and a texture assignment when the
- * index actually changes.
- */
 interface AnimatedBody {
-  /** The asset key it was built from, so a pooled slot can tell it apart. */
   key: string
   sprite: Sprite
   clips: Record<AnimationState, Texture[]>
   state: AnimationState
-  /** Simulation time the current state began. */
+
   since: number
-  /** Last frame assigned, so an unchanged frame costs a comparison. */
+
   frame: number
 }
 
 interface ProjectileView {
   node: Sprite | null
   fallback: Graphics | null
-  /** Last frame assigned, so an unchanged frame costs a comparison. */
+
   frame: number
 }
 
@@ -210,13 +120,6 @@ interface ContactView {
   overlay: Graphics
 }
 
-/**
- * Build an animated body for a key, or null when nothing is staged under it.
- *
- * Every state resolves to at least one texture where the key exists at all —
- * `spriteFrames` falls back through idle to the bare key — so the render loop
- * never has to handle an empty clip.
- */
 function animatedBody(
   textures: Map<string, Texture>,
   key: string | undefined,
@@ -243,17 +146,6 @@ function animatedBody(
   }
 }
 
-/**
- * Advance a body to the state it should be in, and to the frame of it.
- *
- * The state clock restarts only when the state *changes*, which is what makes a
- * one-shot clip play from its first frame every time rather than from wherever
- * a shared clock happened to be.
- *
- * A texture is assigned only when the index moves. At 60fps against a 0.16s
- * idle frame that is one assignment in ten, and the other nine cost an integer
- * comparison.
- */
 function advanceBody(body: AnimatedBody, state: AnimationState, elapsed: number): void {
   if (state !== body.state) {
     body.state = state
@@ -277,24 +169,18 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     background: PALETTE.background,
     antialias: true,
     resizeTo: host,
-    // Cap DPR: a 3x backing store triples fill cost for no legibility gain on
-    // shapes this simple.
+
     resolution: Math.min(window.devicePixelRatio, 2),
     autoDensity: true,
   })
   host.appendChild(app.canvas)
 
-  // Everything is centred on the Sun, so children work in world
-  // coordinates and never think about screen space.
   const world = new Container()
   app.stage.addChild(world)
 
-  // First child, so the sky is under the ring tracks as well as under the
-  // field. Its contents are built later, once a zone is known.
   const backdropLayer = new Container()
   world.addChild(backdropLayer)
 
-  // --- Static furniture: drawn once, never touched again. -------------------
   const trackLayer = new Container()
   world.addChild(trackLayer)
   for (const ring of RINGS) {
@@ -314,7 +200,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }),
   )
 
-  // --- One container per ring. Rotating it moves every unit on it. ----------
   const ringContainers = RINGS.map(() => {
     const container = new Container()
     world.addChild(container)
@@ -323,14 +208,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
   const textures = await loadTextures()
 
-  /*
-   * The sky, under everything including the ring tracks.
-   *
-   * One Graphics per parallax layer, built once when the zone changes and then
-   * never touched again except for its rotation — a few hundred sub-pixel
-   * circles cost nothing to keep on screen and would cost real time to rebuild
-   * per frame. Rotation is one write per layer.
-   */
   interface BackdropView {
     graphic: Graphics
     degreesPerSecond: number
@@ -357,8 +234,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       })
     }
 
-    // Driven by simulation time rather than by a wall clock, so a paused or
-    // stalled sim leaves the sky where it was instead of jumping on resume.
     const elapsed = simulation.state.elapsed
     for (const view of backdropViews) {
       view.graphic.rotation = (view.degreesPerSecond * elapsed * Math.PI) / 180
@@ -371,14 +246,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   const arrayLayer = new Container()
   world.addChild(contactLayer, arrayLayer, projectileLayer, effectLayer)
 
-  /*
-   * The Sun: art underneath, instrumentation on top.
-   *
-   * The Output arc and the shield ring stay vector, and deliberately. They are
-   * a readout — the one number the player must never look away from the field
-   * to check (P4) — and a readout drawn at whatever resolution the display has
-   * beats one baked into a 40px sprite at any zoom.
-   */
   const sunSprite = textures.has(SUN_SPRITE)
     ? spriteAt(textures.get(SUN_SPRITE)!, 58)
     : null
@@ -387,42 +254,15 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   const sun = new Graphics()
   world.addChild(sun)
 
-  // Strike feedback lives above everything, so it reads even in dense fire.
   const strikeGraphic = new Graphics()
   effectLayer.addChild(strikeGraphic)
 
-  /*
-   * Platform shot tracers.
-   *
-   * One Graphics for all of them, cleared and rebuilt per frame like the strike
-   * — a dozen short lines is far less work than keeping a sprite per tracer in
-   * step with a pool that recycles under it.
-   *
-   * Under the projectile layer deliberately: a tracer is the cheapest thing on
-   * screen and must never obscure an incoming shot, which is the one thing a
-   * player has to read.
-   */
   const tracerGraphic = new Graphics()
   projectileLayer.addChild(tracerGraphic)
 
-  /*
-   * The particle field.
-   *
-   * One Graphics, cleared and rebuilt per frame, like the tracers and the
-   * strike. Four hundred small circles rebuilt each frame is far cheaper than
-   * four hundred display objects kept in step with a pool that recycles
-   * underneath them — and it is what the pooled-sprite approach costs *anyway*
-   * once each one needs its own alpha and radius per frame.
-   *
-   * On the effect layer, above the field: a spark is short-lived and small
-   * enough that it cannot hide an incoming shot, and an impact drawn under the
-   * thing it hit would not read as an impact at all.
-   */
   const particleGraphic = new Graphics()
   effectLayer.addChild(particleGraphic)
 
-  // Damage popups. Text objects are expensive to create, so the pool of them
-  // matches the feed's capacity and is allocated once.
   const feedLayer = new Container()
   world.addChild(feedLayer)
   const popupStyle = new TextStyle({
@@ -433,61 +273,23 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
   })
   const popups: Text[] = []
 
-  // Sprite registries, keyed by entity id so they survive across frames.
-  /*
-   * A Platform is a body and an overlay, the same split Contacts use.
-   *
-   * The body is a planet, chosen by damage type, and it rides the ring
-   * container's rotation like everything else on that ring. A planet is round,
-   * so the rotation is invisible on it — and the health arc drawn on top *does*
-   * turn with the ring, which is correct: it belongs to a unit that is moving.
-   */
   const platformSprites = new Map<number, ContactView>()
-  /*
-   * A Contact is two objects, not one.
-   *
-   * `body` is the art and never changes shape; `overlay` is the telegraph ring
-   * and the health arc, which do. Splitting them is what lets a hit flash cost
-   * a tint instead of a geometry rebuild — the signature cache below still
-   * guards the overlay, but the expensive half of a flash is gone.
-   *
-   * A Contact whose def names no sprite has no body and draws its primitive
-   * into the overlay, exactly as it did before Phase 37.
-   */
+
   const contactSprites = new Map<number, ContactView>()
-  /** Last-drawn signature per Contact, so unchanged ones skip the rebuild. */
+
   const contactSigs = new Map<number, number>()
   const arraySprites = new Map<number, Graphics>()
-  /**
-   * One slot per pooled projectile.
-   *
-   * Two possible display objects rather than one because a slot is recycled
-   * between factions, and a faction with no art staged still has to draw. Only
-   * ever one of the pair is visible at a time.
-   */
+
   const projectileSprites: ProjectileView[] = []
 
   const recentre = () => {
     world.x = app.screen.width / 2 + shakeX
     world.y = app.screen.height / 2 + shakeY
-    // Scale down on small viewports so the whole field stays visible.
+
     const fit = Math.min(app.screen.width, app.screen.height) / (RIM_RADIUS * 2.2)
     world.scale.set(Math.min(1, fit))
   }
 
-  /*
-   * The screen shake, and the argument for it being this small.
-   *
-   * P4 says legibility over spectacle, every time, and a game that asks a
-   * player to read hundreds of projectiles has an unusually strong version of
-   * that. So the shake fires on **one event** — the Sun losing Output — where a
-   * jolt is information rather than decoration, and it is bounded at a handful
-   * of pixels and a fifth of a second. It is a punctuation mark, not a camera.
-   *
-   * Renderer-local state. It reads the Sun's hp and remembers the previous
-   * value here rather than anywhere in the simulation: rule 3 in
-   * architecture.md — a dropped frame must never change what happens.
-   */
   const SHAKE_MAX = 6
   const SHAKE_DECAY = 5
   let shakeEnergy = 0
@@ -499,9 +301,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     const hp = simulation.state.sun.hp
 
     if (previousOutput !== null && hp < previousOutput && simulation.state.sun.maxHp > 0) {
-      // Proportional to the bite taken, capped: a boss landing a quarter of the
-      // bar and a stray shot landing a hundredth must not feel the same, and
-      // neither may throw the field off screen.
       const fraction = (previousOutput - hp) / simulation.state.sun.maxHp
       shakeEnergy = Math.min(1, shakeEnergy + fraction * 8)
     }
@@ -518,9 +317,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
     shakeEnergy = Math.max(0, shakeEnergy - SHAKE_DECAY * dt)
 
-    // Presentation randomness never touches the simulation's stream — the same
-    // rule the particle field follows, and for the same reason: it would put
-    // every wave downstream of how hard the Sun was hit.
     const amplitude = SHAKE_MAX * shakeEnergy * shakeEnergy
     shakeX = (Math.random() * 2 - 1) * amplitude
     shakeY = (Math.random() * 2 - 1) * amplitude
@@ -542,9 +338,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       let view = platformSprites.get(platform.id)
       if (!view) {
         const node = new Container()
-        // 22px across against an 8px body radius, so a planet reads as a body
-        // rather than as a dot — the same "art wider than the hitbox" rule the
-        // Sun and the Contacts follow.
+
         const body = animatedBody(textures, platform.def.assetKey, 22)
         const overlay = new Graphics()
 
@@ -556,7 +350,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         ringContainers[ring.index - 1].addChild(node)
       }
 
-      // Local coordinates only — the parent container's rotation carries them.
       const localAngle = slotAngle(ring, platform.slot.slot, 0)
       view.node.x = Math.cos(localAngle) * ring.radius
       view.node.y = Math.sin(localAngle) * ring.radius
@@ -564,21 +357,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       const sprite = view.overlay
 
       const disabled = platform.disabledFor > 0
-      /*
-       * Tinted by damage type, which replaced a table keyed on Platform *id*.
-       *
-       * That table still held the pre-reskin ids — `hammer`, `detent`,
-       * `pallet` — which have not existed since Phase 29 renamed them. Every
-       * lookup had missed for eight phases, so all ten Platforms drew in the
-       * default colour and the table did nothing whatsoever. Nothing failed;
-       * the field quietly lost a distinction it was written to make, which is
-       * the dead configuration this project keeps finding.
-       *
-       * Type is the better key anyway: it is what decides whether a unit
-       * answers the Contact in front of it (combat-spec.md §7), it matches the
-       * colour its tracer already flies in, and a closed union cannot go stale
-       * when the roster is renamed again — the compiler checks it.
-       */
+
       const colour = disabled
         ? PALETTE.platformDisabled
         : active.damage[platform.def.damageType]
@@ -598,8 +377,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
           sim.elapsed,
         )
 
-        // A disabled unit dims rather than recolouring: the planet is the
-        // unit's identity and must stay recognisable while it is out.
         view.body.sprite.tint = disabled ? PALETTE.platformDisabled : 0xffffff
         view.body.sprite.alpha = disabled ? 0.4 : 1
       } else {
@@ -607,7 +384,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       }
 
       if (!disabled) {
-        // Health ring, so damage is legible without a bar.
         const health = platform.hp / platform.maxHp
         if (health < 1) {
           sprite
@@ -626,7 +402,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       platformSprites.delete(id)
     }
 
-    // The entire rotation system: one write per ring.
     for (let i = 0; i < ringContainers.length; i++) {
       const state = sim.rings[i]
       if (!state) continue
@@ -656,7 +431,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         alpha: array.disabledFor > 0 ? 0.3 : 1,
       })
 
-      // Charge pips — the resource that makes Arrays burst-y, made visible.
       const whole = Math.floor(array.charge)
       for (let i = 0; i < array.maxCharge; i++) {
         sprite
@@ -672,23 +446,9 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
-  /**
-   * Contact are the dominant render cost, so their geometry is only rebuilt when
-   * it actually changes.
-   *
-   * Phase 11 measured ~12 us per Contact per frame against ~4 us for a projectile
-   * that is merely repositioned. The difference was `clear()` plus a geometry
-   * rebuild every frame for entities that mostly are not changing: an
-   * undamaged, non-telegraphing Contact looks identical frame to frame and only
-   * needs its position updated.
-   *
-   * A signature captures everything that affects the drawing. Telegraphing
-   * Contact animate, so they are exempt — but only a handful telegraph at once.
-   */
   function contactSignature(contact: ContactInstance): number {
     const flashing = contact.hitFlash > 0 ? 1 : 0
-    // Health quantised to 20 steps: finer than the eye resolves on a 4 px arc,
-    // and it stops a continuous regen trickle from dirtying every frame.
+
     const health = Math.round((contact.hp / contact.maxHp) * 20)
     const shielded = contact.shieldHitsRemaining > 0 ? 1 : 0
     return flashing | (shielded << 1) | (health << 2)
@@ -705,8 +465,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       let view = contactSprites.get(contact.id)
       if (!view) {
         const node = new Container()
-        // Art wider than the hitbox, on the same argument the Sun's own
-        // comment makes: a near miss should read as a miss.
+
         const body = animatedBody(textures, contact.def.assetKey, size * 2.6)
         const overlay = new Graphics()
 
@@ -719,7 +478,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         contactSigs.set(contact.id, -1)
       }
 
-      // Position always updates — this is the cheap part.
       view.node.x = contact.position.x + contact.velocity.x * lead
       view.node.y = contact.position.y + contact.velocity.y * lead
 
@@ -732,15 +490,13 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
           }),
           simulation.state.elapsed,
         )
-        // The flash is a tint on top of whatever frame is showing, so a unit
-        // with no `hit` clip still reads as hit.
+
         view.body.sprite.tint = contact.hitFlash > 0 ? PALETTE.contactFlash : 0xffffff
       }
 
       const telegraphing = contact.telegraphRemaining > 0
       const signature = contactSignature(contact)
 
-      // Skip the rebuild when nothing visible changed.
       if (!telegraphing && contactSigs.get(contact.id) === signature) continue
       contactSigs.set(contact.id, telegraphing ? -1 : signature)
 
@@ -752,8 +508,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
           .fill({ color: contact.hitFlash > 0 ? PALETTE.contactFlash : PALETTE.contact })
       }
 
-      // Telegraph: a pattern that fires without warning is a bug, so the
-      // warning has to be visible from the render layer, not implied.
       if (telegraphing) {
         const t = contact.telegraphRemaining
         sprite.circle(0, 0, size + 6 + t * 14).stroke({
@@ -773,36 +527,13 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
     for (const [id, view] of contactSprites) {
       if (seen.has(id)) continue
-      // `destroy({ children: true })` takes the body and the overlay with it;
-      // destroying only the container would leak both.
+
       view.node.destroy({ children: true })
       contactSprites.delete(id)
       contactSigs.delete(id)
     }
   }
 
-  /**
-   * Draw the projectiles.
-   *
-   * The pool's hottest loop — the budget allows 600 live at once — so the
-   * shape of this matters more than anywhere else in the file.
-   *
-   * Sprites where art exists, and a Sprite is *cheaper* than the Graphics it
-   * replaces: no geometry, so becoming visible costs a texture assignment and a
-   * scale rather than a rebuilt circle. What it adds is a rotation write per
-   * projectile per frame, which is one number.
-   *
-   * Faction is fixed for a projectile's whole life, but the pool recycles a
-   * slot between factions, so the texture is set when a slot becomes visible
-   * rather than at creation.
-   */
-  /**
-   * Frames per faction, resolved once.
-   *
-   * A projectile has no state machine — it is always simply flying — so its
-   * clip is the `idle` one and there is nothing to switch between. Two
-   * factions, so two lookups, done here rather than per projectile per frame.
-   */
   const projectileFrames: Record<'contact' | 'array', Texture[]> = {
     contact: spriteFrames(PROJECTILE_SPRITES.contact, 'idle')
       .map((key) => textures.get(key))
@@ -816,8 +547,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     const items = simulation.projectiles.items
     const lead = alpha * TICK_SECONDS
 
-    // Sprites are allocated once and reused by index, matching the pool. No
-    // per-frame allocation on the hot path.
     while (projectileSprites.length < items.length) {
       const view: ProjectileView = { node: null, fallback: null, frame: -1 }
       projectileSprites.push(view)
@@ -849,39 +578,19 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
           sprite.visible = true
           sprite.texture = texture
           view.frame = -1
-          // Comets carry a tail, so they need more room than the hitbox they
-          // stand for — sized on the diameter the collision uses, times two.
+
           const size = p.radius * 4
           sprite.scale.set(size / Math.max(texture.width, texture.height))
         }
 
         sprite.x = p.position.x + p.velocity.x * lead
         sprite.y = p.position.y + p.velocity.y * lead
-        // Pointed along the shot. A comet flying sideways is worse than a dot.
+
         sprite.rotation = Math.atan2(p.velocity.y, p.velocity.x) - COMET_HEADING
 
-        /*
-         * Tinted, not left as authored.
-         *
-         * The two comet sprites carry the incoming/owned distinction in their
-         * own colours — green against blue — which is art-style.md §6 rule 1's
-         * most important pair and, under a red-green deficiency, one colour.
-         * The default palette tints them back to what the art already is, so
-         * this costs nothing when it is not needed.
-         */
         sprite.tint =
           p.faction === 'contact' ? active.projectileContact : active.projectileArray
 
-        /*
-         * The tail gutters as it flies.
-         *
-         * Clocked on the projectile's own remaining lifetime, plus a small
-         * offset from its pool slot. Both halves matter: `lifetime` differs
-         * between shots fired at different moments, and the slot offset
-         * separates the ones fired on the *same* tick. Without either, a
-         * volley flickers in perfect unison, which reads as a strobe rather
-         * than as several burning things — worse than not animating at all.
-         */
         if (frames.length > 1) {
           const index = frameAt(
             p.lifetime + i * 0.031,
@@ -898,7 +607,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         continue
       }
 
-      // No art staged for this faction: the disc, exactly as before Phase 37.
       if (!view.fallback) {
         view.fallback = new Graphics()
         view.fallback.visible = false
@@ -927,8 +635,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     sun.clear()
 
     if (sunSprite) {
-      // Tinted rather than redrawn: a hit is a white flash and low Output is a
-      // red shift, both of which a tint expresses without touching geometry.
       sunSprite.tint = state.hitFlash > 0 ? 0xffffff : low ? active.sunLow : 0xffffff
       sunSprite.alpha = state.hitFlash > 0 ? 1 : 0.95
     } else {
@@ -938,8 +644,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       })
     }
 
-    // Output as an arc around the core — the objective's health is the one
-    // number that must never require looking away from the field.
     sun
       .arc(0, 0, 34, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * fraction)
       .stroke({ width: 4, color: low ? active.sunLow : PALETTE.sun })
@@ -949,32 +653,17 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
-  /**
-   * Show where a strike landed.
-   *
-   * An input with no feedback reads as a broken input, so this draws even when
-   * the strike hit nothing at all.
-   */
   function drawStrike(simulation: Simulation) {
     const strike = simulation.lastStrike
     strikeGraphic.clear()
     if (!strike) return
 
-    // Expand and fade over the strike's short life.
     const t = Math.min(1, strike.age / 0.35)
     strikeGraphic
       .circle(strike.x, strike.y, FLARE.radius * (0.55 + 0.45 * t))
       .stroke({ width: 3 * (1 - t) + 1, color: PALETTE.conjunction, alpha: 1 - t })
   }
 
-  /**
-   * Draw the shot tracers.
-   *
-   * The bolt travels the line over the tracer's short life while the damage it
-   * stands for has already landed — see `systems/tracers.ts` for why it is
-   * drawn rather than simulated. Colour is the damage type, which is the one
-   * place the type matrix becomes visible on the field rather than in a menu.
-   */
   function drawTracers(simulation: Simulation) {
     const tracers = simulation.state.tracers.items
     tracerGraphic.clear()
@@ -986,8 +675,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       const t = Math.min(1, tracer.age / TRACER_LIFETIME)
       const colour = active.damage[tracer.damageType]
 
-      // The head runs the whole line across the window; the tail follows a
-      // third of a length behind, which is what gives the bolt a direction.
       const head = t
       const tail = Math.max(0, t - 0.34)
 
@@ -999,16 +686,12 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         .lineTo(tracer.fromX + dx * head, tracer.fromY + dy * head)
         .stroke({ width: 2, color: colour, alpha: 0.85 * (1 - t * t) })
 
-      // A muzzle spark at the unit, so a shot reads as *this* unit firing even
-      // when the target is off in a crowd.
       if (t < 0.5) {
         tracerGraphic
           .circle(tracer.fromX, tracer.fromY, 3 * (1 - t * 2))
           .fill({ color: colour, alpha: 0.7 })
       }
 
-      // A kill gets a flare at the far end. It is the same information the kill
-      // popup carries, placed where the player is already looking.
       if (tracer.lethal && t > 0.35) {
         tracerGraphic
           .circle(tracer.toX, tracer.toY, 4 + 6 * t)
@@ -1017,19 +700,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     }
   }
 
-  /**
-   * Death animations, driven by the combat feed.
-   *
-   * Not by the entity, because there is no entity: `reapContact` removes a
-   * Contact the instant it dies, and the def goes with it. The feed is the one
-   * thing that outlives a kill — it was built to, so a kill popup could survive
-   * the death that produced it — and Phase 38 adds the sprite key to it for
-   * exactly this.
-   *
-   * Pooled against the feed by index, like the popups. A kill that the feed
-   * dropped for capacity simply has no death animation, which is the same trade
-   * `systems/feed.ts` already makes: unreadable is unreadable.
-   */
   const deathSprites: (AnimatedBody | null)[] = []
 
   function drawDeaths(simulation: Simulation) {
@@ -1044,9 +714,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         continue
       }
 
-      // A pooled slot is reused by whatever died into it, so the body is
-      // rebuilt only when the key changes — a wave of one Contact type reuses
-      // the same sprite for every death in it.
       let body = existing
       if (!body || body.key !== event.spriteKey) {
         existing?.sprite.destroy()
@@ -1060,8 +727,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       body.sprite.x = event.x
       body.sprite.y = event.y
 
-      // The clock is the event's own age, so the clip starts at the death
-      // rather than wherever a shared simulation clock happened to be.
       body.state = 'death'
       const frames = body.clips.death
       const index = frameIndex('death', event.age, frames.length)
@@ -1070,21 +735,11 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
         body.sprite.texture = frames[index]
       }
 
-      // Fades over whatever the clip does not cover, so a single-frame death —
-      // which is every unit until its art arrives — still reads as a death
-      // rather than as a Contact that stopped moving.
       const life = Math.max(clipDuration('death', frames.length), EVENT_LIFETIME)
       body.sprite.alpha = Math.max(0, 1 - event.age / life)
     }
   }
 
-  /**
-   * Draw the particles.
-   *
-   * Fades and shrinks on remaining life, which is the whole of the effect's
-   * shape — the field itself only moves them. Doing it here rather than storing
-   * an alpha per particle keeps the simulation side to position and velocity.
-   */
   function drawParticles(simulation: Simulation) {
     const particles = simulation.state.particles.items
     particleGraphic.clear()
@@ -1094,9 +749,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       if (!particle.active) continue
 
       const remaining = particle.life / particle.maxLife
-      // Squared on the radius and linear on the alpha: a spark that shrank as
-      // slowly as it dimmed would end as a large faint disc, which reads as
-      // fog rather than as a spark going out.
+
       particleGraphic
         .circle(particle.x, particle.y, particle.size * remaining * remaining)
         .fill({ color: particle.colour, alpha: Math.min(1, remaining * 1.4) })
@@ -1109,13 +762,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     block: PALETTE.detent,
   }
 
-  /**
-   * Draw the combat feed.
-   *
-   * Text objects are reused by index rather than created per event — creating a
-   * Pixi Text allocates a texture, which on a burst of kills would spike the
-   * frame far worse than the drawing itself.
-   */
   function drawFeed(simulation: Simulation) {
     const events = simulation.state.feed.items
 
@@ -1141,7 +787,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       popup.visible = true
       popup.text = event.kind === 'block' ? '–' : String(event.amount)
       popup.style.fill = FEED_COLOURS[event.kind] ?? active.projectileContact
-      // Drift upward and fade, so overlapping numbers separate over time.
+
       popup.x = event.x
       popup.y = event.y - t * 22
       popup.alpha = 1 - t * t
@@ -1167,10 +813,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       drawTracers(simulation)
       drawSun(simulation)
       drawStrike(simulation)
-      // Sparks are decoration on top of an event that is already legible from
-      // the thing that produced it, so reduced motion drops them entirely
-      // rather than slowing them down. A slower spark is still a moving object
-      // in the periphery, which is the part that was being objected to.
+
       if (!reducedMotion) drawParticles(simulation)
       drawDeaths(simulation)
       drawFeed(simulation)
@@ -1183,10 +826,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
       screenShakeEnabled = settings.screenShake
       reducedMotion = settings.reducedMotion
 
-      // A palette change repaints things the renderer otherwise redraws only
-      // when they move. The Contact cache is keyed on a signature that knows
-      // nothing about colour, so without this a switch mid-wave would recolour
-      // the tracers and leave every telegraph on the old red.
       contactSigs.clear()
 
       if (reducedMotion || !screenShakeEnabled) {
@@ -1199,7 +838,7 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
 
     toWorld(clientX: number, clientY: number) {
       const rect = app.canvas.getBoundingClientRect()
-      // Undo the centring and the fit scale applied in recentre().
+
       return {
         x: (clientX - rect.left - world.x) / world.scale.x,
         y: (clientY - rect.top - world.y) / world.scale.y,
@@ -1209,13 +848,6 @@ export async function createRenderer(host: HTMLElement): Promise<Renderer> {
     resize: recentre,
 
     destroy() {
-      /*
-       * Guarded, because Pixi's `destroy` is not idempotent — a second call
-       * throws on a half-torn-down Application ("this._cancelResize is not a
-       * function"). Svelte can unmount after an explicit teardown, and a
-       * teardown path that throws on its second call takes the error handler
-       * with it.
-       */
       if (destroyed) return
       destroyed = true
 

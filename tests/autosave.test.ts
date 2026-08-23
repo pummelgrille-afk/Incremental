@@ -14,7 +14,6 @@ beforeEach(() => {
   snapshot = () => createDefaultSave(1000)
 })
 
-/** Advance simulation time in 50 ms slices, as the real loop does. */
 function run(auto: Autosaver, seconds: number) {
   const step = 0.05
   for (let t = 0; t < seconds; t += step) auto.tick(step)
@@ -49,7 +48,6 @@ describe('key events', () => {
   })
 
   it('writes immediately on a rewind', () => {
-    // The single most expensive event to lose.
     const auto = new Autosaver(manager, snapshot)
     expect(auto.request('rewind')).toBe(true)
     expect(auto.getStats().lastReason).toBe('rewind')
@@ -76,7 +74,7 @@ describe('key events', () => {
     auto.request('purchase')
     auto.flush('manual')
     run(auto, 3)
-    // The flush covered the pending purchase; no second write for it.
+
     expect(auto.getStats().writes).toBe(1)
   })
 })
@@ -105,7 +103,6 @@ describe('failure handling', () => {
       maxBackoffSeconds: 100,
     })
 
-    // Without backoff, 120s at a 5s interval would attempt 24 writes.
     run(auto, 120)
     expect(auto.getStats().failures).toBeLessThan(8)
     expect(auto.degraded).toBe(true)
@@ -141,7 +138,6 @@ describe('failure handling', () => {
 
 describe('snapshot timing', () => {
   it('reads the snapshot at write time, not at construction', () => {
-    // Guards against handing the autosaver a stale object reference.
     let salvage = 0
     const auto = new Autosaver(
       manager,

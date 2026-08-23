@@ -41,21 +41,9 @@ import { Pool } from '../utils/pool'
 import type { Rng } from './rng'
 import type { SimulationState } from './simulation'
 
-/**
- * The simulation tick.
- *
- * Fixed timestep at 20 Hz. Rendering interpolates between states and runs at
- * whatever rate the display allows — a dropped frame must never change the
- * simulation (docs/architecture.md, "Layer boundaries").
- *
- * Step order is fixed by combat-spec.md §8 and must not drift. Each numbered
- * comment below maps to a numbered step in that document.
- */
-
 export const TICK_RATE = 20
 export const TICK_SECONDS = 1 / TICK_RATE
 
-/** Never simulate more than this per frame; a stalled tab must not fast-forward. */
 export const MAX_CATCHUP_SECONDS = 0.5
 
 export const PROJECTILE_BUDGET = BUDGETS.projectiles
@@ -64,32 +52,20 @@ export interface TickEvents {
   contactKilled: number
   salvageDropped: number
   sunHits: number
-  /** Array shots that landed. See CollisionResult.contactHits. */
+
   contactHits: number
   conjunctionsFired: number
-  /**
-   * Participants in the largest conjunction this tick, or 0 for none.
-   *
-   * The count alone cannot distinguish a pair from a triple, and the
-   * achievement for a triple needs to. Merged with `max`, not `+`.
-   */
+
   largestConjunction: number
   stageCleared: boolean
   stageLost: boolean
-  /** True on the tick a wave finished / a new one began. */
+
   waveCleared: boolean
   waveStarted: boolean
-  /** Output thresholds crossed downward, e.g. [0.5]. */
+
   thresholdsCrossed: number[]
 }
 
-/**
- * A tick in which nothing happened.
- *
- * Exported for the pause: `bootstrap.ts` needs the shape `advance` returns
- * without advancing anything, and building one there would be a second copy of
- * this list that nothing would keep in step.
- */
 export function noTickEvents(): TickEvents {
   return {
     contactKilled: 0,
@@ -102,7 +78,7 @@ export function noTickEvents(): TickEvents {
     stageLost: false,
     waveCleared: false,
     waveStarted: false,
-    // Fresh array per tick: a shared one would accumulate across ticks.
+
     thresholdsCrossed: [],
   }
 }
@@ -111,26 +87,20 @@ export class Simulation {
   readonly projectiles: Pool<Projectile>
   private readonly cooldowns = createCooldowns()
 
-  /** Leftover real time not yet consumed by a whole tick. */
   private accumulator = 0
 
-  /** Cumulative counters, read by the store projection. */
   totalContactKilled = 0
   totalConjunctions = 0
   tickCount = 0
 
-  /** Most recent strike, for the render layer. Cleared after a short age. */
   lastStrike: { x: number; y: number; age: number } | null = null
 
-  /** Salvage from a strike, banked into the next tick's events. */
   private pendingSalvage = 0
 
-  /** Peak concurrent Contact this stage. Phase 11 budget instrumentation. */
   peakContact = 0
-  /** Ticks spent over the Contact budget. Non-zero means content overruns it. */
+
   ticksOverContactBudget = 0
 
-  /** Per-wave telemetry accumulators. Dev-only; unread in a production build. */
   private waveSeconds = 0
   private waveSpawned = 0
   private waveKilled = 0
@@ -162,30 +132,15 @@ export class Simulation {
     }))
     state.projectiles = this.projectiles.items
     this.waveStartOutput = state.sun.hp
-    // Wave 0 never fires waveStarted, so seed its bearing here. Its *content*
-    // is directed lazily on the first tick instead: the formation is slotted
-    // after construction, so measuring power now would read an empty field.
+
     rerollWaveArc(state, rng)
   }
 
-  /**
-   * Ask the director for the wave that will actually run, and cache it.
-   *
-   * Cached rather than recomputed because spawning, the wave total and the
-   * spawn duration must agree — a wave whose total moved underneath the clear
-   * check would never complete.
-   */
   private directCurrentWave(): void {
     const authored = this.state.stage.waves[this.state.waveIndex]
     this.state.activeWave = authored ? directWave(this.state, authored) : null
   }
 
-  /**
-   * Advance by real elapsed time, running as many fixed ticks as it covers.
-   *
-   * Returns the merged events from every tick that ran, so a caller polling at
-   * 60 Hz never misses a kill that happened in a tick it did not observe.
-   */
   advance(elapsedSeconds: number): TickEvents {
     this.accumulator += Math.min(elapsedSeconds, MAX_CATCHUP_SECONDS)
 
@@ -216,7 +171,6 @@ export class Simulation {
     return merged
   }
 
-  /** Fraction of the way to the next tick, for render interpolation. */
   get alpha(): number {
     return this.accumulator / TICK_SECONDS
   }
@@ -225,30 +179,18 @@ export class Simulation {
     const sim = this.state
     const events: TickEvents = noTickEvents()
 
-    /*
-     * Three phases in which no time passes.
-     *
-     * `cleared` and `overwhelmed` are the stage having resolved; `standby` is
-     * the player having stopped it on purpose. All three want the same thing —
-     * a field that is still there and completely still — so all three take the
-     * same door rather than three different ones.
-     */
     if (sim.phase === 'cleared' || sim.phase === 'overwhelmed' || sim.phase === 'standby') {
       return events
     }
 
-    // The opening wave is directed on the first tick that runs, once the
-    // formation exists. Later waves are directed as they start (step 10).
     if (sim.activeWave === null) this.directCurrentWave()
 
     this.tickCount++
     const previousWaveElapsed = sim.waveElapsed
     sim.elapsed += dt
 
-    // 1. Ring phases.
     this.advanceRings(dt)
 
-    // 2. Cooldowns, charge, buffs, objective recovery.
     this.advanceFlare(dt)
     sim.feed.update(dt)
     sim.tracers.update(dt)
@@ -261,54 +203,39 @@ export class Simulation {
       this.pendingSalvage = 0
     }
 
-    // 3. Spawning.
     if (sim.phase === 'wave-active') {
       sim.waveElapsed += dt
 
-      /*
-       * A boss wave has no spawn groups, so `updateSpawning` skips it and the
-       * encounter has to be placed here. Keyed on the wave index rather than on
-       * `sim.boss` being null, because a defeated boss clears its own runtime —
-       * without the marker the same encounter would respawn on the very next
-       * tick and the wave could never complete.
-       */
       const wave = sim.stage.waves[sim.waveIndex]
       if (wave && isBossWave(wave) && sim.bossSpawnedFor !== sim.waveIndex) {
         const def = bossById(wave.bossId)
         if (def) spawnBoss(sim, def, this.rng)
-        // Marked even when the id does not resolve, so a bad reference costs an
-        // empty wave rather than an attempt every tick forever. stageLoader
-        // rejects the stage before this is reachable.
+
         sim.bossSpawnedFor = sim.waveIndex
       }
 
       updateSpawning(sim, this.rng, previousWaveElapsed)
     }
 
-    // 4. Enemy motion and pattern emission.
     updateWards(sim)
     updateBoss(sim, dt)
     updateContactMotion(sim, dt)
     this.emitPatterns(dt)
 
-    // 5. Platform and Array targeting.
     const attacks = updatePlatforms(sim, dt)
     const shots = updateArrays(sim, dt)
     this.spawnArrayProjectiles(shots)
 
-    // 6 & 7. Projectile integration and collision.
     const collisions = updateProjectiles(sim, this.projectiles, dt)
     events.sunHits += collisions.sunHits
     events.contactHits += collisions.contactHits
     events.contactKilled += collisions.contactKilled
     events.salvageDropped += collisions.salvageDropped
 
-    // 8. Damage from melee attacks and death handling.
     const melee = resolvePlatformAttacks(sim, attacks)
     events.contactKilled += melee.contactKilled
     events.salvageDropped += melee.salvageDropped
 
-    // 9. Conjunction, on its own 100 ms cadence.
     sim.synergyAccumulator += dt * 1000
     while (sim.synergyAccumulator >= CONJUNCTION.evalInterval) {
       sim.synergyAccumulator -= CONJUNCTION.evalInterval
@@ -324,8 +251,6 @@ export class Simulation {
       events.salvageDropped += synergy.salvageDropped
     }
 
-    // 10. Threshold crossings, then win/loss and wave progression.
-    //     Thresholds are checked here, after damage, not at step 2.
     const thresholds = checkThresholds(sim)
     if (thresholds.length > 0) events.thresholdsCrossed.push(...thresholds)
 
@@ -344,24 +269,12 @@ export class Simulation {
 
     this.recordTelemetry(dt, events)
 
-    // Budget instrumentation. Never clamps — an overrun is a content bug to
-    // surface, not something to silently truncate (content/budgets.ts).
     if (sim.contact.length > this.peakContact) this.peakContact = sim.contact.length
     if (sim.contact.length > BUDGETS.contact) this.ticksOverContactBudget++
 
-    // Step 11 (publishing to stores) is the caller's job — the simulation never
-    // reaches into Svelte.
     return events
   }
 
-  /**
-   * Advance every ring's phase.
-   *
-   * This is the entire rotation system: one write per ring, and every unit on
-   * it moves. Rotation is O(rings), not O(units) — ADR-001.
-   *
-   * Rotation is constant and has no player input. See combat-spec.md §1.
-   */
   private advanceRings(dt: number): void {
     const rings = this.state.rings
     for (let i = 0; i < rings.length; i++) {
@@ -369,20 +282,6 @@ export class Simulation {
     }
   }
 
-  /**
-   * The player's one live input: strike a point on the field.
-   *
-   * Instant and area-based — nothing to lead, nothing to miss with. Returns
-   * false when out of charge or still cooling, so the UI can react without
-   * duplicating the rules.
-   */
-  /**
-   * Feed the dev-only telemetry sink.
-   *
-   * Gathered here rather than inside each system so the per-tick cost is one
-   * pass over units that already exist, and so the tick order stays readable —
-   * everything above this line is the simulation, this line is instrumentation.
-   */
   private recordTelemetry(dt: number, events: TickEvents): void {
     const telemetry = this.state.telemetry
     if (!telemetry) return
@@ -390,8 +289,6 @@ export class Simulation {
     const sim = this.state
     telemetry.elapsed += dt
 
-    // Unit-seconds, the denominator that makes DPS comparable between a unit
-    // slotted from the start and one added halfway through.
     const present: string[] = []
     for (const m of sim.platforms) if (m.disabledFor <= 0) present.push(m.def.id)
     for (const c of sim.arrays) if (c.disabledFor <= 0) present.push(c.def.id)
@@ -441,9 +338,6 @@ export class Simulation {
     const radius = FLARE.radius + sim.effects.flareRadius
     const radiusSq = radius * radius
 
-    // Sparks under the expanding ring the renderer already draws. The ring says
-    // *where*; the sparks say *how much*, since the Regulation branch widens
-    // the blast and nothing on screen showed that it had.
     sim.particles.burst({
       x,
       y,
@@ -488,40 +382,23 @@ export class Simulation {
       this.pendingSalvage += reaped.salvageDropped
     }
 
-    // Surfaced to the render layer so the strike is visible even when it hits
-    // nothing — an input with no feedback reads as a broken input.
     this.lastStrike = { x, y, age: 0 }
     return true
   }
 
-  /**
-   * Emergency repair the objective. Phase 21 owns the Salvage
-   * transaction — this returns the cost so the caller can charge for it, and
-   * refuses at full Output so nobody is charged for nothing.
-   */
   repairSun(): { repaired: boolean; cost: number } {
     const cost = repairCost(this.state.sun.repairsThisStage, this.state.effects.repairCost)
     return { repaired: repair(this.state.sun), cost }
   }
 
-  /** Grant the objective a temporary shield. Hook for conjunctions and upgrades. */
   shieldSun(amount: number, duration: number): void {
     grantShield(this.state.sun, amount, duration)
   }
 
-  /** Advance Flare charge and cooldown on simulation time. */
   private advanceFlare(dt: number): void {
     const flare = this.state.flare
     if (flare.cooldown > 0) flare.cooldown = Math.max(0, flare.cooldown - dt)
     if (flare.charge < flare.maxCharge) {
-      /*
-        * Regulation shortens the interval rather than adding charge directly,
-        * so the effect reads the same whether a player has one charge or four.
-        *
-        * Floored at a second. The branch is allowed to make the Flare
-        * responsive; it is not allowed to make it free, or P1 stops holding —
-        * an always-available Flare is a Flare the game is tuned around.
-        */
       const interval = Math.max(
         1,
         FLARE.rechargeInterval * (1 - Math.min(0.75, this.state.effects.flareRecharge)),
@@ -534,7 +411,6 @@ export class Simulation {
     }
   }
 
-  /** Contact telegraph, then emit. A pattern that kills without warning is a bug. */
   private emitPatterns(dt: number): void {
     const sim = this.state
 
@@ -556,8 +432,7 @@ export class Simulation {
 
         for (const spawn of spawns) {
           const p = this.projectiles.acquire()
-          // Budget exhausted: simply do not spawn. Running out is information,
-          // not an error — Phase 11 reads pool.exhausted to validate the budget.
+
           if (!p) break
 
           p.faction = 'contact'
@@ -607,16 +482,12 @@ export class Simulation {
       p.angularVelocity = 0
       p.sourceId = shot.array.id
 
-      // Translate the authored shot shape into the pooled projectile's flat
-      // fields. The union stays in content, where it reads well; the hot path
-      // sees two numbers.
       const profile = shot.array.def.shot
       p.pierceRemaining = profile.kind === 'pierce' ? profile.targets - 1 : 0
       p.burstRadius = profile.kind === 'burst' ? profile.radius : 0
       p.hitCount = 0
     }
   }
-
 }
 
 export { RINGS }

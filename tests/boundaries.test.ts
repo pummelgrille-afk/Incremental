@@ -2,21 +2,10 @@ import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-/**
- * Enforces the layer boundaries in docs/architecture.md.
- *
- * These rules are the reason combat math and prestige logic stay testable
- * without a DOM. They are easy to break by reflex — one convenient import — and
- * expensive to unpick later, so they are checked mechanically rather than left
- * to review.
- */
-
 const LIB = join(import.meta.dirname, '..', 'src', 'lib')
 
-/** Directories whose modules must run in a plain Node process, no DOM. */
 const FRAMEWORK_FREE = ['entities', 'systems', 'content', 'progression', 'utils', 'i18n']
 
-/** render.ts is the sanctioned exception: it is the Pixi layer. */
 const PIXI_ALLOWED = [join('core', 'render.ts')]
 
 function tsFilesIn(dir: string): string[] {
@@ -38,7 +27,7 @@ function tsFilesIn(dir: string): string[] {
 function importsOf(file: string): string[] {
   const source = readFileSync(file, 'utf8')
   const specifiers: string[] = []
-  // Covers `import ... from 'x'`, `export ... from 'x'`, and `import('x')`.
+
   const re = /(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g
   let match: RegExpExecArray | null
   while ((match = re.exec(source)) !== null) specifiers.push(match[1])
@@ -82,7 +71,6 @@ describe('layer boundaries', () => {
   })
 
   it('does not let content reach upward into systems or core', () => {
-    // Content is inert data. If it needs logic, the logic belongs elsewhere.
     const violations: string[] = []
     for (const file of tsFilesIn(join(LIB, 'content'))) {
       for (const spec of importsOf(file)) {

@@ -1,31 +1,6 @@
 import { ARRAYS } from './arrays'
 import type { TutorialStepDef } from '../entities/Tutorial'
 
-/**
- * The onboarding sequence.
- *
- * PLAN.md Phase 36 asks for formation, support units and the Almanac
- * "in sequence", by way of first-time popups rather than a forced tutorial.
- * Both halves are honoured by the same mechanism: **order in this array is the
- * sequence**, and `progression/tutorial.ts` shows at most one card per moment.
- * Nothing is scripted, nothing blocks, and a player who never reads one loses
- * only the explanation.
- *
- * Every step waits for the system it describes to become *relevant* rather than
- * firing on a timer. A card about Clearance before any has been earned is a
- * card about an abstraction; the same card at the moment the first Clearance
- * lands is a card about the number that just appeared in the HUD.
- *
- * ## Voice
- *
- * narrative.md's three rules, and rule 2 is the one that shapes these:
- * "technical vocabulary, plain meaning". The title may be log-room register;
- * the body always says plainly what the thing does and what to press. A
- * tutorial that is in character at the cost of being unclear has failed at the
- * only job it has.
- */
-
-/** The cheapest way into the Array roster, so its step waits until it is reachable. */
 const CHEAPEST_ARRAY = Math.min(...ARRAYS.map((array) => array.unlockCost))
 
 export const TUTORIAL_STEPS: readonly TutorialStepDef[] = [
@@ -37,8 +12,7 @@ export const TUTORIAL_STEPS: readonly TutorialStepDef[] = [
       'you are here or not. Watch a wave before you touch anything — most of ' +
       'this job is arranging the machine, not working it.',
     key: null,
-    // A save that has never cleared anything. Only ever seen once, on the first
-    // load of a new game, which is the one moment "watch a wave" is advice.
+
     trigger: (ctx) => ctx.event === 'load' && ctx.save.meta.clearedStages.length === 0,
   },
 
@@ -63,8 +37,7 @@ export const TUTORIAL_STEPS: readonly TutorialStepDef[] = [
       'taking one off refunds in full — you are charged for how large a machine ' +
       'you run, never for rearranging it.',
     key: 'F',
-    // Waits until the next slot is actually affordable. A card telling you to
-    // spend Salvage you do not have is a card about being poor.
+
     trigger: (ctx) =>
       ctx.event === 'stage-cleared' && ctx.save.run.salvage >= ctx.nextSlotCost,
   },
@@ -78,12 +51,7 @@ export const TUTORIAL_STEPS: readonly TutorialStepDef[] = [
       'alignments arrive on their own — spreading units across rings is what ' +
       'makes them frequent. The formation panel counts down to the next one.',
     key: 'F',
-    /*
-     * Fires on its own moment, so it never competes with the stage-clear steps
-     * for the one card a moment is allowed. Two participants is the minimum a
-     * conjunction can have — combat-spec.md §3 calls it a Minor — and it is the
-     * one a first formation will actually produce.
-     */
+
     trigger: (ctx) => ctx.event === 'conjunction' && ctx.largestConjunction >= 2,
   },
 
@@ -153,5 +121,4 @@ export function tutorialStepById(id: string): TutorialStepDef | undefined {
   return TUTORIAL_STEPS.find((step) => step.id === id)
 }
 
-/** Every authored step id. The migration and the tests both want this. */
 export const TUTORIAL_STEP_IDS: readonly string[] = TUTORIAL_STEPS.map((step) => step.id)

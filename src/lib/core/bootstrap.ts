@@ -78,26 +78,8 @@ import type { StageAddress } from '../entities/Zone'
 import type { RingIndex } from '../entities/types'
 import type { SimulationState } from './simulation'
 
-/**
- * Wires the simulation, renderer, input and autosave together.
- *
- * This is the seam where the framework-free simulation meets the browser: the
- * only module that owns a requestAnimationFrame handle, DOM listeners, and the
- * store projection. Everything it drives is testable without it.
- */
-
 const DEFAULT_STAGE: StageAddress = `${STARTING_ZONE_ID}:first-shift`
 
-/**
- * The play order, until Phase 33 builds a real stage-select.
- *
- * Clearing a stage currently advances to the next one in this list. That is
- * deliberately the simplest thing that removes a dead end: before it, a cleared
- * stage stopped the simulation with nowhere to go, which made every later
- * phase's playtesting a restart-per-stage exercise.
- *
- * Phase 33 replaces this with `ui/StageSelect.svelte` and real unlock gating.
- */
 const PLAY_ORDER = stageOrder(ZONES)
 
 function nextStageAfter(address: StageAddress): StageAddress | null {
@@ -112,13 +94,6 @@ export interface GameSession {
   readonly simulation: Simulation
 }
 
-/**
- * Field the player's saved formation.
- *
- * Replaces the Phase 10 hardcoded slice. A save with an empty formation gets
- * nothing — which is correct now that Salvage buy slots: an empty field is the
- * honest starting state, not a bug.
- */
 function fieldFormation(simulation: Simulation, save: SaveData): void {
   applyFormation(
     simulation.state,
@@ -131,9 +106,7 @@ function fieldFormation(simulation: Simulation, save: SaveData): void {
   for (const [mount, defId] of Object.entries(save.run.mounts)) {
     const def = arrayById(defId)
     if (!def) continue
-    // Silently skip a mount that no longer exists, for the same reason
-    // `applyFormation` skips a missing Platform: a save must survive content
-    // changing, and refusing to load would be worse than a missing unit.
+
     try {
       mountArray(
         simulation.state,
@@ -153,35 +126,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   const loaded = saves.load()
   let saveData: SaveData = loaded.data
 
-  /*
-   * Declared before anything that might reach it.
-   *
-   * It used to sit further down, next to the simulation it saves alongside,
-   * and `checkAchievements('load')` — which runs during startup — could reach
-   * it first. That is a temporal dead zone, and a conditional one: the call
-   * only touches the autosaver when something is *newly* earned, so it fired
-   * for a returning player whose save already qualified and never for a fresh
-   * one. Both the tests and every browser check used fresh saves.
-   */
   const autosaver = new Autosaver(saves, () => saveData, { intervalSeconds: 15 })
 
   grantStartingLoadout(saveData)
 
-  /**
-   * Settle an absence, and report it if it was long enough to be worth saying.
-   *
-   * Called for two kinds of absence, because from the player's side they are
-   * the same absence:
-   *
-   *   1. The game was closed. Elapsed time is `now - savedAt`, known exactly
-   *      once, which is why this runs as a single transaction at startup
-   *      rather than from the frame loop.
-   *   2. **The tab was left open in the background.** This one paid nothing at
-   *      all before: `requestAnimationFrame` is throttled to a stop in a hidden
-   *      tab, so the simulation does not run, and offline progress was only
-   *      ever calculated at startup — so the commonest way to idle an idle game
-   *      produced no Salvage and no summary.
-   */
   const settleAbsence = (elapsedSeconds: number): void => {
     const offline = calculateOffline({
       elapsedSeconds,
@@ -208,13 +156,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     console.info('[perihelion] save notices:', loaded.notices)
   }
 
-  /**
-   * The tree's aggregate, recomputed only when a purchase changes it.
-   *
-   * `effectsOf` walks every purchased node, and the frame loop reads it for the
-   * Recovery multiplier — a per-frame walk of ~72 ids to produce a number that
-   * changes a handful of times per run.
-   */
   let effects = effectsOf(saveData)
   let effectsVersion = saveData.meta.purchasedNodes.length
 
@@ -226,12 +167,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     return effects
   }
 
-  /**
-   * Push the tree to the view, and install the callbacks it spends through.
-   *
-   * Called on change rather than per frame: `treeStatus` walks every node and
-   * the result moves a handful of times per run.
-   */
   const publishTree = (): void => {
     const positions = new Map(treeLayout().map((l) => [l.nodeId, l]))
     game.tree = treeStatus(saveData).map((status) => {
@@ -254,13 +189,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       }
     })
     game.treeRefund = refundValue(saveData)
-    // `import.meta.env.DEV` so the view can be reviewed before Phase 26 makes
-    // Recollection obtainable and Phase 32 supplies the boss that reveals it.
-    // Stripped from a production build, where the authored gate is the only
-    // way in — economy-spec.md §3.
+
     game.treeRevealed = isTreeRevealed(saveData) || import.meta.env.DEV
-    // Same dev allowance as the tree, and for the same reason: Phase 32 owns
-    // the boss that opens this, so it is otherwise unreachable to review.
+
     game.rewindUnlocked = isRewindUnlocked(saveData) || import.meta.env.DEV
     game.rewindPreview = rewindPreview(saveData, game.rewindUnlocked)
     game.recollection = saveData.meta.recollection
@@ -275,8 +206,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       autosaver.request('purchase')
     },
     respec() {
-      // "Only between runs" is this layer's check to make — `upgradeTree.ts`
-      // deliberately cannot see whether a stage is in progress.
       if (game.running) return
       respecTree(saveData)
       publishTree()
@@ -294,38 +223,11 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   publishTree()
 
-  /**
-   * Push the roster and the fielded formation to the view.
-   *
-   * On change rather than per frame — the roster moves a handful of times per
-   * run, and rebuilding it every frame would allocate arrays sixty times a
-   * second to show numbers that do not move.
-   */
-  /**
-   * The progression map, and the address of the stage in play.
-   *
-   * Republished wherever it can change — boot, an edit, a clear, a stage change
-   * — rather than every frame: it is forty stages across six zones and none of
-   * it changes between clears, so rebuilding it per frame would be forty
-   * allocations a frame for a panel that is usually shut.
-   *
-   * It used to be republished *by the handler that opened the panel* instead,
-   * which worked until there were two ways to open it. Keeping the projection
-   * correct is the version that survives a third.
-   */
   const publishMap = (): void => {
     game.map = mapView(saveData)
     game.currentStage = currentStage
   }
 
-  /**
-   * The Clearance balance the roster's affordability was last computed for.
-   *
-   * `rosterOf` bakes `canUnlock` and `canLevel` in at publish time, and the
-   * roster is only published on edits — so Clearance awarded by a stage clear
-   * left every buy button disabled until some *unrelated* edit happened to
-   * republish it. The currency was spendable; the panel had not been told.
-   */
   let publishedClearance = -1
 
   const publishRoster = (): void => {
@@ -361,35 +263,17 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     game.clearance = saveData.meta.clearance
   }
 
-  /**
-   * Reconcile the live field with the saved formation.
-   *
-   * A **diff**, not a rebuild. Tearing the formation down and re-creating it
-   * would reset HP and cooldowns, which turns re-slotting into a free heal
-   * mid-wave. Only what actually changed is touched, so units that stayed put
-   * keep the damage they have taken.
-   */
-  /** Apply an edit: persist, reconcile the field, republish. */
   const afterEdit = (refusal: string | null = null): void => {
     game.lastRefusal = refusal
     syncFieldToSave(simulation.state, saveData)
     publishRoster()
     publishMap()
     publishTree()
-    // Publish the balance immediately rather than waiting for the next frame:
-    // a price that updates a frame after the click reads as a click that did
-    // not register.
+
     game.publishSalvage(saveData.run.salvage, simulation.state.elapsed)
     autosaver.request('purchase')
   }
 
-  /**
-   * Evaluate achievements for a moment, and queue anything newly earned.
-   *
-   * Queued rather than shown directly: several can land on the same tick — a
-   * first clear that was also untouched, say — and a toast that replaced its
-   * predecessor would silently swallow one.
-   */
   const checkAchievements = (
     event: Parameters<typeof evaluateAchievements>[1],
     snapshot: Parameters<typeof evaluateAchievements>[2] = {},
@@ -405,17 +289,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     autosaver.request('purchase')
   }
 
-  /**
-   * Raise the next onboarding card, if one is due.
-   *
-   * Evaluated on the same moments as achievements, and for the same reason —
-   * these questions change a handful of times per run. At most one card is
-   * raised per moment; `progression/tutorial.ts` owns which.
-   *
-   * The two gates are read from `progression/` rather than from the store,
-   * which widens both in a dev build: a card announcing the Almanac to a
-   * player who cannot yet reach it would be worse than no card at all.
-   */
   const checkTutorial = (event: TutorialEvent, largestConjunction = 0): void => {
     const step = evaluateTutorial(saveData, event, {
       nextSlotCost: nextSlotCost(saveData),
@@ -438,14 +311,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     autosaver.request('purchase')
   }
 
-  /**
-   * Put the whole onboarding sequence on screen, on request.
-   *
-   * The reveal gates mean a player who has been going for a while has been
-   * marked as having seen every card — by the schema 6 → 7 migration, or simply
-   * by having read them. Without this there is no way back to any of them, and
-   * the person most likely to want one is the one who has played longest.
-   */
   const showManual = (): void => {
     audio.play('manualOpen')
     game.tutorialQueue = replayTutorial(saveData).map((step) => ({
@@ -457,27 +322,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     autosaver.request('purchase')
   }
 
-  /*
-   * Acknowledgements for things bought behind a panel.
-   *
-   * PLAN.md Phase 40 asks for level-up and upgrade-unlock effects, and both
-   * happen inside an overlay that covers the whole screen — an effect played at
-   * the moment of purchase is an effect nobody sees. So it is queued and played
-   * on the first frame the field is actually visible.
-   *
-   * A def id names a unit to acknowledge at; null means the Sun, which is where
-   * an Almanac node lands since it belongs to no unit.
-   */
   const pendingAcknowledgements: (string | null)[] = []
 
-  /**
-   * How many cards were queued last frame.
-   *
-   * The card is dismissed inside `ui/Tutorial.svelte`, which cannot reach the
-   * audio engine — `stores/` is the only bridge and it carries state, not
-   * events. The queue shrinking *is* the event, so it is read here rather than
-   * inventing a channel to announce it.
-   */
   let lastTutorialCards = 0
 
   const playAcknowledgements = (): void => {
@@ -487,9 +333,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     const sim = simulation.state
 
     for (const defId of pendingAcknowledgements) {
-      // A unit that is not fielded has nowhere on the field to be congratulated,
-      // so it falls back to the objective rather than firing from the origin by
-      // accident.
       const targets =
         defId === null ? [] : sim.platforms.filter((p) => p.def.id === defId)
       const points =
@@ -516,7 +359,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     pendingAcknowledgements.length = 0
   }
 
-  /** The parts of a moment the triggers read. */
   const achievementSnapshot = () => ({
     distinctPlatformsSlotted: new Set(Object.values(saveData.run.formation)).size,
     unlockedPlatforms: Object.keys(saveData.meta.platforms).length,
@@ -524,24 +366,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   game.stageActions = {
     standDown() {
-      /*
-       * Rebuilt rather than frozen where it stands.
-       *
-       * Freezing would leave the Contacts that were mid-approach hanging over
-       * the rings for as long as the player took to think, and un-freezing
-       * would drop them onto a formation arranged while they were harmless.
-       * A stood-down field is a clean one, and re-entering costs the waves
-       * already cleared on this stage — the same trade a restart makes, and
-       * the reason the button says so.
-       */
       pendingStage = null
       advanceIn = 0
       simulation = buildSimulation()
       game.reset()
       simulation.state.phase = 'standby'
       game.syncFrom(simulation)
-      // A pause on top of a stopped field is two brakes and one confusing
-      // banner. Standing down releases it.
+
       game.paused = false
       autosaver.request('purchase')
     },
@@ -558,7 +389,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     rewind() {
       if (!rewindRun(saveData, Date.now(), game.rewindUnlocked).rewound) return
 
-      // The run is gone, so the simulation that was playing it must go too.
       currentStage = DEFAULT_STAGE
       saveData.run.currentStage = currentStage
       pendingStage = null
@@ -606,8 +436,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       afterEdit(levelled ? null : 'unaffordable')
     },
     buyTrack(defId, track) {
-      // The store types the track as a string so `stores/` need not import
-      // from `progression/`; the guard is what makes that safe.
       if (!(SUPPORT_TRACKS as readonly string[]).includes(track)) return
       afterEdit(buyTrack(saveData, defId, track as SupportTrack) ? null : 'unaffordable')
     },
@@ -625,25 +453,16 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   }
 
   publishRoster()
-  // Before the first frame, not on it. The loop is what usually publishes the
-  // balance, and it does not run in a backgrounded tab — so a save with a
-  // healthy balance showed zero Salvage until the tab was looked at.
+
   game.primeSalvage(saveData.run.salvage)
 
-  // State-shaped triggers — "has cleared a stage", "has Rewound" — need one
-  // evaluation on load, or a save from before this phase would never earn them.
   checkAchievements('load')
   checkTutorial('load')
 
-  /**
-   * The stage in play. Restored from the save so a reload resumes where the
-   * player was rather than sending them back to First Shift.
-   */
   let currentStage: StageAddress = saveData.run.currentStage ?? DEFAULT_STAGE
   if (!PLAY_ORDER.includes(currentStage)) currentStage = DEFAULT_STAGE
   saveData.run.currentStage = currentStage
 
-  /** Seconds the clear banner holds before the next stage loads. */
   const STAGE_GAP_SECONDS = 3
 
   let pendingStage: StageAddress | null = null
@@ -652,27 +471,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   let simulation = buildSimulation()
   const renderer: Renderer = await createRenderer(host)
 
-  /*
-   * Audio starts suspended and is resumed by the first real input.
-   *
-   * Not politeness — every browser refuses to start audio before a user
-   * gesture, so a game that tried would be silent with no error anywhere. The
-   * Flare is the natural place to wake it: it is the player's one live control,
-   * so the first sound arrives at the first moment they did something.
-   */
   const audio: AudioEngine = createAudio(saveData.settings)
 
   game.showDiagnostics = saveData.settings.showFps
 
-  /**
-   * Push the player's settings out to everything that honours one.
-   *
-   * Three destinations and no shortcuts between them: the projection (so the
-   * settings screen and `App.svelte` can read them), the audio graph, and the
-   * renderer. Called once at boot and again after every change, because a
-   * setting that only takes effect on reload is a setting a player cannot tell
-   * they have changed.
-   */
   const publishSettings = (): void => {
     const s = saveData.settings
 
@@ -689,10 +491,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     }
     game.keybindings = { ...s.keybindings }
     game.showDiagnostics = s.showFps
-    // Language is applied here rather than by the settings screen, for the same
-    // reason every other setting is: the save is the record, and a language the
-    // player can see but that was never persisted is worse than one that did
-    // not change at all.
+
     useLocale(s.locale)
 
     audio.applySettings(s)
@@ -705,9 +504,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   game.settingsActions = {
     set(key, value) {
-      // Written through the save rather than into the projection: the save is
-      // the record, and a setting the player can see but that was never
-      // persisted is worse than one that did not change at all.
       ;(saveData.settings[key] as unknown) = value
       publishSettings()
       autosaver.request('settings')
@@ -734,9 +530,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     },
 
     exportSave() {
-      // Flushed first: exporting the state from before the last few seconds of
-      // play is exactly the kind of quiet data loss a backup is meant to
-      // prevent.
       autosaver.flush('manual')
       return saves.exportString(saveData)
     },
@@ -745,14 +538,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       try {
         saves.importString(text)
       } catch (error) {
-        // A refusal is a key and its values, never a sentence — `core/` has no
-        // business knowing which language the player reads.
         if (error instanceof SaveImportError) return translate(error.key, error.params)
         return error instanceof Error ? error.message : String(error)
       }
-      // A different save is a different game. Reloading is the honest way to
-      // adopt one — every system here was built against the save it booted
-      // with, and swapping it underneath them would be a much larger promise.
+
       window.location.reload()
       return null
     },
@@ -760,35 +549,11 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
 
   publishSettings()
 
-  /*
-   * The map, once, before anything can ask for it.
-   *
-   * It was the only projection with no publish at boot, on the assumption —
-   * written into `publishMap`'s own comment — that the panel would be opened by
-   * the `M` handler, which refreshed it first. That held for exactly as long as
-   * there was one way to open it. The sidebar opens it by setting the same flag
-   * and nothing else, so on a fresh load it showed "0 of 0 zones cleared" until
-   * the key had been pressed once.
-   *
-   * Fixed by making the projection correct rather than by teaching the second
-   * route to refresh it: a rule that every entry point has to remember is a
-   * rule the third entry point will forget.
-   *
-   * **Down here, not up with the other boot publishes.** `publishMap` reads
-   * `currentStage`, which is a `let` declared below them — putting the call
-   * beside `publishRoster()` threw "Cannot access 'currentStage' before
-   * initialization" and took the whole game down with it. Same temporal dead
-   * zone the autosaver comment above describes, found the same way.
-   */
   publishMap()
 
   function buildSimulation(): Simulation {
-    // Seeded from the stage address, so a stage always plays the same way and
-    // a balance observation is reproducible.
     const rng = createRng(seedFrom(currentStage))
-    // The tree's aggregate is read once, here. Purchases mid-stage cannot
-    // change a run in progress, which is what makes a run reproducible from
-    // its seed at all.
+
     const sim = new Simulation(
       loadStage(currentStage, { effects: currentEffects() }),
       rng,
@@ -797,11 +562,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     return sim
   }
 
-  // --- Input: the Flare is the entire live control surface. ------------------
-  //
-  // Click anywhere on the field to strike that point. Instant and area-based,
-  // so there is nothing to aim and nothing to miss (combat-spec.md §1).
-
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0) return
     audio.resume()
@@ -809,15 +569,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     if (simulation.strike(world.x, world.y)) audio.play('flare')
   }
 
-  /**
-   * True when the keystroke belongs to something the player is typing into.
-   *
-   * Every shortcut here is a bare letter, and the formation editor has a text
-   * field for naming a preset — so naming one "harrier picket" restarted the
-   * stage on the `r`, opened the map on the `m`, toggled the formation panel on
-   * the `f` and, since this phase, threw the Manual up on the `h`. Nothing
-   * guarded against it because for a long time there was no field to type in.
-   */
   const isTyping = (target: EventTarget | null): boolean => {
     const element = target as HTMLElement | null
     if (!element) return false
@@ -825,20 +576,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     return tag === 'INPUT' || tag === 'TEXTAREA' || element.isContentEditable
   }
 
-  /**
-   * Dismiss the topmost open screen, and report whether there was one.
-   *
-   * The order is the stacking order in `docs/design/ui-spec.md` §2, read from
-   * the top down — Escape closes what is in front, one press at a time.
-   *
-   * Routed here rather than by each panel, because a panel can only know about
-   * itself: when every open dialog listened on the window, one Escape with two
-   * of them stacked closed both, and closing the last one raced this handler
-   * into reopening the menu it had just dismissed.
-   */
   const closeTopmost = (): boolean => {
-    // Notices first: they sit over everything and are the least deliberate
-    // thing on screen, so they are what a player is most likely swatting at.
     if (game.tutorialQueue.length > 0) {
       game.tutorialQueue = game.tutorialQueue.slice(1)
       return true
@@ -869,8 +607,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   const runAction = (action: ActionId): boolean => {
     switch (action) {
       case 'menu':
-        // One key, two jobs, in the order a player expects: it backs out of
-        // whatever is open, and opens the menu only when nothing is.
+
         if (!closeTopmost()) game.showMenu = true
         return true
 
@@ -880,13 +617,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
         return true
 
       case 'flare': {
-        /*
-         * The Flare, without a pointer.
-         *
-         * `deepestContactPoint` picks the Contact closest to the Sun rather
-         * than the best cluster — see systems/ai.ts. A keyboard strike is
-         * meant to be available, not optimal.
-         */
         const point = deepestContactPoint(simulation.state)
         if (point && simulation.strike(point.x, point.y)) audio.play('flare')
         return true
@@ -896,26 +626,16 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
         session.restart()
         return true
 
-      // The synergy preview. Not persisted — it is a planning aid you open
-      // when you are planning, unlike the diagnostics overlay.
       case 'formation':
         game.showFormation = !game.showFormation
         audio.play('ui')
         return true
 
-      // The progression map. Always available: it is where a player finds out
-      // there is anything past the zone they are on.
-      //
-      // Toggles and nothing else, exactly as the sidebar does. The refresh that
-      // used to happen here is now an invariant: the map is republished
-      // wherever it can change — boot, an edit, a clear, a stage change.
       case 'map':
         game.showMap = !game.showMap
         audio.play('ui')
         return true
 
-      // The tree stays hidden until it is revealed — economy-spec.md §3 wants
-      // a first-time player meeting one progression system at a time.
       case 'tree':
         if (game.treeRevealed) game.showTree = !game.showTree
         return true
@@ -924,14 +644,12 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
         if (game.rewindUnlocked) game.showPrestige = !game.showPrestige
         return true
 
-      // The Manual, front to back. Always available: it explains the panels,
-      // so gating it behind the reveals it describes would be backwards.
       case 'manual':
         showManual()
         return true
 
       case 'diagnostics':
-        // Persisted, so a profiling session survives a reload.
+
         saveData.settings.showFps = !saveData.settings.showFps
         publishSettings()
         autosaver.request('settings')
@@ -945,13 +663,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   const onKeyDown = (event: KeyboardEvent) => {
     if (isTyping(event.target)) return
 
-    /*
-     * The rebind capture takes precedence over every binding.
-     *
-     * Set by the settings screen while it is waiting for a key. Without this,
-     * pressing F to rebind something would open the formation editor over the
-     * panel that was asking for the key.
-     */
     if (pendingRebind) {
       event.preventDefault()
       const stroke = strokeOf(event)
@@ -968,12 +679,10 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     if (action === null) return
 
     audio.resume()
-    // F-keys and Space are the browser's until we claim them: F2 opens dev
-    // tools in some builds, and Space scrolls.
+
     if (runAction(action)) event.preventDefault()
   }
 
-  /** The four fields of a key press a binding is allowed to look at. */
   const strokeOf = (event: KeyboardEvent) => ({
     code: event.code,
     ctrl: event.ctrlKey,
@@ -981,35 +690,15 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     meta: event.metaKey,
   })
 
-  /**
-   * The action currently waiting for a key, or null.
-   *
-   * Held here rather than in the component because the capture has to beat the
-   * global key handler, and the global handler is here. The component asks
-   * through `game.rebinding`.
-   */
   let pendingRebind: ActionId | null = null
 
   host.addEventListener('pointerdown', onPointerDown)
-  /*
-   * Capture phase, so the router sees the key before any panel does.
-   *
-   * Escape has to close the *topmost* screen, and it can only know which that
-   * is by reading the state before anything else has changed it. In the
-   * bubble phase a dialog had already closed itself by the time this ran, so
-   * `closeTopmost` found nothing open and helpfully reopened the menu.
-   *
-   * Text entry is still exempt — `isTyping` is checked first, and it is the
-   * only reason a keystroke inside a panel should not reach a binding.
-   */
+
   window.addEventListener('keydown', onKeyDown, { capture: true })
 
-  // Flush the save when the tab goes away. The autosaver itself stays DOM-free;
-  // this is the app layer's job (Phase 9).
   const onHide = () => autosaver.flush('shutdown')
   window.addEventListener('beforeunload', onHide)
 
-  /** Wall-clock time the tab was hidden, or null while it is on screen. */
   let hiddenAt: number | null = null
 
   const onVisibilityChange = () => {
@@ -1027,66 +716,26 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     publishRoster()
     game.primeSalvage(saveData.run.salvage)
 
-    /*
-     * Restart the frame clock.
-     *
-     * `previous` is only written by the RAF callback, so after a throttled
-     * absence the first frame back would otherwise be handed hours of elapsed
-     * time. The simulation clamps that (MAX_CATCHUP_SECONDS), but the earning
-     * rate and the playtime statistic are computed from the raw figure — and
-     * an hour-long frame drove `salvagePerSecond` to nearly zero, which is
-     * precisely the number the next absence is paid from.
-     */
     previous = performance.now()
     autosaver.request('purchase')
   }
   document.addEventListener('visibilitychange', onVisibilityChange)
 
-  // --- The frame loop. ------------------------------------------------------
   let previous = performance.now()
   let frame = 0
   let fpsAccumulator = 0
   let fpsFrames = 0
 
-  /** The address the loaded stage came from. Ids are stable; objects are not. */
   const stageAddressOf = (state: SimulationState): StageAddress =>
     `${state.zone.id}:${state.stage.id}` as StageAddress
 
-  /**
-   * One frame's work, given how much time it covers.
-   *
-   * Split out of the `requestAnimationFrame` callback so it can be pumped
-   * directly — RAF is throttled to nothing in a backgrounded or headless tab,
-   * which makes the whole loop unobservable there. The dev handle exposes this.
-   */
   const frameStep = (elapsed: number, elapsedMs = elapsed * 1000) => {
-    /*
-     * A pause stops simulated time and nothing else.
-     *
-     * The renderer, the projection and the frame counter all keep running, so
-     * the field stays on screen and the HUD stays live — a paused game that
-     * blanked would be indistinguishable from one that had crashed. What stops
-     * is `advance`, which is the only thing that moves the world.
-     *
-     * P1 says the machine runs without you, and every other panel in this game
-     * leaves the field running for exactly that reason. A pause is the one case
-     * where the player has explicitly asked it not to, which is why it is a key
-     * of its own rather than something a panel does on the player's behalf.
-     */
     const paused = game.paused
 
     const simStart = performance.now()
     const events = paused ? noTickEvents() : simulation.advance(elapsed)
     const simMs = performance.now() - simStart
 
-    // Bank whatever the stage produced, and tell the autosaver about it.
-    //
-    // This is the **one** place a tick's events become a currency change.
-    // `progression/currencies.ts` holds the rules and the simulation holds the
-    // field; neither knows about the other, and this loop is the seam.
-    // The Recovery multiplier is applied here rather than in the simulation:
-    // `systems/` computes what the field dropped, `progression/` decides what
-    // the player banks.
     earnSalvage(saveData, events.salvageDropped * (1 + currentEffects().salvage))
     if (events.contactKilled > 0) {
       saveData.statistics.totalContactsDestroyed += events.contactKilled
@@ -1099,13 +748,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       checkTutorial('conjunction', events.largestConjunction)
     }
 
-    /*
-     * The frame's sound.
-     *
-     * Every cue carries its own minimum interval (`content/audio.ts`), so this
-     * can fire on a boolean rather than counting: a frame with forty kills in
-     * it is one kill sound, which is what a listener hears anyway.
-     */
     if (events.contactHits > 0) audio.play('hit')
     if (events.contactKilled > 0) audio.play('kill')
     if (events.sunHits > 0) audio.play('sunHit')
@@ -1121,19 +763,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       const address = stageAddressOf(simulation.state)
       recordDepth(saveData, simulation.state.stage.scalingIndex)
 
-      // Clearance is first-clear only, and `applyStageClear` is idempotent — a
-      // clear event that somehow fires twice must not pay twice.
       const reward = applyStageClear(saveData, address)
       if (reward.clearance > 0) {
         game.lastClearanceAward = { clearance: reward.clearance, zoneCompleted: reward.zoneCompleted }
       }
-      // A clear can open a zone; the map has to say so before the player next
-      // opens it, not on the following frame.
+
       publishMap()
 
-      // Queue the next stage. Advancing on a timer rather than immediately so
-      // the clear banner is readable — a stage that vanished the instant it
-      // ended would read as the bug this replaced.
       checkAchievements('stage-cleared', {
         ...achievementSnapshot(),
         clearedUntouched: simulation.state.sun.lowestFraction >= 1,
@@ -1149,15 +785,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       autosaver.request('stage-clear')
     }
 
-    /*
-     * A stage picked from the map.
-     *
-     * Consumed here rather than acted on by the store, which is a projection
-     * and must never reach into the simulation. Re-validated against the save
-     * rather than trusted: the panel disables locked stages, but a disabled
-     * button is a presentation detail and the rule lives in progression/.
-     */
-    // The sidebar's route to the Manual. See `game.manualRequested`.
     if (game.manualRequested) {
       game.manualRequested = false
       showManual()
@@ -1166,8 +793,7 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     if (game.requestedStage) {
       const requested = game.requestedStage as StageAddress
       game.requestedStage = null
-      // Close on any accepted pick, including the stage already in play.
-      // Leaving the panel open there reads as a click that did not register.
+
       if (isStageUnlocked(saveData, requested)) game.showMap = false
       if (isStageUnlocked(saveData, requested) && requested !== currentStage) {
         currentStage = requested
@@ -1182,8 +808,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       }
     }
 
-    // Count down to the next stage. The simulation is stopped, so this runs on
-    // the frame clock rather than on simulated time.
     if (advanceIn > 0) {
       advanceIn -= elapsed
       game.nextStageIn = Math.max(0, advanceIn)
@@ -1197,33 +821,8 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       }
     }
 
-    /*
-     * The rate offline progress will be scaled from.
-     *
-     * A slow exponential average rather than a lifetime mean: the player's
-     * earning power changes as they buy slots, and a lifetime figure would
-     * still be reporting their first minute an hour later. The window is long
-     * enough that a wave gap does not read as a collapse in output.
-     */
-    /*
-     * Both figures below measure *simulated* time, not wall-clock time.
-     *
-     * `advance` runs at most MAX_CATCHUP_SECONDS of simulation per call, so a
-     * frame that covers an hour still only plays half a second of it. Billing
-     * the hour to either of these was wrong in the same way twice: the playtime
-     * statistic counted time nobody played — its own doc comment says offline
-     * time is not counted — and the earning rate divided half a second of drops
-     * by an hour, which is the rate the *next* absence is then paid at. One
-     * backgrounded tab was enough to make offline progress pay nothing
-     * thereafter. See `updateEarningRate`.
-     */
     const simulated = Math.min(elapsed, MAX_CATCHUP_SECONDS)
 
-    /*
-     * The mix follows the field, on simulated time for the same reason the
-     * earning rate does: a frame covering an hour must not swing the music as
-     * though an hour of combat had happened.
-     */
     const sun = simulation.state.sun
     audio.update({
       dt: paused ? 0 : simulated,
@@ -1240,8 +839,6 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       )
     }
 
-    // Paused time is not play. An idle game whose offline rate is derived from
-    // playtime would otherwise reward leaving it paused.
     if (!paused) saveData.statistics.playtimeSeconds += simulated
     autosaver.tick(elapsed)
 
@@ -1254,18 +851,13 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
     renderer.render(simulation, elapsed)
     const renderMs = performance.now() - renderStart
 
-    // Step 11: publish the projection. The only write into Svelte.
     game.syncFrom(simulation)
-    // The permanent currencies live in the save, not the field, so they are
-    // published here rather than by `syncFrom`.
+
     game.recollection = saveData.meta.recollection
     game.clearance = saveData.meta.clearance
-    // The spendable balance lives in the save, not the field. Published here
-    // for the same reason as the permanent currencies.
+
     game.publishSalvage(saveData.run.salvage, simulation.state.elapsed)
 
-    // Clearance can arrive from a stage clear, which is not an edit — so the
-    // roster has to be told, or what it says is affordable goes stale.
     if (saveData.meta.clearance !== publishedClearance) {
       publishedClearance = saveData.meta.clearance
       publishRoster()
@@ -1315,20 +907,16 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
   }
 
   if (import.meta.env.DEV) {
-    // Dev handle for profiling without requestAnimationFrame, which is
-    // throttled in backgrounded and headless tabs. Phase 11 formalises this.
     ;(window as unknown as Record<string, unknown>).__perihelion = {
       get simulation() {
         return simulation
       },
       renderer,
-      // Exposed for the same reason the renderer is: the audio graph is a
-      // closure, and without a handle there is no way to see whether a cue
-      // actually fired short of listening to it.
+
       audio,
       session,
       content: { PLATFORMS, ARRAYS },
-      /** Pump the loop by hand. See `frameStep`. */
+
       frameStep,
     }
   }

@@ -47,7 +47,6 @@ describe('Salvage drops', () => {
   })
 
   it('does not round, so thousands of small drops do not compound', () => {
-    // The same argument damage uses. The HUD rounds for display.
     const drop = salvageDrop(5, 1)
     expect(Number.isInteger(drop)).toBe(false)
   })
@@ -68,29 +67,16 @@ describe('Salvage sinks', () => {
   })
 
   it('prices a Array above a Platform, as economy-spec §1 requires', () => {
-    // A Array is the bigger commitment; if this inverts, the intended order in
-    // which a player meets the sinks inverts with it.
     expect(mountCost(0)).toBeGreaterThan(slotCost(0))
   })
 
   it('escalates repairs faster than anything else', () => {
-    // Repair is a panic button, not a strategy — economy-spec invariant 6.
     expect(SALVAGE.repair.growth).toBeGreaterThan(SALVAGE.slot.growth)
     expect(SALVAGE.repair.growth).toBeGreaterThan(SALVAGE.mount.growth)
     expect(SALVAGE.repair.growth).toBeGreaterThan(SALVAGE.reinforce.growth)
   })
 
   it('keeps the tenth slot reachable and the twentieth not', () => {
-    /*
-     * The load-bearing claim about the 1.18 growth in economy-spec.md §1:
-     * "shallow enough that the tenth slot is reachable in a first run, steep
-     * enough that the twentieth requires tree investment".
-     *
-     * Measured against what zone 1 actually pays out rather than against a
-     * threshold picked to fit — an invented number here would assert nothing
-     * about the design and would silently stop meaning anything the first time
-     * a wave count changed.
-     */
     const total = (n: number) =>
       Array.from({ length: n }, (_, i) => slotCost(i)).reduce((a, b) => a + b, 0)
 
@@ -107,22 +93,8 @@ describe('Salvage sinks', () => {
       }
     }
 
-    /*
-     * Ten slots cost 1179 against zone 1's yield of 1175 — the two were
-     * authored two stages apart (the cost curve in Phase 6, the densities in
-     * Phases 17 and 20) and landed within 0.3% of each other. Asserted as a
-     * band rather than that coincidence, since "a first run" spans more than
-     * one zone once Phase 33 authors the rest.
-     */
     expect(total(10)).toBeLessThan(zoneYield * 1.5)
 
-    /*
-     * The twentieth slot has to stay out of reach of raw drops. Phrased against
-     * the *curve* rather than against a zone's yield: yield moves whenever
-     * content is authored — Phase 33 grew zone 1 from three stages to four and
-     * nearly doubled it — and an invariant about the cost curve should not fail
-     * because a stage was added.
-     */
     expect(total(20) / total(10)).toBeGreaterThan(5)
     expect(total(20)).toBeGreaterThan(zoneYield * 3)
   })
@@ -174,8 +146,6 @@ describe('Recollection', () => {
   })
 
   it('rewards depth super-linearly', () => {
-    // The 1.6 exponent: two stages deeper is worth roughly 1.8x, so depth flares
-    // breadth without making an early Rewind a mistake.
     const ratio = recollectionFor(20) / recollectionFor(10)
     expect(ratio).toBeGreaterThan(2)
     expect(RECOLLECTION.depthExponent).toBeGreaterThan(1)
@@ -203,8 +173,6 @@ describe('Recollection', () => {
   })
 
   it('reports the depth below which a Rewind pays nothing', () => {
-    // economy-spec.md §1 requires the zero-award guard to explain a threshold.
-    // Deriving it from the formula stops the explanation drifting from it.
     const threshold = minimumRewindDepth()
     expect(recollectionFor(threshold)).toBeGreaterThan(0)
     expect(recollectionFor(threshold - 1)).toBe(0)
@@ -220,7 +188,6 @@ describe('Clearance', () => {
   })
 
   it('pays nothing for a re-clear, so Clearance cannot be farmed', () => {
-    // The property Phase 29's roster balance depends on.
     applyStageClear(save, STAGES[0])
     const again = applyStageClear(save, STAGES[0])
 
@@ -249,7 +216,6 @@ describe('Clearance', () => {
   })
 
   it('reports a reward without granting it', () => {
-    // `clearReward` is what the UI quotes; only `applyStageClear` pays.
     const quoted = clearReward(save, STAGES[0])
     expect(quoted.clearance).toBeGreaterThan(0)
     expect(save.meta.clearance).toBe(0)
@@ -281,7 +247,6 @@ describe('depth tracking', () => {
   })
 
   it('keeps the all-time figure when the run figure is reset', () => {
-    // What a Rewind will do in Phase 26: `run` is discarded, `statistics` is not.
     recordDepth(save, 7)
     save.run.deepestScalingIndex = 0
     recordDepth(save, 2)
@@ -293,8 +258,6 @@ describe('depth tracking', () => {
 
 describe('currencies stay separate', () => {
   it('leaves the permanent currencies untouched by Salvage activity', () => {
-    // economy-spec.md §1: if two currencies ever bought the same thing, one
-    // would be redundant. The sources must not leak into each other either.
     earnSalvage(save, 500)
     spendSalvage(save, 100)
 

@@ -1,28 +1,14 @@
-/**
- * Seeded pseudo-random number generator.
- *
- * The simulation never calls `Math.random()`. Two reasons:
- *
- *   1. Tests need a wave to spawn identically every run, or balance assertions
- *      are flaky by construction.
- *   2. Phase 20's telemetry compares runs against each other. That only means
- *      something if the randomness is reproducible from a seed.
- *
- * mulberry32: small, fast, and statistically fine for spawn jitter and spread
- * angles. Not cryptographic, and nothing here needs it to be.
- */
 
 export interface Rng {
-  /** Uniform in [0, 1). */
   next(): number
-  /** Uniform in [min, max). */
+
   range(min: number, max: number): number
-  /** Integer in [min, max]. */
+
   int(min: number, max: number): number
-  /** Uniform angle in radians. */
+
   angle(): number
   pick<T>(items: readonly T[]): T
-  /** Current internal state, so a run can be resumed or replayed. */
+
   readonly state: number
 }
 
@@ -49,7 +35,6 @@ export function createRng(seed = 0x9e3779b9): Rng {
   }
 }
 
-/** Derive a stable seed from a string, so a stage always plays the same. */
 export function seedFrom(text: string): number {
   let hash = 0x811c9dc5
   for (let i = 0; i < text.length; i++) {

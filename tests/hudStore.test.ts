@@ -2,12 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { game } from '../src/lib/stores/game.svelte'
 import { FLARE } from '../src/lib/content/field'
 
-/**
- * The reactive projection is the only Svelte-side logic in the codebase, and
- * `flareProgress` is the one piece of it that decides what a player sees rather
- * than merely copying a number across. The rest of the store is assignments.
- */
-
 beforeEach(() => {
   game.phase = 'wave-active'
   game.flareMaxCharge = FLARE.maxCharges
@@ -17,16 +11,12 @@ beforeEach(() => {
 
 describe('the Flare charge bar', () => {
   it('is full whenever a strike is available', () => {
-    // Nothing is being waited for, so there is no progress to report.
     game.flareCharge = 2.4
     expect(game.canStrike).toBe(true)
     expect(game.flareProgress).toBe(1)
   })
 
   it('ignores the post-strike cooldown entirely', () => {
-    // Playtest: reporting the 0.25 s cooldown made the bar race from empty to
-    // full and then snap back to the real charge fraction. The cooldown is a
-    // double-click guard, not a wait, so the bar must not move for it at all.
     game.flareCharge = 2.4
     game.flareCooldown = FLARE.cooldown
     expect(game.flareProgress).toBe(1)
@@ -45,16 +35,12 @@ describe('the Flare charge bar', () => {
   })
 
   it('shows the regenerating fraction even while the cooldown runs', () => {
-    // Straight after a strike that emptied the last charge. The wait that
-    // matters is the 3 s recharge, not the 0.25 s guard.
     game.flareCharge = 0.5
     game.flareCooldown = FLARE.cooldown
     expect(game.flareProgress).toBeCloseTo(0.5, 6)
   })
 
   it('never jumps backwards while a charge regenerates', () => {
-    // The snap the playtest reported. Walk a charge from empty to whole across
-    // a live cooldown and assert the bar only ever climbs.
     let previous = -1
     for (let charge = 0; charge <= 1.0001; charge += 0.05) {
       game.flareCharge = charge
@@ -66,9 +52,6 @@ describe('the Flare charge bar', () => {
   })
 
   it('does not creep toward a charge the player cannot spend', () => {
-    // With two whole charges banked a third is regenerating, but the bar must
-    // read full — a strike is available right now, and a bar counting toward
-    // something unactionable is noise.
     game.flareCharge = 2.6
     expect(game.flareProgress).toBe(1)
   })
@@ -85,8 +68,6 @@ describe('the Flare charge bar', () => {
   })
 
   it('reports no progress while the stage is over', () => {
-    // canStrike is gated on `running`, so a resolved stage must not show a
-    // full bar inviting an input that will be refused.
     game.flareCharge = 3
     game.phase = 'cleared'
     expect(game.canStrike).toBe(false)
@@ -96,19 +77,11 @@ describe('the Flare charge bar', () => {
 
 describe('the Salvage counter', () => {
   beforeEach(() => {
-    // Through the store's own entry point, not by writing the field: priming
-    // is what "a session opening on this balance" means, and the pool behind
-    // the counter has to be told the same thing the projection was.
     game.primeSalvage(0)
     game.salvageGain = 0
   })
 
   it('shows the spendable balance, not a stage total', () => {
-    /*
-     * Those were the same number until Phase 24 gave Salvage something to buy.
-     * Publishing both — the stage's earnings from `syncFrom` and the bank from
-     * the save — made the counter flip between them mid-session.
-     */
     game.publishSalvage(1702, 10)
     expect(game.salvage).toBe(1702)
   })
@@ -120,7 +93,6 @@ describe('the Salvage counter', () => {
   })
 
   it('does not read a purchase as a gain', () => {
-    // Spending must never animate as income.
     game.publishSalvage(100, 0)
     game.salvageGain = 0
     game.publishSalvage(41, 0.1)
@@ -138,9 +110,6 @@ describe('the Salvage counter', () => {
   })
 
   it('primes a starting balance without it reading as income', () => {
-    // The projection starts at zero and a loaded save does not, so the first
-    // publish of a session would otherwise flash the entire balance as though
-    // it had just been earned.
     game.primeSalvage(880)
 
     expect(game.salvage).toBe(880)

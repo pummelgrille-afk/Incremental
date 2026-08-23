@@ -29,8 +29,6 @@ beforeEach(() => {
 
 describe('the authored bosses', () => {
   it('transcribes the names narrative.md authored, in order', () => {
-    // The copy belongs to the design doc. If these drift, the doc has stopped
-    // being the source of truth it claims to be.
     expect(BOSSES.map((b) => b.name)).toEqual([
       'The Backlog',
       'The Sympathetic',
@@ -51,8 +49,6 @@ describe('the authored bosses', () => {
   })
 
   it('gives every boss multiple phases', () => {
-    // PLAN.md asks for multi-phase attack patterns. A one-phase boss is a
-    // Contact with a large HP bar.
     for (const b of BOSSES) expect(b.phases.length, b.id).toBeGreaterThan(1)
   })
 
@@ -77,7 +73,6 @@ describe('the authored bosses', () => {
   })
 
   it('summons only Contacts that exist, and never in an opening phase', () => {
-    // A fight should read as a duel before it becomes a crowd.
     for (const b of BOSSES) {
       expect(b.phases[0].summons, `${b.id} summons immediately`).toBeUndefined()
       for (const p of b.phases) {
@@ -90,11 +85,6 @@ describe('the authored bosses', () => {
   })
 
   it('telegraphs every phase change above the pattern floor', () => {
-    /*
-     * A phase change is the one moment a boss's behaviour changes underneath a
-     * player who has already read it, so combat-spec.md §5's rule applies to
-     * the transition and not only to the pattern after it.
-     */
     for (const b of BOSSES) {
       expect(b.phaseTelegraphMs, b.id).toBeGreaterThanOrEqual(MIN_TELEGRAPH_MS)
     }
@@ -107,7 +97,6 @@ describe('the authored bosses', () => {
   })
 
   it('gets harder down the list', () => {
-    // The five are authored as a ladder across zones 2 to 6.
     for (let i = 1; i < BOSSES.length; i++) {
       expect(BOSSES[i].maxHp, BOSSES[i].id).toBeGreaterThan(BOSSES[i - 1].maxHp)
       expect(BOSSES[i].firstClearSalvage, BOSSES[i].id).toBeGreaterThan(
@@ -119,17 +108,6 @@ describe('the authored bosses', () => {
 
 describe('the HP scale', () => {
   it('authors base HP on the pre-multiplier scale, like every other def', () => {
-    /*
-     * The mistake this catches, because it was made here first: `maxHp` is
-     * documented as *before* the stage curve and `bossHpMultiplier`, and the
-     * first draft used 260 to 700 as though they were final numbers. At stage 8
-     * that put The Backlog at 8,900 HP against a measured player output of
-     * ~107 HP/s — an 83-second fight the Sun could not survive, and every boss
-     * lost 0/6.
-     *
-     * Anchored to the toughest ordinary Contact rather than to a bare constant,
-     * so a roster rebalance carries this with it.
-     */
     const toughest = Math.max(...CONTACT.map((c) => c.maxHp))
     for (const b of BOSSES) {
       expect(b.maxHp, `${b.id} is authored on the wrong scale`).toBeLessThan(toughest * 4)
@@ -138,15 +116,6 @@ describe('the HP scale', () => {
   })
 
   it('gives the first boss a fight length the Sun can survive', () => {
-    /*
-     * The Backlog is the only boss whose depth is known — stage 8, from
-     * `bossInterval`. Measured against a plausible stage-8 formation the player
-     * removes roughly 107 HP per second, and the Sun lasts about 45 seconds
-     * under boss fire, so the fight has to fit inside that with room to spare.
-     *
-     * The band is deliberately wide: this guards the order of magnitude, which
-     * is what went wrong, not the tuning. Phase 35 owns the tuning.
-     */
     const first = bossById('the-backlog')!
     const hp = bossHp(first.maxHp, SCALING.bossInterval, 1)
     const referenceDps = 107
@@ -172,7 +141,6 @@ describe('phaseAt', () => {
   })
 
   it('is inclusive at the threshold', () => {
-    // Otherwise a boss sitting exactly on a boundary never transitions.
     const at = boss.phases[1].fromHpFraction
     expect(phaseAt(boss, at)).toBe(1)
   })
@@ -180,8 +148,6 @@ describe('phaseAt', () => {
 
 describe('spawning an encounter', () => {
   it('puts the boss on the field as an ordinary Contact', () => {
-    // The whole design: a boss reuses motion, hurtboxes, armour and the damage
-    // formula rather than running a parallel pipeline that drifts from them.
     const { contact } = spawnBoss(sim.state, bossById('the-backlog')!)
 
     expect(sim.state.contact).toContain(contact)
@@ -190,12 +156,6 @@ describe('spawning an encounter', () => {
   })
 
   it('applies the boss multipliers exactly once', () => {
-    /*
-     * `createContact` already applies the stage curve, and `spawnBoss` applies
-     * the boss multipliers on top. Applying the curve again inside the def
-     * would square it — the obvious bug in this shape of code, and invisible
-     * except as a boss with implausible HP.
-     */
     const def = bossById('the-backlog')!
     const { contact } = spawnBoss(sim.state, def)
 
@@ -232,8 +192,6 @@ describe('phase transitions', () => {
   })
 
   it('holds fire for the whole transition', () => {
-    // The player's window, and the reason a phase change is a moment rather
-    // than a step change nobody sees.
     const { contact, runtime } = wounded('the-backlog', 0.5)
     updateBoss(sim.state, TICK_SECONDS)
 
@@ -252,8 +210,6 @@ describe('phase transitions', () => {
   })
 
   it('re-arms the cooldown on the new interval', () => {
-    // Inheriting the old phase's countdown means a slow phase followed by a
-    // fast one fires the instant the transition ends.
     const { def } = wounded('the-backlog', 0.5)
     for (let i = 0; i < 60; i++) updateBoss(sim.state, TICK_SECONDS)
 
@@ -264,11 +220,6 @@ describe('phase transitions', () => {
   })
 
   it('never walks backwards into an earlier phase', () => {
-    /*
-     * The Dark Watch summons a Warden, and a Warden could in principle push a
-     * boss back above a threshold. Oscillating between two phases would mean a
-     * fight that never resolves.
-     */
     const { contact, runtime } = wounded('the-dark-watch', 0.2)
     for (let i = 0; i < 80; i++) updateBoss(sim.state, TICK_SECONDS)
     const deep = runtime.phaseIndex
@@ -281,8 +232,6 @@ describe('phase transitions', () => {
   })
 
   it('keeps the boss identity and damage across a phase swap', () => {
-    // The def is replaced, not the entity. A new id would break projectile
-    // attribution and every unit currently targeting it.
     const { contact, runtime } = wounded('the-backlog', 0.5)
     const id = contact.id
     const hp = contact.hp
@@ -309,8 +258,6 @@ describe('summons', () => {
   })
 
   it('appear near the boss rather than at the rim', () => {
-    // A summon crossing the whole field would arrive after the phase that
-    // called it had ended.
     const def = bossById('the-backlog')!
     const { contact } = spawnBoss(sim.state, def)
     contact.hp = contact.maxHp * 0.5
@@ -345,15 +292,7 @@ describe('the encounter ends', () => {
 })
 
 describe('a boss stage, end to end', () => {
-  /**
-   * No authored stage reaches the boss interval yet — zone 1 stops at scaling
-   * index 3 and bosses fall every 8 — so the encounter is exercised against a
-   * stage fixture built through the real loader and run on the real loop.
-   * Without this the whole system would be untested until Phase 33.
-   */
   function bossStage() {
-    // Built from a real loaded state so nothing about the fixture diverges
-    // from what the game actually runs; only the stage's own waves differ.
     const state = loadStage(STAGE)
     return {
       ...state,
@@ -390,8 +329,7 @@ describe('a boss stage, end to end', () => {
 
     expect(sawBoss, 'the boss was never placed').toBe(true)
     expect(s.state.phase, 'the stage never resolved').toBe('cleared')
-    // The marker, not `sim.boss`, is what stops a defeated encounter coming
-    // straight back — a defeated boss clears its own runtime.
+
     expect(s.state.bossSpawnedFor).toBe(0)
     expect(s.state.boss).toBeNull()
   })

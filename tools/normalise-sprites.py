@@ -9,8 +9,6 @@ always be re-run.
 
     python tools/normalise-sprites.py
 
-## Why this exists
-
 The ten sprites supplied with the Phase 29 reskin were **JPEG-compressed before
 their backgrounds were removed**. Measured before this step ran:
 
@@ -25,8 +23,6 @@ They are recoverable rather than lost: the grid is still there, just smeared.
 This resamples onto that grid, quantises the palette, and hardens the alpha —
 which both fixes the art and takes it from ~130KB to ~1KB apiece, for images the
 game draws about thirty pixels across.
-
-## What it does, and why in this order
 
   1. **Hard-threshold alpha** first, so the halo cannot bleed into the colour
      averages taken in step 2.
@@ -51,29 +47,15 @@ import sys
 SOURCE = 'src/assets/sprites/raw'
 TARGET = 'src/assets/sprites'
 
-# The native grid, from docs/design/art-style.md. Measured, not chosen: the
-# supplied art's cell period lands at 11-14px on a ~500px canvas.
 NATIVE = 40
 
-# Colours per sprite after quantisation. Enough for a body, a shadow, a
-# highlight and a rim on each of two materials; far below the thousands JPEG
-# left behind.
 PALETTE_SIZE = 24
 
-# Anything below this is background, anything above is art. Pixel art has no
-# soft edges, so there is no middle to preserve.
 ALPHA_CUTOFF = 128
-
 
 def normalise(path: str) -> Image.Image:
     source = Image.open(path).convert('RGBA')
 
-    # Already at or below the native grid: nothing to resample, and resampling
-    # anyway would be destructive — mapping 40 cells across 33 pixels gives
-    # cells narrower than a pixel, and the ones that round to zero width drop
-    # out entirely. Art that arrives at native resolution (a derived clip, a
-    # hand-drawn frame) still gets its colours quantised and its alpha hardened
-    # below, which is the rest of what this does.
     if max(source.size) <= NATIVE:
         a = np.asarray(source).astype(np.float32)
         solid = a[..., 3] >= ALPHA_CUTOFF
@@ -93,8 +75,6 @@ def normalise(path: str) -> Image.Image:
     out_rgb = np.zeros((NATIVE, NATIVE, 3), np.float32)
     out_a = np.zeros((NATIVE, NATIVE), np.float32)
 
-    # Cell boundaries are computed rather than assumed: the supplied images are
-    # cropped to non-round sizes, so the grid does not divide them evenly.
     ys = np.linspace(0, h, NATIVE + 1).round().astype(int)
     xs = np.linspace(0, w, NATIVE + 1).round().astype(int)
 
@@ -105,10 +85,6 @@ def normalise(path: str) -> Image.Image:
                 continue
 
             covered = cell.mean()
-            # A cell is art only if the art actually covers most of it. Half a
-            # cell of art beside half a cell of nothing is an edge, and an edge
-            # belongs to the background — otherwise every sprite grows a
-            # one-pixel fringe of averaged colour.
             if covered < 0.5:
                 continue
 
@@ -121,10 +97,7 @@ def normalise(path: str) -> Image.Image:
         'RGBA',
     )
 
-    # Not trimmed here — see `trim_together`. A frame cropped to its own bounds
-    # is a frame that moves.
     return quantise(small)
-
 
 def quantise(image: Image.Image) -> Image.Image:
     """
@@ -140,9 +113,7 @@ def quantise(image: Image.Image) -> Image.Image:
     result.putalpha(mask)
     return result
 
-
 FRAME_SUFFIX = re.compile(r'-(idle|attack|hit|death)-\d+$')
-
 
 def clip_group(name: str) -> str:
     """
@@ -155,7 +126,6 @@ def clip_group(name: str) -> str:
     a unit would change size when it attacked.
     """
     return FRAME_SUFFIX.sub('', os.path.splitext(name)[0])
-
 
 def trim_together(images: dict[str, Image.Image]) -> dict[str, Image.Image]:
     """
@@ -180,7 +150,6 @@ def trim_together(images: dict[str, Image.Image]) -> dict[str, Image.Image]:
         max(box[3] for box in boxes),
     )
     return {name: image.crop(union) for name, image in images.items()}
-
 
 def main() -> int:
     if not os.path.isdir(SOURCE):
@@ -212,7 +181,6 @@ def main() -> int:
             )
 
     return 0
-
 
 if __name__ == '__main__':
     raise SystemExit(main())

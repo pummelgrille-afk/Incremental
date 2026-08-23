@@ -1,17 +1,4 @@
 <script lang="ts">
-  /**
-   * One of a handful of named options, all visible at once.
-   *
-   * A radio group, not a `<select>`. The options this game needs to offer —
-   * three colourblind palettes, three text sizes — are things a player is
-   * *comparing*, and a dropdown hides every option but the chosen one at
-   * exactly the moment they want to see the set. Under four options a segmented
-   * control is strictly more informative and costs the same space.
-   *
-   * Real `<input type="radio">` underneath, so arrow keys move between options
-   * and the group announces itself as a group. That behaviour is not worth
-   * reimplementing and is usually reimplemented badly.
-   */
 
   interface Option<T extends string> {
     value: T
@@ -19,7 +6,6 @@
   }
 
   interface Props<T extends string> {
-    /** Shared across the group's radios; also the label's target. */
     id: string
     value: T
     options: readonly Option<T>[]
@@ -47,12 +33,7 @@
 </span>
 
 <style>
-  /*
-   * Wraps. Four options of nowrap text in a fixed-width dialog fit English and
-   * nothing else — the palette row is already 39 characters wide, and Phase
-   * 44's pseudolocale pushed it straight through the side of the Modal. The
-   * segmented look survives wrapping; an overflowing row does not.
-   */
+
   .choice {
     display: inline-flex;
     flex-wrap: wrap;

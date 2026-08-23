@@ -61,7 +61,7 @@ describe('round trip', () => {
 describe('offline tracking', () => {
   it('reports elapsed seconds since the save was written', () => {
     manager.save(createDefaultSave(), 10_000)
-    // Two hours later.
+
     const loaded = manager.load(10_000 + 7_200_000)
     expect(loaded.offlineSeconds).toBeCloseTo(7200, 6)
   })
@@ -78,7 +78,7 @@ describe('corruption safety', () => {
     const good = createDefaultSave()
     good.meta.recollection = 99
     manager.save(good, 1000)
-    // A second write promotes the first into backup.
+
     manager.save(good, 2000)
 
     storage.setItem(LIVE_KEY, '{ this is not json')
@@ -106,8 +106,6 @@ describe('corruption safety', () => {
     manager.save(good, 1000)
     const before = storage.getItem(LIVE_KEY)
 
-    // A backend that accepts the temp write but refuses the live one, which is
-    // the shape of a quota failure hitting mid-sequence.
     const hostile: StorageBackend = {
       getItem: (k) => storage.getItem(k),
       setItem: (k, v) => {
@@ -122,7 +120,6 @@ describe('corruption safety', () => {
     next.meta.clearance = 999
     expect(failing.save(next, 2000)).toBe(false)
 
-    // The old save must survive intact.
     expect(storage.getItem(LIVE_KEY)).toBe(before)
     expect(JSON.parse(storage.getItem(LIVE_KEY)!).meta.clearance).toBe(5)
   })
@@ -141,7 +138,6 @@ describe('corruption safety', () => {
   })
 
   it('detects a truncated write via read-back', () => {
-    // Backend that silently truncates — a real localStorage failure mode.
     const truncating: StorageBackend = {
       getItem: (k) => storage.getItem(k),
       setItem: (k, v) => storage.setItem(k, v.slice(0, 10)),
@@ -213,7 +209,7 @@ describe('export and import', () => {
 
   it('survives non-ASCII content in the save', () => {
     const save = createDefaultSave()
-    // Content ids are authored text; one em dash must not break exports.
+
     save.meta.purchasedNodes = ['regulation—1', 'recovery-café', '調整']
     const imported = manager.importString(manager.exportString(save))
     expect(imported.meta.purchasedNodes).toEqual(['regulation—1', 'recovery-café', '調整'])
@@ -328,8 +324,6 @@ describe('resetRun', () => {
   })
 
   it('never resets content access', () => {
-    // economy-spec.md §3: a Rewind resets power within a run, never access to
-    // content already unlocked. This is the anti-churn guarantee.
     const save = createDefaultSave(1000)
     save.meta.unlockedZones = ['service-floor', 'hour-ring']
     save.meta.clearedStages = ['service-floor:first-shift']
@@ -341,12 +335,7 @@ describe('resetRun', () => {
   })
 })
 
-
 describe('the pre-reskin storage key', () => {
-  /**
-   * A save exactly as a pre-Phase-29 build wrote it: the old key, the old
-   * schema, and the old vocabulary inside.
-   */
   function plantLegacy(key: string = LEGACY_LIVE_KEY): void {
     storage.setItem(
       key,
@@ -365,13 +354,6 @@ describe('the pre-reskin storage key', () => {
   }
 
   it('finds a save left under the old key', () => {
-    /*
-     * The reskin's blanket rename moved the storage key along with everything
-     * else. Without this fallback the game looks under the new key, finds
-     * nothing, and reports a fresh start — and the 5 → 6 migration never runs,
-     * because there is nothing to migrate. Total silent data loss, with no
-     * error and nothing in `notices` to hint at it.
-     */
     plantLegacy()
     const result = manager.load(2000)
 
@@ -381,8 +363,6 @@ describe('the pre-reskin storage key', () => {
   })
 
   it('migrates it on the way through', () => {
-    // Reaching the old save is only half the job: it is still schema 5, in the
-    // old vocabulary, referencing content ids that no longer exist.
     plantLegacy()
     const { data } = manager.load(2000)
 
@@ -399,8 +379,6 @@ describe('the pre-reskin storage key', () => {
   })
 
   it('prefers a save under the current key', () => {
-    // Someone who has already played the new build has a current save; the
-    // stale legacy one must not overwrite it.
     plantLegacy()
     const current = createDefaultSave(500)
     current.run.salvage = 12
@@ -423,8 +401,6 @@ describe('the pre-reskin storage key', () => {
   })
 
   it('clears the old keys on a hard reset', () => {
-    // Otherwise a reset appears to work and the old save returns on the next
-    // load, which is worse than not resetting at all.
     plantLegacy()
     plantLegacy(LEGACY_BACKUP_KEY)
     manager.clear()

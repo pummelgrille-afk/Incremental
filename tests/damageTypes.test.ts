@@ -24,15 +24,11 @@ describe('type multipliers', () => {
   })
 
   it('keeps Thermal and Resonant opposed', () => {
-    // Each is weak against exactly what the other is strong against.
     expect(typeMultiplier('thermal', 'erratic')).toBe(UNFAVOURABLE)
     expect(typeMultiplier('resonant', 'seized')).toBe(UNFAVOURABLE)
   })
 
   it('leaves the two pairs independent of each other', () => {
-    // Shear/Percussive must not interact with Seized or Erratic, and
-    // Thermal/Resonant must not interact with Massed or Rigid. This is what
-    // makes them two pairs rather than one four-way cycle.
     expect(typeMultiplier('shear', 'seized')).toBe(NEUTRAL)
     expect(typeMultiplier('shear', 'erratic')).toBe(NEUTRAL)
     expect(typeMultiplier('percussive', 'seized')).toBe(NEUTRAL)
@@ -43,10 +39,6 @@ describe('type multipliers', () => {
     expect(typeMultiplier('resonant', 'rigid')).toBe(NEUTRAL)
   })
 
-  /**
-   * Invariant 3 from economy-spec.md §7. A tuning pass that widens the band
-   * collapses roster diversity, so it fails here rather than in playtesting.
-   */
   it('holds every multiplier inside 0.75-1.5', () => {
     for (const damage of ALL_DAMAGE_TYPES) {
       for (const armour of ALL_ARMOUR_CLASSES) {
@@ -58,7 +50,6 @@ describe('type multipliers', () => {
   })
 
   it('gives every damage type exactly one favourable and one unfavourable match', () => {
-    // Two pairs, not a four-way cycle — so most waves have two workable builds.
     for (const damage of ALL_DAMAGE_TYPES) {
       const values = ALL_ARMOUR_CLASSES.map((a) => typeMultiplier(damage, a))
       expect(values.filter((v) => v === FAVOURABLE), damage).toHaveLength(1)

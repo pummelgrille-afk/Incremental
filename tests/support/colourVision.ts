@@ -1,17 +1,3 @@
-/**
- * Colour-vision simulation, for asserting that a palette survives it.
- *
- * Test-only instrumentation, deliberately not shipped: the game never needs to
- * *simulate* a deficiency, only to have a palette that works under one. This is
- * the same argument Phase 41 made for the `AnalyserNode` — a constraint you can
- * measure at the end of the chain beats a constraint you argued for at the
- * start, and both of the audio failures were correct by argument.
- *
- * Method: Viénot, Brettel & Mollon (1999). sRGB → linear → LMS, collapse the
- * missing cone onto the plane spanned by the other two, and back. It is the
- * standard approximation for dichromacy and is what every online simulator is
- * doing.
- */
 
 export type Deficiency = 'deuteranopia' | 'protanopia' | 'tritanopia'
 
@@ -30,7 +16,6 @@ export function unpack(hex: number): [number, number, number] {
   return [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff]
 }
 
-/** Linear RGB → LMS (Hunt–Pointer–Estevez, normalised to D65). */
 const RGB_TO_LMS = [
   [0.31399022, 0.63951294, 0.04649755],
   [0.15537241, 0.75789446, 0.08670142],
@@ -43,7 +28,6 @@ const LMS_TO_RGB = [
   [0.02980165, -0.19318073, 1.16364789],
 ]
 
-/** The dichromacy projections, in LMS. */
 const COLLAPSE: Record<Deficiency, number[][]> = {
   protanopia: [
     [0, 1.05118294, -0.05116099],
@@ -66,7 +50,6 @@ function apply(m: number[][], v: number[]): number[] {
   return m.map((row) => row[0] * v[0] + row[1] * v[1] + row[2] * v[2])
 }
 
-/** What `hex` looks like to someone with `deficiency`, as `0xrrggbb`. */
 export function simulate(hex: number, deficiency: Deficiency): number {
   const [r, g, b] = unpack(hex).map(toLinear)
   const lms = apply(RGB_TO_LMS, [r, g, b])
@@ -75,14 +58,6 @@ export function simulate(hex: number, deficiency: Deficiency): number {
   return (nr << 16) | (ng << 8) | nb
 }
 
-/**
- * Perceptual distance between two colours, 0–~765.
- *
- * "Redmean" — a low-cost approximation of CIE94 that is markedly better than
- * plain Euclidean RGB and needs no white point. Precision is not the point
- * here: the assertions are about whether two colours are *obviously* different,
- * and a threshold on this ranks pairs the same way a human does.
- */
 export function distance(a: number, b: number): number {
   const [r1, g1, b1] = unpack(a)
   const [r2, g2, b2] = unpack(b)
@@ -95,7 +70,6 @@ export function distance(a: number, b: number): number {
   )
 }
 
-/** Relative luminance, 0–1. The second channel a palette separates along. */
 export function luminance(hex: number): number {
   const [r, g, b] = unpack(hex).map(toLinear)
   return 0.2126 * r + 0.7152 * g + 0.0722 * b

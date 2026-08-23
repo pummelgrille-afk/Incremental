@@ -33,14 +33,12 @@ describe('the onboarding content', () => {
 
     for (const step of TUTORIAL_STEPS) {
       expect(step.name.length, step.id).toBeGreaterThan(0)
-      // Long enough to actually say what the thing does. narrative.md rule 2:
-      // technical vocabulary, plain meaning — a four-word card is flavour.
+
       expect(step.description.length, step.id).toBeGreaterThan(80)
     }
   })
 
   it('names a key that exists, or none', () => {
-    // The card renders this as a keycap, and bootstrap binds exactly these.
     const bound = new Set(['F', 'M', 'T', 'P'])
     for (const step of TUTORIAL_STEPS) {
       if (step.key === null) continue
@@ -64,12 +62,6 @@ describe('raising a card', () => {
   })
 
   it('shows at most one card per moment', () => {
-    /*
-     * The pacing rule, and the reason `content/tutorial.ts` is an array rather
-     * than a set. Late in a first run a single clear can satisfy four triggers
-     * at once; four cards at once is the forced tutorial Phase 36 rules out,
-     * and teaches none of the four.
-     */
     save.meta.clearance = 99
     save.run.salvage = 1e6
     save.meta.unlockedZones.push('fast-orbit')
@@ -97,8 +89,6 @@ describe('raising a card', () => {
   })
 
   it('waits for a slot to be affordable before explaining the formation', () => {
-    // A card telling you to spend Salvage you do not have is a card about
-    // being poor.
     save.run.salvage = 0
     save.meta.tutorialSeen.push('the-flare')
 
@@ -111,8 +101,6 @@ describe('raising a card', () => {
   })
 
   it('defaults an unsupplied gate to closed', () => {
-    // A caller reporting a conjunction supplies no slot price. Reading that as
-    // "affordable" would fire the formation card at the wrong moment.
     save.meta.tutorialSeen.push('standing-watch', 'the-flare')
     save.run.salvage = 1e6
 
@@ -127,8 +115,6 @@ describe('raising a card', () => {
   })
 
   it('offers the Rewind on a loss as well as on a clear', () => {
-    // The stall that ends a run is exactly when a player wants to hear about
-    // prestige — game-loop.md, "the stall is the signal".
     skipTutorial(save)
     save.meta.tutorialSeen = save.meta.tutorialSeen.filter((id) => id !== 'the-rewind')
 
@@ -143,17 +129,11 @@ describe('reading the Manual on demand', () => {
   })
 
   it('works for a save that has already been through the sequence', () => {
-    // The case it exists for: a save the schema 6 → 7 migration opted out of,
-    // or simply one that has read them all. Both are "everything seen".
     skipTutorial(save)
     expect(replayTutorial(save)).toHaveLength(TUTORIAL_STEPS.length)
   })
 
   it('leaves every step marked seen, so nothing re-fires later', () => {
-    /*
-     * Re-arming the triggers instead would drip the same nine cards out over
-     * the next hour of play, long after the player asked to read them.
-     */
     replayTutorial(save)
 
     expect(tutorialProgress(save).seen).toBe(TUTORIAL_STEPS.length)
@@ -186,20 +166,6 @@ describe('opting out', () => {
   })
 })
 
-/*
- * The pacing, traced through a real first run.
- *
- * PLAN.md Phase 36 asks for playtesting with new users, which is not something
- * this can substitute for and is not claimed to be. What it *can* answer is the
- * half a playtest would find first and that no unit test touches: across an
- * actual opening run — the real economy, the real waves, the real clear times —
- * do the cards arrive spread out and in order, or do they all pile onto the
- * first two clears?
- *
- * The harness plays the deliberately poor player Phase 35 built (cheapest
- * useful thing, always), so this is a floor: a real player reaches these
- * moments sooner, never later.
- */
 describe('a first run, traced', () => {
   interface Raised {
     id: string
@@ -214,8 +180,6 @@ describe('a first run, traced', () => {
     let stage = 0
 
     const pump = (event: 'stage-cleared' | 'stage-lost' | 'load') => {
-      // Drain, because a moment raises at most one card — the player sees the
-      // rest at the following moments, and the trace should show that.
       const step = evaluate(fresh, event, {
         nextSlotCost: nextSlotCost(fresh),
         treeRevealed: isTreeRevealed(fresh),
@@ -254,9 +218,6 @@ describe('a first run, traced', () => {
   })
 
   it('teaches the three systems Phase 36 names, within the first run', () => {
-    // Formation, support units and the Almanac — PLAN.md Phase 36. The first
-    // two must land in the opening run or the panel they are about goes
-    // unexplained for the whole of it.
     const raised = traceFirstRun().map((r) => r.id)
 
     expect(raised).toContain('the-formation')
@@ -264,13 +225,6 @@ describe('a first run, traced', () => {
   })
 
   it('reaches a conjunction with the formation the game hands out', () => {
-    /*
-     * The conjunction card fires on its own moment, so the stage trace above
-     * cannot see it. What matters is that the moment is reachable *at all* with
-     * the opening four Platforms — a card whose trigger the starting loadout
-     * cannot produce is dead content, and the opening grant is two-and-two
-     * across different rings precisely so alignments happen (loadout.ts).
-     */
     const fresh = createDefaultSave(0)
     grantStartingLoadout(fresh)
 
@@ -287,7 +241,6 @@ describe('a first run, traced', () => {
   })
 
   it('spreads the opening cards out rather than front-loading them', () => {
-    // Everything at stage 1 would be a wall of text at the worst moment.
     const raised = traceFirstRun()
     const onFirstStage = raised.filter((r) => r.stage <= 1)
     expect(onFirstStage.length).toBeLessThanOrEqual(2)

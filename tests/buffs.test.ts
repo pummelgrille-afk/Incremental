@@ -58,21 +58,16 @@ describe('the stacking rule', () => {
   })
 
   it('does not accumulate, however many times it fires', () => {
-    // The whole point: conjunctions recur on a 6 s cooldown while buffs last
-    // 4-5 s, so stacking would be near-permanent uptime.
     const bonus = createBonus()
     for (let i = 0; i < 20; i++) grantBonus(bonus, 40, 5)
     expect(bonus.magnitude).toBe(40)
   })
 
   it('refuses a negative magnitude rather than guessing', () => {
-    // Debuffs need a sign-aware comparison and no content authors one yet.
     expect(() => grantBonus(createBonus(), -1, 5)).toThrow(RangeError)
   })
 
   it('matches the Sun shield rule exactly', () => {
-    // combat-spec.md section 5 states this once; two implementations must not
-    // be allowed to drift apart.
     const bonus = createBonus()
     const sun = createSun(1000)
 
@@ -93,7 +88,6 @@ describe('the stacking rule', () => {
 
 describe('expiry', () => {
   it('zeroes the magnitude, not just the clock', () => {
-    // A lapsed buff must never be readable as a live one.
     const bonus = createBonus()
     grantBonus(bonus, 30, 1)
     tickBonus(bonus, 1.5)
@@ -103,8 +97,6 @@ describe('expiry', () => {
   })
 
   it('holds its full magnitude until the moment it expires', () => {
-    // No decay curve: the old placeholder eroded buffs at a fixed rate that had
-    // nothing to do with the authored duration.
     const bonus = createBonus()
     grantBonus(bonus, 30, 4)
     for (let i = 0; i < 3; i++) tickBonus(bonus, 1)
@@ -142,8 +134,6 @@ describe('shields deplete through use as well as time', () => {
   })
 
   it('clears its clock once spent, so a re-grant is not blocked', () => {
-    // Otherwise a drained 40-shield would refuse a fresh 20-shield for the
-    // remainder of its original duration.
     const bonus = createBonus()
     grantBonus(bonus, 40, 5)
     absorb(bonus, 40)
@@ -192,12 +182,6 @@ describe('being disabled drops everything transient', () => {
 })
 
 describe('level scaling is permanent', () => {
-  /**
-   * Level scaling and transient buffs shared one `attackMultiplier` field until
-   * Phase 18, and the buff decay ran on it every tick. A level-5 unit therefore
-   * lost its entire damage bonus within a few seconds of combat. Nothing caught
-   * it because everything currently runs at level 1, where the scale is 1.
-   */
   it('does not decay a levelled unit back to base', () => {
     const unit = placePlatform(sim.state, platformById('bolt')!, 1, 0, 5)
     const scale = unit.levelScale
@@ -228,11 +212,6 @@ describe('level scaling is permanent', () => {
 
 describe('content integrity', () => {
   it('gives every conjunction effect kind at least one live user', () => {
-    // A kind with no content using it is untested configuration — which is why
-    // `repair` was removed in Phase 18 rather than left as an unreachable
-    // branch, and why Phase 29 brought it back with the Tuner instead of on its
-    // own. Asserted against the type's own union so that declaring a fifth kind
-    // and forgetting to author a unit for it fails here.
     const kinds = new Set(PLATFORMS.map((m) => m.conjunctionEffect.kind))
     const declared: ConjunctionEffect['kind'][] = [
       'damagePulse',
@@ -244,8 +223,6 @@ describe('content integrity', () => {
   })
 
   it('gives every timed effect a duration, and instant effects none', () => {
-    // damagePulse and repair resolve on the spot; shield and haste are carried
-    // as timed bonuses and are meaningless without a duration.
     const instant = new Set(['damagePulse', 'repair'])
     for (const def of PLATFORMS) {
       const effect = def.conjunctionEffect

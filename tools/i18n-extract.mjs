@@ -1,26 +1,4 @@
-/**
- * Write a translator's stub for a new language.
- *
- *     npm run i18n:extract -- de Deutsch
- *
- * Produces `src/lib/i18n/locales/de.ts`: every chrome key and every content key
- * the game can draw, each with the English source as its value, in the order a
- * player meets them. A translator overwrites the values in place; nothing else
- * about the file has to change.
- *
- * Registering it is three lines in `src/lib/i18n/locales.ts` — deliberately by
- * hand, because a locale that appears in the picker the moment its file exists
- * is a locale a half-finished translation ships in. See `docs/design/i18n.md`.
- *
- * **Run through Vite rather than plain Node**, and there is no third-party
- * runner here: the catalogue and the content are ordinary TypeScript modules
- * with extensionless imports, which Node cannot resolve and Vite resolves
- * exactly as the app does. `vite` is already a devDependency; this costs
- * nothing and cannot drift from what the build sees.
- *
- * Never runs at build time. It writes a file into `src/`, which is the whole
- * point of it and the reason it is a tool rather than a plugin.
- */
+
 import { mkdirSync, existsSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -44,8 +22,6 @@ if (!/^[a-z]{2}(-[A-Za-z0-9]+)*$/.test(code)) {
 
 const out = join(ROOT, 'src', 'lib', 'i18n', 'locales', `${code}.ts`)
 if (existsSync(out)) {
-  // Overwriting would throw away work already done. Merging a stub into a
-  // partial translation is a job for a diff, not for this.
   console.error(`${out} already exists. Delete it first if you mean to start over.`)
   process.exit(1)
 }
@@ -61,7 +37,6 @@ try {
   const { EN } = await server.ssrLoadModule('/src/lib/i18n/en.ts')
   const { contentSources } = await server.ssrLoadModule('/src/lib/i18n/contentSources.ts')
 
-  /** A TypeScript string literal, single-quoted, on one line. */
   const quote = (value) =>
     `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`
 

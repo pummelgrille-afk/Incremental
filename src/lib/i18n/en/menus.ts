@@ -1,9 +1,4 @@
-/**
- * The pause menu, the map, the Rewind, and the welcome back.
- *
- * Four modals rather than four files: between them they are forty keys, and a
- * file per modal would be four imports to spell one screen's worth of copy.
- */
+
 export const MENUS = {
   'menu.sub': 'paused',
   'menu.label': 'Menu',
@@ -61,8 +56,6 @@ export const MENUS = {
     'clear, and so {emphasis}. The station runs without you — just not as well.',
   'offline.note.emphasis': 'no Clearance is earned',
 
-  // Durations are assembled rather than formatted, because the pieces decline
-  // differently in most languages and a bare "{n} minutes" cannot carry that.
   'duration.seconds': '{count} seconds',
   'duration.minutes.one': '{count} minute',
   'duration.minutes.other': '{count} minutes',

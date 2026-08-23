@@ -20,14 +20,6 @@ import type { StageAddress } from '../src/lib/entities/Zone'
 
 const STAGE: StageAddress = 'service-floor:first-shift'
 
-/**
- * Every effect kind, exercised against the system that consumes it.
- *
- * The tree is worth nothing if its numbers stop at the save file. These are the
- * tests that would fail if a wiring were dropped — the branch-identity and
- * content-integrity checks in `upgradeTree.test.ts` would not notice.
- */
-
 function build(effects: Partial<UpgradeEffects> = {}) {
   const sim = new Simulation(
     loadStage(STAGE, { effects: { ...noUpgradeEffects(), ...effects } }),
@@ -103,8 +95,6 @@ describe('Winding reaches combat', () => {
   })
 
   it('stacks tree haste additively with a conjunction buff', () => {
-    // Additive, not multiplicative — the same argument the buff stacking rule
-    // makes. Two sources of the same thing must not compound.
     const sim = build({ haste: 0.5 })
     const unit = placePlatform(sim.state, platformById('bolt')!, 2, 0)
     unit.buffs.haste.magnitude = 0.5
@@ -151,8 +141,6 @@ describe('Bracing reaches defence', () => {
   })
 
   it('widens the block arc', () => {
-    // A projectile just outside a Rake's narrow arc, which the widened one
-    // catches. Rake's blockArc is 9 degrees; the offset sits past it.
     const blocked = (effects: Partial<UpgradeEffects>) => {
       const sim = build(effects)
       const unit = placePlatform(sim.state, platformById('rake')!, 2, 0)
@@ -179,7 +167,6 @@ describe('Regulation reaches reach', () => {
   })
 
   it('ignores a fractional charge rather than granting a partial one', () => {
-    // A charge is spendable or it is not; 1.5 charges would be a lie.
     expect(build({ flareCharges: 1.9 }).state.flare.maxCharge).toBe(
       build().state.flare.maxCharge + 1,
     )
@@ -193,19 +180,16 @@ describe('Regulation reaches reach', () => {
       return 1e9 - target.hp
     }
 
-    // 50 px out is beyond the 44 px base radius, inside a widened one.
     expect(hits({})).toBe(0)
     expect(hits({ flareRadius: 20 })).toBeGreaterThan(0)
   })
 
   it('widens the conjunction tolerance window', () => {
-    // Two units offset by more than the 6 degree base window. Only the widened
-    // tolerance sees them as aligned.
     const aligned = (effects: Partial<UpgradeEffects>) => {
       const sim = build(effects)
       placePlatform(sim.state, platformById('bolt')!, 1, 0)
       placePlatform(sim.state, platformById('anchor')!, 2, 0)
-      // Ring 2 slot 0 sits at angle 0; nudge its phase past the base window.
+
       sim.state.rings[1].phase = 8 * (Math.PI / 180)
       return findConjunctions(sim.state).length
     }
@@ -221,8 +205,6 @@ describe('Recovery reaches the economy', () => {
   })
 
   it('never makes repair free, however deep the branch goes', () => {
-    // economy-spec invariant 6: repair is a panic button, not a strategy. A
-    // free one would stop being either.
     expect(repairCost(0, 5)).toBeGreaterThan(0)
     expect(repairCost(3, 1)).toBeGreaterThan(0)
   })
@@ -240,8 +222,6 @@ describe('Recovery reaches the economy', () => {
 
 describe('a neutral tree changes nothing', () => {
   it('produces an identical run to no tree at all', () => {
-    // The strongest guarantee available: threading effects everywhere must not
-    // perturb a run that has bought nothing.
     const withEffects = new Simulation(
       loadStage(STAGE, { effects: noUpgradeEffects() }),
       createRng(5),

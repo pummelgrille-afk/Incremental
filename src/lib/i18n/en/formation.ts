@@ -1,12 +1,4 @@
-/**
- * The formation editor: the ring plan, the roster, the Array tracks, presets,
- * and the unit card.
- *
- * The largest surface in the game and the one with the most numbers *inside*
- * sentences. Every one of those is a placeholder rather than a concatenation —
- * "Level up for {cost} Clearance" survives a language that puts the number
- * last, and `'Level up for ' + cost + ' Clearance'` does not.
- */
+
 export const FORMATION = {
   'formation.hint': '{close} to close · drag a unit onto a slot',
   'formation.slot': 'Ring {ring}, slot {slot}',

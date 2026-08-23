@@ -27,7 +27,6 @@ describe('Pool', () => {
   })
 
   it('returns null when the budget is exhausted rather than growing', () => {
-    // Running out is information, not an error — the caller just does not spawn.
     const pool = makePool(3)
     expect(pool.acquire()).not.toBeNull()
     expect(pool.acquire()).not.toBeNull()

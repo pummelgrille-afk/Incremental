@@ -15,32 +15,10 @@
   import MainMenu from './lib/ui/MainMenu.svelte'
   import SettingsMenu from './lib/ui/SettingsMenu.svelte'
 
-  /**
-   * The shell: the field, and everything drawn over it.
-   *
-   * Deliberately thin. It starts the session, holds the canvas, and mounts each
-   * screen against the flag in the store that opens it — nothing here decides
-   * anything. The order is the stacking order, which `--z-*` in app.css names
-   * and none of these files repeat.
-   */
-
   let host = $state<HTMLDivElement>()
   let session: GameSession | undefined
   let error = $state<string | null>(null)
 
-  /**
-   * The two settings that apply to the document rather than to the field.
-   *
-   * They belong here and not in `bootstrap.ts` for the same reason `render.ts`
-   * owns the palette: this is the layer that owns the DOM. Text scale is a
-   * root font size, so every `rem` in every panel follows it without a single
-   * component knowing the setting exists — which is the whole reason the
-   * primitives were written in `rem` in Phase 42.
-   *
-   * Reduced motion is an attribute rather than a class so `app.css` can switch
-   * off every chrome animation in one rule, including ones added later that
-   * nobody remembers to check a flag in.
-   */
   $effect(() => {
     document.documentElement.style.setProperty('--text-scale', String(game.settings.textScale))
   })
@@ -49,13 +27,6 @@
     document.documentElement.toggleAttribute('data-reduced-motion', game.settings.reducedMotion)
   })
 
-  /*
-   * Whether the operating system has already asked for reduced motion.
-   *
-   * Watched rather than read once: it can change while the page is open, and a
-   * player switching it on in system settings to see whether the game respects
-   * it would otherwise find that it does not until a reload.
-   */
   $effect(() => {
     const query = window.matchMedia('(prefers-reduced-motion: reduce)')
     const sync = () => (game.systemReducedMotion = query.matches)

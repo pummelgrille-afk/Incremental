@@ -1,35 +1,5 @@
 import type { BossDef } from '../entities/Boss'
 
-/**
- * The five milestone bosses — Phase 32.
- *
- * Transcribed from docs/design/narrative.md §Bosses, which authors the names,
- * the zone each belongs to, and one line of flavour apiece. The copy belongs to
- * the design doc; this file attaches mechanics to it, and a test asserts the
- * names still match.
- *
- * **Every boss is a failure of the watch given form** — never a creature, never
- * a person. That rule predates the reskin and survived it, and it is what keeps
- * the bestiary from becoming somebody else's.
- *
- * ## Phases
- *
- * Each boss has three, entered on HP thresholds and telegraphed on the way in.
- * A phase changes what the boss *fires* and how often, never what it *is* — see
- * `entities/Boss.ts` for why. Summons never appear in an opening phase, so
- * every fight reads as a duel before it becomes a crowd.
- *
- * ## Reachability
- *
- * **Nothing here is reachable yet.** Boss stages fall every 8 stages
- * (`content/scaling.ts`) and zone 1 stops at scaling index 3, so no authored
- * stage triggers one. Phase 33 builds the zone ladder that reaches stage 8 and
- * places these. Until then the encounter system is exercised by
- * `tests/bosses.test.ts` against a real stage fixture, and `stageLoader`
- * validates any `bossId` a zone does declare — so a typo cannot survive to
- * Phase 33 unnoticed.
- */
-
 export const BOSSES: readonly BossDef[] = [
   {
     id: 'the-backlog',
@@ -47,15 +17,13 @@ export const BOSSES: readonly BossDef[] = [
     phaseTelegraphMs: 900,
     firstClearSalvage: 400,
     phases: [
-      // Opens as one slow body with a wide, readable spread. The first boss a
-      // player meets should be legible before it is dangerous.
       { name: 'Arriving', fromHpFraction: 1, patternId: 'spread-3', patternInterval: 2.6 },
       {
         name: 'All At Once',
         fromHpFraction: 0.6,
         patternId: 'ring-8',
         patternInterval: 3,
-        // What it *is*, expressed as a mechanic: the backlog arrives.
+
         summons: { defId: 'skiff', count: 4, everySeconds: 7 },
       },
       {
@@ -83,8 +51,6 @@ export const BOSSES: readonly BossDef[] = [
     phaseTelegraphMs: 850,
     firstClearSalvage: 500,
     phases: [
-      // A resonance keeping itself going: every phase is a spiral, tightening.
-      // The one boss whose phases are variations rather than departures.
       { name: 'In Step', fromHpFraction: 1, patternId: 'spiral-4', patternInterval: 2.4 },
       { name: 'Doubling', fromHpFraction: 0.65, patternId: 'spiral-3', patternInterval: 1.9 },
       {
@@ -101,9 +67,7 @@ export const BOSSES: readonly BossDef[] = [
     name: 'Long Wear',
     description: 'Slow. Patient. It has already won against everything else here.',
     armour: 'seized',
-    // The tankiest and the least aggressive. It wins by lasting, so the fight
-    // is a damage-throughput check rather than a dodging one — and `seized`
-    // means thermal is the answer, which is the roster's least-picked type.
+
     maxHp: 130,
     attack: 8,
     defence: 14,
@@ -138,8 +102,6 @@ export const BOSSES: readonly BossDef[] = [
     phaseTelegraphMs: 800,
     firstClearSalvage: 850,
     phases: [
-      // Whatever the Manual declined to describe: the phases share no shape
-      // with each other, so nothing learned in one carries into the next.
       { name: 'Unlisted', fromHpFraction: 1, patternId: 'aimed-1', patternInterval: 1.8 },
       {
         name: 'Undocumented',
@@ -163,8 +125,7 @@ export const BOSSES: readonly BossDef[] = [
     description:
       'It is not holding the station. It is the reason the station is unlit.',
     armour: 'seized',
-    // The last authored encounter, and the only one that summons a Warden —
-    // the fight where killing things in the right order stops being optional.
+
     maxHp: 185,
     attack: 15,
     defence: 16,

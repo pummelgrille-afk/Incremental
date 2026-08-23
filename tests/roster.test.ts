@@ -48,12 +48,6 @@ beforeEach(() => {
 
 describe('the starting loadout', () => {
   it('gives a new save a unit and puts it on the field', () => {
-    /*
-     * Without this the opening state is a deadlock: Salvage buy slots, Salvage
-     * come from kills, kills need a unit. `content/platforms.ts` already declares
-     * the intent and economy-spec.md §6 wants the first Platform slotted inside
-     * thirty seconds, which no amount of earning achieves from zero.
-     */
     grantStartingLoadout(save)
 
     expect(isUnlocked(save, 'platform', STARTING_PLATFORM_ID)).toBe(true)
@@ -64,14 +58,6 @@ describe('the starting loadout', () => {
   })
 
   it('spreads the opening across two rings', () => {
-    /*
-     * Coverage matters more than count at this size. Four Hammers all on ring 2
-     * lose 24 of 24 runs without the Flare; two-and-two clear all of them. Ring 1
-     * is the last line — the only ring that reaches the Sun.
-     *
-     * It also means conjunction can fire in the first stage, since that needs
-     * two Platforms on *different* rings.
-     */
     grantStartingLoadout(save)
     const rings = new Set(Object.keys(save.run.formation).map((k) => k.split(':')[0]))
     expect(rings.size).toBeGreaterThan(1)
@@ -79,8 +65,6 @@ describe('the starting loadout', () => {
   })
 
   it('does not discount the slots that follow', () => {
-    // The granted four count toward the curve: the fifth Platform costs what
-    // the fifth Platform costs. A grant, not a discount.
     grantStartingLoadout(save)
     expect(nextSlotCost(save)).toBe(slotCost(OPENING_SLOTS.length))
   })
@@ -137,8 +121,6 @@ describe('unlocking', () => {
   })
 
   it('unlocks Arrays from their own ledger', () => {
-    // The two rosters are separate, so unlocking a Platform must not appear to
-    // unlock a Array with the same index.
     save.meta.clearance = 100
     unlock(save, 'array', ARRAYS[0].id)
 
@@ -154,14 +136,11 @@ describe('levelling', () => {
   })
 
   it('leaves level 1 at exactly no bonus', () => {
-    // An unlevelled roster must behave as though levelling did not exist.
     expect(levelScale(1)).toBe(1)
     expect(levelScale(0)).toBe(1)
   })
 
   it('is flat, not compounding', () => {
-    // Compounding 12% over ten levels is +210% and would outrun the enemy HP
-    // curve; flat is +108%, a real investment that does not.
     const ten = levelScale(ROSTER.maxLevel)
     expect(ten).toBeCloseTo(1 + (ROSTER.maxLevel - 1) * ROSTER.levelScaling, 10)
     expect(ten).toBeLessThan((1 + ROSTER.levelScaling) ** (ROSTER.maxLevel - 1))
@@ -181,7 +160,6 @@ describe('levelling', () => {
     }
     expect(levelOf(save, 'platform', 'rake')).toBe(ROSTER.maxLevel)
 
-    // Null rather than an unaffordable price the player can never reach.
     expect(levelCost(save, 'platform', 'rake')).toBeNull()
     expect(levelUp(save, 'platform', 'rake')).toBe(false)
   })
@@ -209,11 +187,6 @@ describe('levelling', () => {
 })
 
 describe('the roster panel profile', () => {
-  /*
-   * The panel used to say a name, a level and a price, and nothing about what
-   * a unit *is* — so a player picking between ten Platforms was picking on the
-   * strength of the name. `profile` is what the hover card reads.
-   */
   it('describes every unit, locked or not', () => {
     for (const entry of rosterOf(save, 'platform')) {
       expect(entry.profile.description.length, entry.id).toBeGreaterThan(0)
@@ -246,8 +219,6 @@ describe('the roster panel profile', () => {
   })
 
   it('gives Platforms a conjunction and Arrays none', () => {
-    // An Array never joins a conjunction — combat-spec.md §4. The card says so,
-    // and a def that grew one by accident should fail here rather than there.
     for (const entry of rosterOf(save, 'platform')) {
       expect(entry.profile.conjunction, entry.id).not.toBeNull()
     }
@@ -276,11 +247,6 @@ describe('the slot economy', () => {
   })
 
   it('charges nothing to move a unit already fielded', () => {
-    /*
-     * Salvage buy the *size* of a formation, not each placement. Taxing a
-     * rearrangement would punish the game's main pleasure — the same argument
-     * economy-spec.md §2 makes for a free respec.
-     */
     placePlatform(save, 'anchor', 1, 2)
     const before = save.run.salvage
 
@@ -292,8 +258,6 @@ describe('the slot economy', () => {
   })
 
   it('refunds exactly what re-adding would cost', () => {
-    // The round trip has to be neutral, or removing and re-adding becomes
-    // either a leak or a tax.
     placePlatform(save, 'anchor', 1, 2)
     const before = save.run.salvage
 
@@ -364,8 +328,6 @@ describe('presets', () => {
   })
 
   it('survives a Rewind, because it lives in meta', () => {
-    // An arrangement you liked should outlive the reset that takes the units
-    // away, or every Rewind means rebuilding from memory.
     savePreset(save, 'wide')
     save.run = createDefaultSave(0).run
 
@@ -380,8 +342,6 @@ describe('presets', () => {
     save.run.salvage = fielded
     loadPreset(save, 'wide')
 
-    // Refunding first means the player can always afford a formation they
-    // already had, whatever order the slots come back in.
     expect(save.run.salvage).toBeLessThan(fielded)
     expect(slotsUsed(save)).toBe(OPENING_SLOTS.length + 2)
   })
@@ -413,8 +373,6 @@ describe('presets', () => {
   })
 
   it('skips entries it can no longer field rather than refusing wholesale', () => {
-    // A preset saved across a content or roster change must still do as much
-    // as it can — a partial field flares none.
     savePreset(save, 'wide')
     clearFormation(save)
     delete save.meta.platforms['anchor']
@@ -442,11 +400,6 @@ function mountsUsedOf(save: SaveData): number {
 }
 
 describe('levelling reaches the field', () => {
-  /**
-   * The half that matters. `levelScale` being correct is worth nothing if the
-   * simulation does not read it — and Phase 18 found that levelling had been
-   * silently erased by the buff decay for exactly that reason.
-   */
   it('gives a levelled Platform more HP and more damage', () => {
     const sim = new Simulation(loadStage(STAGE), createRng(1))
     const def = platformById('bolt')!
@@ -462,7 +415,6 @@ describe('levelling reaches the field', () => {
   })
 
   it('leaves an unlevelled Platform exactly as it was', () => {
-    // Level 1 must be a no-op, or every existing balance measurement moves.
     const sim = new Simulation(loadStage(STAGE), createRng(1))
     const def = platformById('bolt')!
     const unit = placeUnit(sim.state, def, 2, 0, 1)
@@ -490,16 +442,6 @@ describe('levelling reaches the field', () => {
 })
 
 describe('a brand-new save can actually play', () => {
-  /**
-   * The opening is the one part of the game every player sees, and it was
-   * broken until measured: Phase 24 replaced the hardcoded starting formation
-   * with the saved one, and a fresh save fields exactly one unit.
-   *
-   * Measured over 16 seeds, one Bolt on ring 1 clears First Shift every
-   * time; the same Bolt on ring 2 loses 12 of them. This asserts the
-   * outcome rather than the placement, so a later change that moves the unit
-   * somewhere equally good still passes.
-   */
   function playOpening(seed: number, useFlare = true): { cleared: boolean; lowest: number } {
     const fresh = createDefaultSave(0)
     grantStartingLoadout(fresh)
@@ -516,7 +458,6 @@ describe('a brand-new save can actually play', () => {
     let cleared = false
     let lost = false
     for (let i = 0; i < 6000 && !cleared && !lost; i++) {
-      // The Flare, played the way the balance harness plays it.
       const contact = sim.state.contact
       if (useFlare && contact.length > 1 && sim.state.flare.charge >= 1) {
         sim.strike(contact[0].position.x, contact[0].position.y)
@@ -536,18 +477,11 @@ describe('a brand-new save can actually play', () => {
   })
 
   it('does so with real margin, not a knife edge', () => {
-    // A first stage won on the last point of Output teaches nothing except
-    // that the game is unfair.
     const lows = [1, 2, 3, 4, 5, 6, 7, 8].map((s) => playOpening(s).lowest)
     expect(Math.min(...lows)).toBeGreaterThan(0.25)
   })
 
   it('clears it without a single Flare', () => {
-    /*
-     * Pillar P1, "the machine really does run without you" — combat-spec.md §1.
-     * This is the whole reason the opening grant is four units rather than one:
-     * at one unit the property failed 16 times in 16.
-     */
     for (const seed of [1, 2, 3, 4, 5, 6, 7, 8]) {
       const result = playOpening(seed, false)
       expect(result.cleared, `seed ${seed}`).toBe(true)

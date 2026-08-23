@@ -2,62 +2,6 @@ import type { StageDef, ZoneDef } from '../entities/Zone'
 import type { AnyWaveDef } from '../entities/Wave'
 import { escorted, guarded, massed, pincer, scattered, withGap } from './waves'
 
-/**
- * The progression map — Phase 33.
- *
- * Six zones, forty stages, outward from the Sun. Names and epigraphs are
- * transcribed from docs/design/narrative.md §Zones; a test asserts they still
- * match, because the copy belongs to the design doc.
- *
- * ## The ladder, and why it is shaped like this
- *
- * Boss stages fall on `SCALING.bossInterval` — every 8th scaling index — while
- * narrative.md assigns each of the five bosses to a **zone**. Those are two
- * different things and they disagreed: with three-stage zones no boss stage
- * ever landed at a zone boundary, and Phase 32 shipped five bosses that nothing
- * could reach.
- *
- * Resolved by laying the ladder out so the two agree exactly, rather than by
- * moving the interval:
- *
- * | Zone | Stages | Boss |
- * |------|--------|------|
- * | 1 The Service Floor | 1–4 | — |
- * | 2 The Fast Orbit | 5–8 | The Backlog, at 8 |
- * | 3 The Veil | 9–16 | The Sympathetic, at 16 |
- * | 4 The Home Orbit | 17–24 | Long Wear, at 24 |
- * | 5 The Cold Line | 25–32 | The Blank Page, at 32 |
- * | 6 The Unlit Orbit | 33–40 | The Dark Watch, at 40 |
- *
- * Every boss is now the **last stage of its zone**, which is what narrative.md
- * describes and what the interval produces. Zone 1 has no boss, also as
- * narrative.md has it — the Service Floor is where the documented work is.
- *
- * The two short zones at the start are deliberate. economy-spec.md §3 puts the
- * first Rewind at around stage 8, so the first boss has to be reachable inside
- * a first run; eight stages of preamble would put it out of reach.
- *
- * ## Stage 1 to 3 are untouched
- *
- * They are tuned against measured clear rates and guarded by
- * tests/simulation.test.ts, including the hard invariant that stage 1 is
- * clearable without ever using the Flare. Everything from stage 4 outward is
- * new.
- *
- * ## Zone character
- *
- * Each zone leans on a different wave shape, so a zone is a question rather
- * than a number:
- *
- * - **1 Service Floor** — `scattered`, `escorted`. Coverage and priority.
- * - **2 Fast Orbit** — `massed`. One arc at a time; rewards a Flare and a Corona.
- * - **3 The Veil** — `pincer`. Both sides at once; punishes a lopsided field.
- * - **4 Home Orbit** — `guarded`. Wardens, so killing order starts to matter.
- * - **5 Cold Line** — everything, mixed, with the specialists arriving together.
- * - **6 Unlit Orbit** — the same, denser, on the deepest scaling indices.
- */
-
-/** A normal stage. Boss stages are built by `bossStage`. */
 function stage(
   id: string,
   name: string,
@@ -67,15 +11,6 @@ function stage(
   return { id, name, scalingIndex, baseOutput: 1000, clearanceReward: 1, waves }
 }
 
-/**
- * A zone's final stage.
- *
- * One wave, one encounter — economy-spec.md §5 is explicit that a boss stage is
- * not a denser wave. `clearanceReward` is 5 rather than 1, matching
- * `CLEARANCE.bossStageFirstClear`; `clearReward` derives the real figure from
- * `isBossStage` and does not read this field, so the two are kept in step by
- * test rather than by hope.
- */
 function bossStage(id: string, name: string, scalingIndex: number, bossId: string): StageDef {
   return {
     id,
@@ -106,23 +41,14 @@ export const ZONES: readonly ZoneDef[] = [
       {
         id: 'first-shift',
         name: 'First Shift',
-        // Deliberately the gentlest stage in the game. A new player meets it
-        // with a partial formation and no upgrades, and must be able to clear
-        // it without touching the Flare — the Flare is upside, never a tax
-        // (combat-spec.md section 1). Guarded by tests/simulation.test.ts.
+
         scalingIndex: 1,
         baseOutput: 1000,
         clearanceReward: 1,
         waves: [
           scattered('skiff', 10, 0.55),
           escorted('skiff', 13, 'lance', 3),
-          /*
-           * Motes ride along with the bulk rather than replacing it. Swapping
-           * them in one-for-one was tried first and the over-level guard
-           * rejected it: a Mote has 7 HP against a Skiff's 12, so an all-Mote
-           * wave drops below the pressure threshold and the director starts
-           * adding bodies back. The wave has to keep a Skiff backbone.
-           */
+
           escorted('skiff', 16, 'mote', 6, 0.32),
         ],
       },
@@ -132,14 +58,10 @@ export const ZONES: readonly ZoneDef[] = [
         scalingIndex: 2,
         baseOutput: 1000,
         clearanceReward: 1,
-        // Pulled down in Phase 20. At 89 Contact this was the densest stage in
-        // the zone — denser than stage 3 — and it was the one stage that could
-        // not be cleared without the Flare, which combat-spec.md §1 forbids.
-        // Now 69, restoring a monotonic count ramp.
+
         waves: [
           escorted('skiff', 20, 'tender', 6, 4),
-          // Introduces the splitter: killing it early is worth more than
-          // killing it late, because the children still cross the same ground.
+
           escorted('skiff', 13, 'brood', 4, 3),
           withGap(scattered('skiff', 26, 0.2), 5),
         ],
@@ -147,28 +69,20 @@ export const ZONES: readonly ZoneDef[] = [
       {
         id: 'noted-in-the-log',
         name: 'Noted in the Log',
-        // Densities across this zone are tuned against play *with the Flare*,
-        // which is worth roughly +0.5 Output on the later stages. Measuring
-        // without it — as every pass before this one did — tunes the game for
-        // a player who never touches the controls.
+
         scalingIndex: 3,
         baseOutput: 1000,
         clearanceReward: 1,
         waves: [
-          // Shielded: chip damage is the wrong answer here.
           escorted('skiff', 18, 'shell', 4, 3),
-          // Orbiters cannot be waited out; they settle and keep working.
+
           escorted('hulk', 4, 'picket', 4, 4),
           escorted('skiff', 30, 'harrier', 4, 5),
-          // The two Contacts that punish an *order* of killing. A Warden makes
-          // everything around it harder to put down until it is dealt with.
+
           withGap(guarded('skiff', 20, 'warden', 2), 6),
         ],
       },
       stage('signed-off', 'Signed Off', 4, [
-        // Opens harder than stage 3 does. The monotonic-HP-rate guard rejected
-        // a Lance escort here: a Lance is fast and frail, and swapping a Shell
-        // for one made the zone's fourth stage open *softer* than its third.
         escorted('skiff', 26, 'hulk', 4, 4),
         guarded('mote', 24, 'warden', 2),
         withGap(escorted('skiff', 28, 'brood', 5, 4), 5),
@@ -192,8 +106,6 @@ export const ZONES: readonly ZoneDef[] = [
     enemyPool: ['skiff', 'mote', 'tender', 'lance', 'harrier', 'hulk', 'shell', 'brood'],
     requires: 'service-floor',
     stages: [
-      // The zone that teaches `massed`: everything arrives on one arc, which is
-      // exactly what an area strike and a splash Array are for.
       stage('close-work', 'Close Work', 5, [
         massed('skiff', 20),
         escorted('mote', 26, 'lance', 5, 4),
@@ -226,14 +138,10 @@ export const ZONES: readonly ZoneDef[] = [
       'Sat down for it.',
     epigraphAttribution: 'Sabel Ock',
     scalingMultiplier: 1.12,
-    // Wardens appear here first, two stages at a time, before the Home Orbit
-    // makes them the whole question. Declared as well as spawned: the Phase 31
-    // guard caught this pool missing them.
+
     enemyPool: ['skiff', 'mote', 'tender', 'lance', 'harrier', 'hulk', 'shell', 'brood', 'picket', 'warden'],
     requires: 'fast-orbit',
     stages: [
-      // The zone that teaches `pincer`: both sides at once, which a field
-      // concentrated on one arc fails however much damage it has.
       stage('by-instrument', 'By Instrument', 9, [
         pincer('skiff', 12),
         escorted('skiff', 24, 'picket', 3, 5),
@@ -287,7 +195,6 @@ export const ZONES: readonly ZoneDef[] = [
     enemyPool: ['skiff', 'mote', 'tender', 'lance', 'harrier', 'hulk', 'shell', 'brood', 'picket', 'warden'],
     requires: 'the-veil',
     stages: [
-      // The zone that teaches killing order. Wardens in every stage.
       stage('the-only-one', 'The Only One', 17, [
         guarded('skiff', 24, 'warden', 2),
         escorted('skiff', 28, 'harrier', 5, 4),
@@ -343,7 +250,6 @@ export const ZONES: readonly ZoneDef[] = [
     enemyPool: ['skiff', 'mote', 'tender', 'lance', 'harrier', 'hulk', 'shell', 'brood', 'picket', 'warden'],
     requires: 'home-orbit',
     stages: [
-      // Every shape, mixed, and the specialists arrive together from here on.
       stage('off-the-charts', 'Off the Charts', 25, [
         escorted('skiff', 30, 'shell', 6, 4),
         guarded('skiff', 28, 'warden', 3),
@@ -445,15 +351,12 @@ export function zoneById(id: string): ZoneDef | undefined {
   return BY_ID.get(id)
 }
 
-/** The zone a new save starts in. */
 export const STARTING_ZONE_ID = 'service-floor'
 
-/** Zones in progression order. */
 export function zonesInOrder(): readonly ZoneDef[] {
   return [...ZONES].sort((a, b) => a.index - b.index)
 }
 
-/** The zone that unlocks once `zoneId` is fully cleared, if any. */
 export function nextZoneAfter(zoneId: string): ZoneDef | undefined {
   return ZONES.find((z) => z.requires === zoneId)
 }

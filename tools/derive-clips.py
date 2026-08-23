@@ -4,8 +4,6 @@ Derive animation frames from a sprite that already exists.
 
     python tools/derive-clips.py
 
-## What this is, and what it is not
-
 It is **not** a substitute for drawn animation. It cannot invent a pose, a
 recoil or a limb, so it does not attempt an `attack` or a craft's `idle` —
 those need a hand, and art-style.md §7 says what they need to satisfy.
@@ -26,8 +24,6 @@ Before this, a kill simply stopped existing. There was no death feedback on the
 field at all beyond a damage number, which art-style.md §6 rule 5's argument
 about telegraphs applies to just as well in reverse: the most important events
 are the ones that must not be inferred.
-
-## How
 
 Frames are written into `src/assets/sprites/raw/`, and `normalise-sprites.py`
 takes them from there like anything else. One pipeline, no special case
@@ -57,44 +53,23 @@ import sys
 SPRITES = 'src/assets/sprites'
 RAW = 'src/assets/sprites/raw'
 
-# The units that get a derived death. Platforms are excluded on purpose: a
-# Platform is disabled rather than destroyed (combat-spec.md §5), and a
-# disabled unit that shattered would be lying about what happened to it.
 DEATH_KEYS = ('contact-1', 'contact-2', 'contact-3')
 
-# Projectiles that get a guttering idle loop.
 FLICKER_KEYS = ('projectile-1', 'projectile-2')
 
-# Four frames, played over half a second by the renderer. Enough that no two
-# consecutive frames repeat; few enough that the shot still reads as one object
-# rather than as noise travelling in formation.
 FLICKER_FRAMES = 4
 
-# A pixel with fewer neighbours than this inside a 2px radius is tail rather
-# than body. The tail is what flickers; the body must not, or the projectile
-# changes silhouette mid-flight and stops being trackable.
 TAIL_NEIGHBOURS = 9
 
-# How much of the tail is missing on any given frame.
 TAIL_DROP = 0.3
 
-# How far the body's brightness swings across the loop, as a fraction.
 BODY_PULSE = 0.16
 
-# Five at 0.09s is 0.45s — long enough to read, short enough that a wave of
-# kills does not leave the field littered.
 DEATH_FRAMES = 5
 
-# Chunk size, in native pixels. Two is the sweet spot at this scale: single
-# pixels read as noise or dust, and four is barely two pieces across a 33px
-# craft.
 BLOCK = 2
 
-# How far the outermost frame throws a piece. Kept small deliberately: pieces
-# are clipped to the sprite's own bounds (see the module docstring), so a large
-# drift would simply delete most of the debris.
 MAX_DRIFT = 7.0
-
 
 def native(path: str) -> Image.Image:
     """
@@ -112,7 +87,6 @@ def native(path: str) -> Image.Image:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.normalise(path)
-
 
 def derive_death(image: Image.Image, seed: int) -> list[Image.Image]:
     """
@@ -136,13 +110,10 @@ def derive_death(image: Image.Image, seed: int) -> list[Image.Image]:
         return []
 
     centre_x, centre_y = xs.mean(), ys.mean()
-    # The box every frame has to stay inside. See the module docstring.
     left, right = int(xs.min()), int(xs.max())
     top, bottom = int(ys.min()), int(ys.max())
     rng = np.random.default_rng(seed)
 
-    # One direction and one wobble per block, drawn once so a block travels in
-    # a straight line across the clip instead of jittering frame to frame.
     blocks = []
     for by in range(0, height, BLOCK):
         for bx in range(0, width, BLOCK):
@@ -156,16 +127,8 @@ def derive_death(image: Image.Image, seed: int) -> list[Image.Image]:
                 {
                     'x': bx,
                     'y': by,
-                    # Outward, with a little spin so it does not read as a
-                    # perfectly radial explosion.
                     'dx': dx / length + rng.uniform(-0.35, 0.35),
                     'dy': dy / length + rng.uniform(-0.35, 0.35),
-                    # When this piece stops being drawn, as a fraction of the
-                    # clip. Mostly beyond 1.0 on purpose: the renderer holds a
-                    # one-shot's final frame, so a clip that ends on an empty
-                    # canvas ends early and the death reads as a unit blinking
-                    # out. About a quarter of the pieces go before the end,
-                    # which is enough to read as thinning.
                     'life': rng.uniform(0.8, 1.45),
                 }
             )
@@ -173,7 +136,6 @@ def derive_death(image: Image.Image, seed: int) -> list[Image.Image]:
     frames: list[Image.Image] = []
 
     for index in range(DEATH_FRAMES):
-        # 0 at the flash, 1 at the last frame.
         t = index / (DEATH_FRAMES - 1)
         out = np.zeros((height, width, 4), np.int16)
 
@@ -184,8 +146,6 @@ def derive_death(image: Image.Image, seed: int) -> list[Image.Image]:
             frames.append(Image.fromarray(out.astype(np.uint8), 'RGBA'))
             continue
 
-        # Darkens as it cools, so the last pieces are embers rather than a
-        # pale copy of the craft.
         shade = 1.0 - 0.45 * t
 
         for block in blocks:
@@ -211,7 +171,6 @@ def derive_death(image: Image.Image, seed: int) -> list[Image.Image]:
 
     return frames
 
-
 def derive_flicker(image: Image.Image, seed: int) -> list[Image.Image]:
     """
     Make a comet gutter.
@@ -235,15 +194,12 @@ def derive_flicker(image: Image.Image, seed: int) -> list[Image.Image]:
     alpha = rgba[..., 3]
     rng = np.random.default_rng(seed)
 
-    # Neighbour count per opaque pixel, which separates the body from the tail.
     solid = (alpha > 0).astype(np.int16)
     neighbours = np.zeros_like(solid)
     for dy in range(-2, 3):
         for dx in range(-2, 3):
             neighbours += np.roll(np.roll(solid, dy, axis=0), dx, axis=1)
 
-    # A stable per-pixel phase, so a given pixel flickers on its own schedule
-    # rather than the whole tail blinking in unison.
     phase = rng.random((height, width))
 
     frames: list[Image.Image] = []
@@ -260,7 +216,6 @@ def derive_flicker(image: Image.Image, seed: int) -> list[Image.Image]:
                     continue
 
                 if neighbours[y, x] < TAIL_NEIGHBOURS:
-                    # Tail: present or not, on its own phase.
                     if ((phase[y, x] + t) % 1.0) < TAIL_DROP:
                         continue
                     out[y, x, :3] = rgba[y, x, :3]
@@ -272,7 +227,6 @@ def derive_flicker(image: Image.Image, seed: int) -> list[Image.Image]:
         frames.append(Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGBA'))
 
     return frames
-
 
 def main() -> int:
     if not os.path.isdir(SPRITES):
@@ -308,7 +262,6 @@ def main() -> int:
 
     print('\nnow run: python tools/normalise-sprites.py')
     return 0
-
 
 if __name__ == '__main__':
     raise SystemExit(main())

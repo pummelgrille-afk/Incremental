@@ -10,18 +10,6 @@ import { arrayById } from '../src/lib/content/arrays'
 import { platformById } from '../src/lib/content/platforms'
 import type { StageAddress } from '../src/lib/entities/Zone'
 
-/**
- * Reconciling the live field with the save.
- *
- * The whole reason this module was lifted out of `bootstrap.ts` in the first
- * place: the one rule in it that is easy to get wrong could not be reached by a
- * test, because `bootstrap.ts` imports Pixi. It was wrong for thirteen phases
- * and was found by a player, not by us.
- *
- * The report: **upgrading a Spotter did nothing until you unmounted it and
- * mounted it again.**
- */
-
 const STAGE: StageAddress = 'service-floor:first-shift'
 
 let sim: Simulation
@@ -38,7 +26,6 @@ beforeEach(() => {
   save.meta.clearance = 500
 })
 
-/** Mount an unlocked Array at mount 0 and put it on the field. */
 function fieldSpotter() {
   unlock(save, 'array', 'spotter')
   save.run.mounts['0'] = 'spotter'
@@ -48,8 +35,6 @@ function fieldSpotter() {
 
 describe('an upgrade reaches a unit that is already fielded', () => {
   it('raises the charge capacity of a mounted Array', () => {
-    // The reported bug, in one assertion. It used to take an unmount and a
-    // remount, because reconciliation skipped anything already on the field.
     const spotter = fieldSpotter()
     const before = spotter.maxCharge
 
@@ -61,11 +46,6 @@ describe('an upgrade reaches a unit that is already fielded', () => {
   })
 
   it('shortens the recharge interval', () => {
-    /*
-     * Long Baseline, not the Spotter — the Spotter is authored at exactly
-     * `SUPPORT.recharge.floorSeconds`, so its recharge track cannot move at
-     * all. That is its own finding and is pinned in tests/support.test.ts.
-     */
     unlock(save, 'array', 'long-baseline')
     save.run.mounts['1'] = 'long-baseline'
     syncFieldToSave(sim.state, save)
@@ -90,11 +70,6 @@ describe('an upgrade reaches a unit that is already fielded', () => {
   })
 
   it('is the same instance, not a replacement', () => {
-    /*
-     * Rebuilding would have been the easy fix and the wrong one: it discards
-     * the current charge, the cooldown and the target, so buying an upgrade
-     * mid-wave would silently reset the unit's whole live state.
-     */
     const spotter = fieldSpotter()
     const id = spotter.id
 
@@ -107,8 +82,6 @@ describe('an upgrade reaches a unit that is already fielded', () => {
   })
 
   it('raises a fielded Platform when its level goes up', () => {
-    // The same bug by the same route, never reported — presumably because
-    // levelling a Platform you have not fielded yet is the common case.
     unlock(save, 'platform', 'bolt')
     save.run.formation['2:0'] = 'bolt'
     syncFieldToSave(sim.state, save)
@@ -128,11 +101,6 @@ describe('an upgrade reaches a unit that is already fielded', () => {
 
 describe('what an upgrade does not do', () => {
   it('does not heal a damaged unit', () => {
-    /*
-     * An upgrade raises the ceiling; it does not change the current state.
-     * Scaling `hp` to preserve the *fraction* would make a purchase a cheaper
-     * repair than a repair, and repairs cost Salvage.
-     */
     unlock(save, 'platform', 'bolt')
     save.run.formation['2:0'] = 'bolt'
     syncFieldToSave(sim.state, save)
@@ -158,8 +126,6 @@ describe('what an upgrade does not do', () => {
   })
 
   it('leaves the cooldown, the target and a running disable alone', () => {
-    // "How this unit is doing right now". An upgrade is not an event in the
-    // fight and must not reset one.
     const spotter = fieldSpotter()
     spotter.cooldownRemaining = 1.5
     spotter.targetId = 42
@@ -176,10 +142,6 @@ describe('what an upgrade does not do', () => {
   })
 
   it('clamps hp down when a maximum somehow falls', () => {
-    // Not reachable by any purchase today — levels only go up. It is reachable
-    // by a content rebalance shipping a smaller `maxHp`, and a unit sitting
-    // above its own maximum is the kind of thing that reads as an immortal bug
-    // report six months later.
     unlock(save, 'platform', 'bolt')
     save.run.formation['2:0'] = 'bolt'
     levelUp(save, 'platform', 'bolt')

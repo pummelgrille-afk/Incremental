@@ -24,14 +24,6 @@ describe('clip timing', () => {
   })
 
   it('finishes an attack before the fastest unit attacks again', () => {
-    /*
-     * Sized against the fastest thing in the game rather than the average:
-     * Rake's 0.65s, halved to leave room for haste. A clip that cannot finish
-     * reads as a stutter rather than as an action.
-     *
-     * MAX_ATTACK_FRAMES is the budget art-style.md hands to whoever draws
-     * these; this is what makes it a number rather than a preference.
-     */
     const fastest = Math.min(...PLATFORMS.map((p) => p.baseInterval))
     expect(clipDuration('attack', MAX_ATTACK_FRAMES)).toBeLessThanOrEqual(fastest / 2)
   })
@@ -43,8 +35,6 @@ describe('clip timing', () => {
 
 describe('picking a frame', () => {
   it('holds the only frame of a single-frame clip', () => {
-    // Every unit is in this state until its art arrives, so it is the case
-    // that has to be boring.
     for (const state of ANIMATION_STATES) {
       expect(frameIndex(state, 0, 1)).toBe(0)
       expect(frameIndex(state, 99, 1)).toBe(0)
@@ -60,14 +50,12 @@ describe('picking a frame', () => {
   })
 
   it('holds the last frame of a one-shot', () => {
-    // What makes `death` work without anything tracking completion.
     const per = CLIPS.death.secondsPerFrame
     expect(frameIndex('death', per * 2.5, 4)).toBe(2)
     expect(frameIndex('death', per * 40, 4)).toBe(3)
   })
 
   it('clamps nonsense rather than throwing', () => {
-    // Runs per entity per frame; a NaN upstream must not take the renderer.
     expect(frameIndex('idle', -5, 4)).toBe(0)
     expect(frameIndex('idle', Number.NaN, 4)).toBe(0)
     expect(frameIndex('idle', 1, 0)).toBe(0)
@@ -80,14 +68,10 @@ describe('what a Contact is doing', () => {
   })
 
   it('shows the telegraph as the wind-up', () => {
-    // combat-spec.md §6 makes the warning mandatory; the animation does the
-    // same job as the ring rather than adding a second, later cue.
     expect(contactState({ hitFlash: 0, telegraphRemaining: 0.4 })).toBe('attack')
   })
 
   it('lets a hit interrupt the wind-up', () => {
-    // Damage feedback that another state can hide is feedback the player
-    // cannot rely on.
     expect(contactState({ hitFlash: 0.1, telegraphRemaining: 0.4 })).toBe('hit')
   })
 })
@@ -106,8 +90,6 @@ describe('what a Platform is doing', () => {
   })
 
   it('reads a freshly reset cooldown as an attack', () => {
-    // The cooldown is set to the full interval the moment a unit fires, so a
-    // cooldown near its ceiling means it just fired. No new sim field needed.
     expect(platformState({ ...base, cooldownRemaining: 1.1 })).toBe('attack')
   })
 
@@ -117,14 +99,10 @@ describe('what a Platform is doing', () => {
   })
 
   it('never claims to attack when it has no attack clip', () => {
-    // Otherwise a unit with only an idle would freeze on frame one of it for
-    // the window instead of idling.
     expect(platformState({ ...base, cooldownRemaining: 1.1, attackFrames: 0 })).toBe('idle')
   })
 
   it('puts disabled above everything', () => {
-    // Platforms are never destroyed — combat-spec.md §5 — so this is as close
-    // to death as one gets, and it has to hold for the whole recovery.
     expect(
       platformState({ ...base, disabledFor: 8, hitFlash: 1, cooldownRemaining: 1.1 }),
     ).toBe('death')
@@ -133,7 +111,6 @@ describe('what a Platform is doing', () => {
 
 describe('resolving frames from the manifest', () => {
   it('falls back to the bare key for a unit with no authored frames', () => {
-    // Every unit wired in Phase 37 must keep working untouched.
     for (const platform of PLATFORMS) {
       const frames = spriteFrames(platform.assetKey!, 'idle')
       expect(frames.length, platform.id).toBeGreaterThan(0)
@@ -141,10 +118,6 @@ describe('resolving frames from the manifest', () => {
   })
 
   it('gives every state something to draw', () => {
-    /*
-     * The renderer never handles an empty clip: a state with no frames falls
-     * back to idle, and idle with none falls back to the bare key.
-     */
     for (const contact of CONTACT) {
       for (const state of ANIMATION_STATES) {
         expect(spriteFrames(contact.assetKey!, state).length, `${contact.id}/${state}`)
@@ -162,16 +135,12 @@ describe('resolving frames from the manifest', () => {
     expect(isFrameKey('bolt-attack-1')).toBe(true)
     expect(isFrameKey('contact-2-death-12')).toBe(true)
     expect(isFrameKey('bolt')).toBe(false)
-    // Not a state, so it is a sprite whose name happens to have a number.
+
     expect(isFrameKey('contact-2')).toBe(false)
   })
 })
 
 describe('a projectile in flight', () => {
-  /*
-   * A shot used to fly as a single frozen frame, which reads as a decal being
-   * dragged across the screen rather than as something burning.
-   */
   it('has a real clip, not a single frame', () => {
     for (const key of ['projectile-1', 'projectile-2']) {
       expect(spriteFrames(key, 'idle').length, key).toBeGreaterThan(1)
@@ -179,25 +148,15 @@ describe('a projectile in flight', () => {
   })
 
   it('completes a cycle well inside a shot lifetime', () => {
-    // A clip slower than the thing it is drawn on never repeats, so the
-    // animation is never seen. Contact patterns give a shot a few seconds; the
-    // shortest useful case is well under one.
     const frames = spriteFrames('projectile-1', 'idle').length
     expect(frames * PROJECTILE_SECONDS_PER_FRAME).toBeLessThanOrEqual(0.6)
   })
 
   it('runs faster than a craft idles', () => {
-    // CLIPS.idle is tuned for a unit sitting on a ring and is four times too
-    // slow for something crossing the field.
     expect(PROJECTILE_SECONDS_PER_FRAME).toBeLessThan(CLIPS.idle.secondsPerFrame)
   })
 
   it('puts shots from one volley on different frames', () => {
-    /*
-     * The detail that decides whether this reads as several burning things or
-     * as a strobe. Projectiles fired on the same tick share a lifetime exactly,
-     * so the pool slot is what separates them.
-     */
     const life = 0.3
     const frames = 4
     const indices = [28, 35, 42, 45, 46, 57].map((slot) =>

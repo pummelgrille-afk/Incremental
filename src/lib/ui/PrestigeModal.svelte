@@ -5,19 +5,6 @@
   import Button from './primitives/Button.svelte'
   import Stat from './primitives/Stat.svelte'
 
-  /**
-   * The Rewind — before and after.
-   *
-   * PLAN.md Phase 26 asks for "a clear before/after preview", and the numbers
-   * are quoted from `progression/prestige.ts` rather than recomputed here, so
-   * what the player is shown is what they get.
-   *
-   * The layout leads with what is **kept**, not what is lost. economy-spec.md §3
-   * turns on a player believing they are not re-traversing cleared ground; a
-   * modal that opened with a list of things being taken away would argue the
-   * opposite of the design.
-   */
-
   let { open = false }: { open?: boolean } = $props()
 
   let confirming = $state(false)
@@ -77,8 +64,7 @@
     </div>
 
     {#if preview.refusedBecause === 'no-award'}
-      <!-- The zero-award guard economy-spec.md §1 requires: never let a
-           player burn a run for nothing, and say what the threshold is. -->
+
       <p class="blocked">
         {t('rewind.no-award', { depth: preview.depth, threshold: preview.threshold })}
       </p>

@@ -2,18 +2,6 @@
   import { game } from '../stores/game.svelte'
   import { content, t } from '../stores/i18n.svelte'
 
-  /**
-   * Announces newly earned achievements.
-   *
-   * Drains the store's queue one at a time rather than showing them stacked.
-   * Several can land on the same tick — a first clear that was also untouched —
-   * and three cards appearing together reads as one event rather than three.
-   *
-   * Deliberately a corner toast, not a modal. An achievement is a remark, not
-   * an interruption, and stopping the field to acknowledge one would be the
-   * opposite of P1.
-   */
-
   const SHOW_SECONDS = 4.5
 
   let current = $state<{ id: string; name: string; description: string } | null>(null)
@@ -33,7 +21,6 @@
   }
 
   $effect(() => {
-    // Only pulls when idle; the timer drives the rest of the queue.
     if (game.achievementQueue.length > 0 && current === null) next()
   })
 
@@ -41,9 +28,7 @@
 </script>
 
 {#if current}
-  <!-- A button, not a div: clicking it dismisses, so it is genuinely
-       interactive and gets keyboard and focus handling for free. `role=status`
-       on the wrapper is what announces it to a screen reader. -->
+
   <div class="live" role="status" aria-live="polite">
     <button class="toast" onclick={next}>
       <span class="label">{t('toast.label')}</span>

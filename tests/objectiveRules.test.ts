@@ -87,7 +87,6 @@ describe('shields', () => {
   })
 
   it('replaces rather than stacks, so conjunctions cannot be banked', () => {
-    // Stacking would let a player accumulate an invulnerability window.
     grantShield(state.sun, 50, 5)
     grantShield(state.sun, 80, 5)
     expect(state.sun.shield).toBe(80)
@@ -106,8 +105,6 @@ describe('shields', () => {
 
 describe('regeneration', () => {
   it('does not regenerate during a live wave', () => {
-    // Continuous regen would let sustained pressure be out-healed, eroding the
-    // wave-to-wave carry-over game-loop.md depends on.
     state.sun.regenPerSecond = 50
     state.sun.hp = 500
     state.phase = 'wave-active'
@@ -146,7 +143,7 @@ describe('output thresholds', () => {
   it('fires when crossed downward', () => {
     state.phase = 'wave-active'
     state.sun.hp = state.sun.maxHp * 0.55
-    checkThresholds(state) // establish the baseline
+    checkThresholds(state)
 
     damageSun(state, state.sun.maxHp * 0.1)
     expect(checkThresholds(state)).toContain(0.5)
@@ -165,7 +162,6 @@ describe('output thresholds', () => {
   })
 
   it('does not fire on the way back up', () => {
-    // A Sun hovering at 50% would otherwise spam events.
     state.phase = 'wave-gap'
     state.sun.hp = state.sun.maxHp * 0.45
     checkThresholds(state)
@@ -191,7 +187,6 @@ describe('output thresholds', () => {
     damageSun(state, state.sun.maxHp * 0.7)
     expect(state.sun.lowestFraction).toBeCloseTo(0.3, 4)
 
-    // Recovering must not raise the recorded low-water mark.
     state.phase = 'wave-gap'
     state.sun.regenPerSecond = 500
     for (let i = 0; i < 40; i++) updateObjective(state, TICK_SECONDS)
@@ -212,7 +207,6 @@ describe('emergency repair', () => {
   })
 
   it('escalates hard, keeping it a panic button not a strategy', () => {
-    // economy-spec.md invariant 6.
     const first = repairCost(state.sun.repairsThisStage)
     state.sun.repairsThisStage = 3
     const fourth = repairCost(state.sun.repairsThisStage)
@@ -236,7 +230,6 @@ describe('stage progression', () => {
   }
 
   it('treats a wave as complete only once spawning finished and nothing is left', () => {
-    // Wave 0 spawns over ~4s, so at t=0 it has not finished spawning.
     expect(isWaveComplete(state)).toBe(false)
 
     state.waveElapsed = 999
@@ -279,8 +272,6 @@ describe('stage progression', () => {
   })
 
   it('counts a simultaneous zero-Output and last-kill as a LOSS', () => {
-    // Clearing a stage you did not survive would be incoherent, so loss is
-    // checked first.
     state.waveIndex = state.stage.waves.length - 1
     state.waveElapsed = 999
     state.sun.hp = 0
@@ -316,7 +307,6 @@ describe('tick integration', () => {
   })
 
   it('does not accumulate threshold events across ticks', () => {
-    // A shared array would leak events from one tick into the next.
     sim.state.phase = 'wave-active'
     damageSun(sim.state, sim.state.sun.maxHp * 0.6)
     const first = sim.tick(TICK_SECONDS)

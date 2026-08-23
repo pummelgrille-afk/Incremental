@@ -14,7 +14,6 @@ import {
 import { RIM_RADIUS } from '../src/lib/content/field'
 import { ZONES } from '../src/lib/content/zones'
 
-/** Hue in degrees, 0–360, from a packed 0xRRGGBB. */
 function hueOf(colour: number): number {
   const r = ((colour >> 16) & 0xff) / 255
   const g = ((colour >> 8) & 0xff) / 255
@@ -33,7 +32,6 @@ function hueOf(colour: number): number {
   return hue * 360
 }
 
-/** Relative luminance, 0–1. */
 function luminanceOf(colour: number): number {
   const r = ((colour >> 16) & 0xff) / 255
   const g = ((colour >> 8) & 0xff) / 255
@@ -41,7 +39,6 @@ function luminanceOf(colour: number): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-/** Shortest distance between two hues, in degrees. */
 function hueDistance(a: number, b: number): number {
   const raw = Math.abs(a - b) % 360
   return raw > 180 ? 360 - raw : raw
@@ -49,8 +46,6 @@ function hueDistance(a: number, b: number): number {
 
 describe('every zone has a sky', () => {
   it('covers the whole ladder', () => {
-    // A zone with no backdrop falls back to the first one's, which would put
-    // the Service Floor's busy sky behind the Unlit Orbit's waves.
     expect(zonesWithoutBackdrop()).toEqual([])
     expect(BACKDROPS).toHaveLength(ZONES.length)
   })
@@ -61,12 +56,6 @@ describe('every zone has a sky', () => {
 })
 
 describe('the background never competes with the field', () => {
-  /*
-   * art-style.md §6 rule 1: "Incoming fire is the brightest thing on screen.
-   * Nothing owned, ambient or decorative may out-contrast a hostile projectile
-   * against --bg." These are that rule, executable.
-   */
-
   it('keeps every star under the brightness ceiling', () => {
     for (const backdrop of BACKDROPS) {
       for (const layer of backdrop.layers) {
@@ -76,8 +65,6 @@ describe('the background never competes with the field', () => {
   })
 
   it('holds the ceiling after per-star variation', () => {
-    // The generator varies brightness upward as well as down, so the authored
-    // number is not on its own a guarantee.
     for (const zone of ZONES) {
       for (const layer of backdropGeometry(zone.id)) {
         for (const star of layer.stars) {
@@ -88,8 +75,6 @@ describe('the background never competes with the field', () => {
   })
 
   it('stays out of the hostile hues', () => {
-    // Sharing a hue with incoming fire or a telegraph makes the player rule
-    // out the background before reading the field.
     for (const backdrop of BACKDROPS) {
       const hue = hueOf(backdrop.tint)
       for (const forbidden of FORBIDDEN_HUES) {
@@ -102,8 +87,6 @@ describe('the background never competes with the field', () => {
   })
 
   it('turns an order of magnitude slower than the fastest ring', () => {
-    // The innermost ring completes a turn in 8s — 45°/s. A backdrop the eye can
-    // watch moving is a backdrop competing for attention.
     for (const backdrop of BACKDROPS) {
       for (const layer of backdrop.layers) {
         expect(Math.abs(layer.degreesPerSecond), backdrop.zoneId).toBeLessThan(4.5)
@@ -112,8 +95,6 @@ describe('the background never competes with the field', () => {
   })
 
   it('leaves the playable field empty', () => {
-    // No brightness cap makes a star acceptable where the player is looking,
-    // so the exclusion is geometric.
     for (const zone of ZONES) {
       for (const layer of backdropGeometry(zone.id)) {
         for (const star of layer.stars) {
@@ -125,12 +106,6 @@ describe('the background never competes with the field', () => {
 })
 
 describe('the ladder darkens outward', () => {
-  /*
-   * The narrative has this already — the Service Floor is "the only part that
-   * looks lived-in", the Unlit Orbit has "been dark for nine generations" — and
-   * it is also what legibility wants, since the late zones carry the densest
-   * patterns. The two agreeing is the only reason to trust either.
-   */
   const totalLight = (zoneId: string): number =>
     backdropFor(zoneId).layers.reduce(
       (sum, layer) => sum + layer.stars * layer.brightness,
@@ -145,8 +120,6 @@ describe('the ladder darkens outward', () => {
   })
 
   it('never brightens as the ladder climbs past the opening zones', () => {
-    // The Veil is the one exception and is allowed to be: "nothing is seen
-    // through it" is dense-and-dim, not sparse. Checked from Home Orbit out.
     const outward = ZONES.slice(3).map((zone) => totalLight(zone.id))
     for (let i = 1; i < outward.length; i++) {
       expect(outward[i], ZONES[3 + i].id).toBeLessThan(outward[i - 1])
@@ -156,8 +129,6 @@ describe('the ladder darkens outward', () => {
 
 describe('the geometry', () => {
   it('is stable for a zone across calls', () => {
-    // A sky that reshuffled would break what a backdrop is for: recognising
-    // where you are before reading the label.
     const a = backdropGeometry('the-veil')
     const b = backdropGeometry('the-veil')
 
@@ -171,12 +142,6 @@ describe('the geometry', () => {
   })
 
   it('spreads stars across the disc rather than banding at the inner edge', () => {
-    /*
-     * Sampling the radius linearly piles stars up near the rim, because an
-     * annulus at radius r has area proportional to r. The first draft did
-     * exactly that and drew a visible ring. Uniform over area means the inner
-     * half of the *area* holds about half the stars.
-     */
     const stars = backdropGeometry('service-floor').flatMap((layer) => layer.stars)
     const outer = RIM_RADIUS * FIELD_COVERAGE
 

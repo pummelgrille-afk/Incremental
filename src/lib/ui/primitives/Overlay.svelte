@@ -3,26 +3,6 @@
   import type { HTMLAttributes } from 'svelte/elements'
   import { compact } from '../../utils/format'
 
-  /**
-   * A full-screen work surface: the Formation editor and the Almanac.
-   *
-   * Distinct from `Modal` in one way that decides everything else — an overlay
-   * **hides** the field rather than dimming it. Both of these are places you go
-   * to think, and thinking against a moving starfield is the same information
-   * twice. A modal is an interruption to the run; an overlay is a break from
-   * it.
-   *
-   * The layout is fixed rather than offered: a header across the top, a large
-   * region, and a column of detail on the right. Both screens had independently
-   * arrived at that grid — 19rem in one, 20rem in the other — because it is
-   * what "arrange things, inspect one of them" looks like.
-   *
-   * The header is drawn from props rather than a snippet so it can be styled
-   * here. Svelte scopes styles to the component that authors the markup, so a
-   * heading passed in as a snippet would need its rules retyped by every
-   * caller — which is the duplication this file exists to end.
-   */
-
   interface Balance {
     label: string
     value: number
@@ -31,13 +11,13 @@
   interface Props extends HTMLAttributes<HTMLDivElement> {
     open?: boolean
     title: string
-    /** Currencies the screen spends. Rendered abbreviated, as in the HUD. */
+
     balances?: Balance[]
-    /** Width of the detail column. */
+
     aside?: string
-    /** Toolbar controls, sitting between the balances and the hint. */
+
     controls?: Snippet
-    /** How to leave, and what the pointer does here. */
+
     hint?: Snippet
     children: Snippet
   }
@@ -111,8 +91,6 @@
     gap: 0.4rem;
   }
 
-  /* Pushed to the far end: it is the least urgent thing in the row, and it is
-     the only one whose position should not move as balances change. */
   .hint {
     margin-left: auto;
     color: var(--muted);

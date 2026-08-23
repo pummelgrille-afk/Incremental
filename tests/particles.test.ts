@@ -47,16 +47,6 @@ describe('the particle field', () => {
   })
 
   it('decays speed the same way at any tick length', () => {
-    /*
-     * Exponential rather than a per-tick multiply, which would leave particles
-     * faster at a lower frame rate — a bug that only shows on a slow machine.
-     *
-     * Asserted on **velocity**, not position: position is integrated forward
-     * with Euler steps, so a single coarse step and thirty fine ones do not
-     * land in the same place and were never going to. That is fine for
-     * presentation, and claiming otherwise is what the first version of this
-     * test did.
-     */
     const coarse = new ParticleField(4)
     const fine = new ParticleField(4)
     const spec = { x: 0, y: 0, vx: 100, vy: 0, life: 5, size: 1, colour: 0, drag: 0.1 }
@@ -83,8 +73,6 @@ describe('the particle field', () => {
   })
 
   it('scatters a burst rather than drawing a ring', () => {
-    // A burst whose pieces all travel the same distance is the one shape a
-    // burst must not have.
     const wide = new ParticleField(64)
     wide.burst({
       x: 0,
@@ -106,16 +94,6 @@ describe('the particle field', () => {
   })
 
   it('cannot change what the simulation does', () => {
-    /*
-     * The load-bearing one, and stated as the property rather than as a fact
-     * about generators: a stage is seeded so it plays the same way every time,
-     * which is what makes a balance measurement reproducible. If particles drew
-     * scatter from the simulation's stream, every wave in the game would be
-     * downstream of how many sparks an explosion happened to throw.
-     *
-     * Two identical stages, one of them showered with particles between ticks.
-     * They must end up in exactly the same state.
-     */
     const quiet = new Simulation(loadStage(STAGE), createRng(11))
     const noisy = new Simulation(loadStage(STAGE), createRng(11))
 
@@ -152,34 +130,17 @@ describe('the effect library', () => {
   })
 
   it('scales a conjunction with what it cost to arrange', () => {
-    // A Grand conjunction is the pay-off the whole formation puzzle exists for
-    // — combat-spec.md §3 — and must not look like a Minor one.
     expect(CONJUNCTION_BURST.major.count).toBeGreaterThan(CONJUNCTION_BURST.minor.count)
     expect(CONJUNCTION_BURST.grand.count).toBeGreaterThan(CONJUNCTION_BURST.major.count)
     expect(CONJUNCTION_BURST.grand.speed).toBeGreaterThan(CONJUNCTION_BURST.minor.speed)
   })
 
   it('keeps an impact small enough to survive a dense tick', () => {
-    /*
-     * 600 projectiles may be in the air against a 400-particle budget. Twenty
-     * simultaneous hits is an ordinary late wave, so an impact has to stay
-     * affordable twenty times over.
-     */
     expect(IMPACT_BURST.count * 20).toBeLessThan(BUDGETS.particles)
   })
 })
 
 describe('a real stage stays inside the budget', () => {
-  /**
-   * The worst case the game allows: every ring slot and every rim mount filled,
-   * at maximum level, on a boss stage.
-   *
-   * The budget is a content constraint rather than a runtime clamp — the field
-   * discards overflow silently, so an exhausted field is invisible except as
-   * effects that stop appearing. That is exactly how the first version of this
-   * phase shipped past its own budget: a burst per conjunction cost 881
-   * particles a second against 400, and nothing failed.
-   */
   function playFull(address: StageAddress): Simulation {
     const sim = new Simulation(loadStage(address), createRng(3))
 
@@ -228,8 +189,6 @@ describe('a real stage stays inside the budget', () => {
   })
 
   it('leaves room for a worse case than the ladder has', () => {
-    // Measured at 167-188 across the whole ladder with a maximum formation.
-    // Half the budget spare is the margin a later phase's effects can spend.
     const field = playFull(ladder[39] as StageAddress).state.particles
     expect(field.peak).toBeLessThan(BUDGETS.particles / 2)
   })

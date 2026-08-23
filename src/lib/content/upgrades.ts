@@ -1,58 +1,9 @@
 import type { UpgradeNodeDef } from '../entities/Upgrade'
 
-/**
- * The Almanac — Phase 34.
- *
- * Seventy-two nodes across four branches, against the shape economy-spec.md §2
- * authors: Aperture 6 tiers, Shielding 6, Recovery 5, Regulation 5.
- *
- * ## Cost
- *
- * `baseCost` here is **before** the branch growth multiplier. `nodeCost` applies
- * `1.9 ^ (nodes already bought in this branch)`, which is what makes spreading
- * investment cheaper than driving one branch deep — a specialist build pays for
- * the privilege rather than being handed it. Base costs run 3 / 6 / 10 / 16 /
- * 24 / 36 by tier; the growth does the rest and does most of the work.
- *
- * ## Effects are additive
- *
- * Every node of the same kind sums (`effectsOf`). Multiplicative stacking across
- * seventy-two nodes compounds past any curve the balance table can hold, and
- * economy-spec.md §7 rules it out.
- *
- * ## Voices
- *
- * From narrative.md, and they are not interchangeable:
- *
- * - **Aperture** — the Manual. Terse, imperative, no adjectives.
- * - **Shielding** — the Undermaster. Plain, responsible, faintly worn down.
- * - **Recovery** — Sabel Ock. Dry to the point of rudeness.
- * - **Regulation** — the Manual's marginalia. Later hands correcting earlier
- *   ones, and not always agreeing.
- *
- * ## Regulation is the branch to protect
- *
- * It buys **reach and readability, never numbers**: Flare charges and
- * regeneration, blast radius, conjunction tolerance, preview horizon. It changes
- * how the game plays rather than how hard it hits, and economy-spec.md §2 asks
- * this phase to keep it that way. A test asserts no Regulation node grants
- * attack, haste, defence or Salvage.
- *
- * **Nothing here may grant control over ring rotation.** Rings are permanently
- * automatic (combat-spec.md §1); steering was tried and removed after the Phase
- * 10 playtest, and re-introducing it through an upgrade would re-introduce the
- * dexterity problem with it.
- */
-
 const DEG = Math.PI / 180
 const HOUR = 3600
 
 export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
-  // ===================================================================
-  // Aperture — offence. The Manual: terse, imperative.
-  // ===================================================================
-
-  // ---- Tier 1 ----
   {
     id: 'aperture-force-of-the-pulse',
     name: 'Force of the Pulse',
@@ -94,7 +45,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'conjunctionPotency', magnitude: 0.08 }],
   },
 
-  // ---- Tier 2 ----
   {
     id: 'aperture-shortened-dwell',
     name: 'Shortened Dwell',
@@ -136,7 +86,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'conjunctionPotency', magnitude: 0.1 }],
   },
 
-  // ---- Tier 3 ----
   {
     id: 'aperture-sympathetic-pulse',
     name: 'Sympathetic Pulse',
@@ -183,7 +132,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     ],
   },
 
-  // ---- Tier 4 ----
   {
     id: 'aperture-overdrive',
     name: 'Overdrive',
@@ -228,7 +176,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     ],
   },
 
-  // ---- Tier 5 ----
   {
     id: 'aperture-past-the-rating',
     name: 'Past the Rating',
@@ -260,7 +207,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'conjunctionPotency', magnitude: 0.22 }],
   },
 
-  // ---- Tier 6 ----
   {
     id: 'aperture-nothing-held-back',
     name: 'Nothing Held Back',
@@ -297,11 +243,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'attack', magnitude: 0.25 }],
   },
 
-  // ===================================================================
-  // Shielding — defence. The Undermaster: plain, responsible, worn down.
-  // ===================================================================
-
-  // ---- Tier 1 ----
   {
     id: 'shielding-deeper-reserves',
     name: 'Deeper Reserves',
@@ -345,7 +286,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'output', magnitude: 90 }],
   },
 
-  // ---- Tier 2 ----
   {
     id: 'shielding-hardened-plating',
     name: 'Hardened Plating',
@@ -389,7 +329,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'defence', magnitude: 0.09 }],
   },
 
-  // ---- Tier 3 ----
   {
     id: 'shielding-broadened-guard',
     name: 'Broadened Guard',
@@ -423,7 +362,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'defence', magnitude: 0.14 }],
   },
 
-  // ---- Tier 4 ----
   {
     id: 'shielding-worst-case-filed',
     name: 'Worst Case, Filed',
@@ -455,7 +393,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'defence', magnitude: 0.16 }],
   },
 
-  // ---- Tier 5 ----
   {
     id: 'shielding-the-long-hold',
     name: 'The Long Hold',
@@ -490,7 +427,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'blockArc', magnitude: 4 * DEG }],
   },
 
-  // ---- Tier 6 ----
   {
     id: 'shielding-still-here',
     name: 'Still Here',
@@ -527,11 +463,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'defence', magnitude: 0.2 }],
   },
 
-  // ===================================================================
-  // Recovery — economy. Sabel Ock: dry to the point of rudeness.
-  // ===================================================================
-
-  // ---- Tier 1 ----
   {
     id: 'recovery-debris-discipline',
     name: 'Debris Discipline',
@@ -575,7 +506,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'salvage', magnitude: 0.1 }],
   },
 
-  // ---- Tier 2 ----
   {
     id: 'recovery-honest-accounting',
     name: 'Honest Accounting',
@@ -611,7 +541,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'offlineCap', magnitude: 4 * HOUR }],
   },
 
-  // ---- Tier 3 ----
   {
     id: 'recovery-the-long-view',
     name: 'The Long View',
@@ -647,7 +576,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'repairCost', magnitude: 0.18 }],
   },
 
-  // ---- Tier 4 ----
   {
     id: 'recovery-the-full-inventory',
     name: 'The Full Inventory',
@@ -682,7 +610,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'recollection', magnitude: 0.25 }],
   },
 
-  // ---- Tier 5 ----
   {
     id: 'recovery-everything-recovered',
     name: 'Everything Recovered',
@@ -714,18 +641,11 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     requires: ['recovery-unattended-operation'],
     baseCost: 24,
     effects: [
-      // Six, not eight. At eight this one node was exactly half of everything
-      // Recovery grants of offlineCap, which makes the other two decoration.
       { kind: 'offlineCap', magnitude: 6 * HOUR },
       { kind: 'offlineEfficiency', magnitude: 0.15 },
     ],
   },
 
-  // ===================================================================
-  // Regulation — reach and readability. The Manual's marginalia.
-  // ===================================================================
-
-  // ---- Tier 1 ----
   {
     id: 'regulation-second-flare',
     name: 'A Second Flare',
@@ -759,7 +679,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'previewHorizon', magnitude: 60 }],
   },
 
-  // ---- Tier 2 ----
   {
     id: 'regulation-wider-report',
     name: 'Wider Report',
@@ -793,7 +712,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'previewHorizon', magnitude: 90 }],
   },
 
-  // ---- Tier 3 ----
   {
     id: 'regulation-generous-reading',
     name: 'Generous Reading',
@@ -804,7 +722,7 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     tier: 3,
     requires: ['regulation-wider-report'],
     baseCost: 15,
-    // 2°, against a 6° base tolerance — a third wider, which is substantial.
+
     effects: [{ kind: 'conjunctionTolerance', magnitude: 2 * DEG }],
   },
   {
@@ -828,7 +746,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'flareRadius', magnitude: 12 }],
   },
 
-  // ---- Tier 4 ----
   {
     id: 'regulation-close-enough-to-count',
     name: 'Close Enough To Count',
@@ -860,7 +777,6 @@ export const UPGRADE_NODES: readonly UpgradeNodeDef[] = [
     effects: [{ kind: 'flareRecharge', magnitude: 0.2 }],
   },
 
-  // ---- Tier 5 ----
   {
     id: 'regulation-a-fourth-flare',
     name: 'A Fourth Flare',
@@ -896,7 +812,6 @@ export function upgradeById(id: string): UpgradeNodeDef | undefined {
   return BY_ID.get(id)
 }
 
-/** Every node in a branch, in tier order. */
 export function nodesInBranch(branch: UpgradeNodeDef['branch']): readonly UpgradeNodeDef[] {
   return UPGRADE_NODES.filter((n) => n.branch === branch).sort((a, b) => a.tier - b.tier)
 }

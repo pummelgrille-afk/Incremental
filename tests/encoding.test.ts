@@ -12,14 +12,11 @@ describe('base64', () => {
   })
 
   it('round-trips characters above 0xFF', () => {
-    // btoa throws on these, which is the reason for the TextEncoder step.
     const text = 'em—dash · café · 調整 · 🕰'
     expect(decodeBase64(encodeBase64(text))).toBe(text)
   })
 
   it('round-trips input larger than the 0x8000 chunk size', () => {
-    // Guards the chunking loop: String.fromCharCode(...bytes) blows the stack
-    // on large inputs, so encodeBase64 batches. Exercise past one boundary.
     const big = JSON.stringify({ nodes: Array.from({ length: 20_000 }, (_, i) => `node-${i}`) })
     expect(big.length).toBeGreaterThan(0x8000)
     expect(decodeBase64(encodeBase64(big))).toBe(big)
@@ -40,7 +37,6 @@ describe('fnv1a', () => {
   })
 
   it('detects a single-character change', () => {
-    // The failure this guards: a save string that lost or gained one character.
     const a = 'ORRERY-1-payloadpayloadpayload'
     const b = 'ORRERY-1-payloadpaylondpayload'
     expect(fnv1a(a)).not.toBe(fnv1a(b))

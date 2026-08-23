@@ -5,34 +5,15 @@
   import { t } from '../stores/i18n.svelte'
   import Kbd from './primitives/Kbd.svelte'
 
-  /**
-   * The way in to every panel, without knowing a key.
-   *
-   * Until now the Formation editor, the map, the Almanac and the Rewind were
-   * reachable **only** by keyboard shortcut. That is fine once you know them
-   * and invisible until you do: the HUD's hint line was the entire discovery
-   * path, and a hint line is something a player reads once and then stops
-   * seeing. A row of buttons is the thing they can find by looking.
-   *
-   * The keys still work and are printed on the buttons, so this teaches them
-   * rather than replacing them — which is why each row carries its keycap
-   * instead of the hint line carrying all of them.
-   *
-   * **It opens panels and owns none of them.** Every entry sets the same store
-   * flag the key handler sets, so the panels themselves did not change and
-   * cannot tell which route was taken.
-   */
-
   interface Entry {
-    /** The store flag this toggles, or a direct action. */
     label: string
-    /** Stable across languages; the label is not. */
+
     id: string
     action: ActionId | null
     open: () => void
-    /** Hidden until the system it opens exists — economy-spec.md §3. */
+
     shown: boolean
-    /** Lit while its panel is up. */
+
     active: boolean
   }
 
@@ -93,11 +74,6 @@
   const visible = $derived(entries.filter((e) => e.shown))
 </script>
 
-<!--
-  Hidden while an overlay or a modal is up. Those cover it anyway by
-  `--z-overlay` and `--z-modal`, but a button that is under a scrim and still
-  tabbable is exactly the trap Phase 43's focus work exists to close.
--->
 {#if !game.showFormation && !game.showTree && !game.showMap && !game.showPrestige && !game.showMenu && !game.showSettings}
   <nav aria-label={t('sidebar.label')}>
     <ul>
@@ -111,9 +87,7 @@
       {/each}
 
       <li class="apart">
-        <!-- Stand down: the between-state. Refused while there is nothing to
-             stand down from, rather than hidden, so its existence is learnable
-             before the moment it is wanted. -->
+
         <button
           class="tab"
           class:active={game.standby}
@@ -135,7 +109,7 @@
     right: 0;
     transform: translateY(-50%);
     z-index: var(--z-hud);
-    /* The HUD around it is inert; this is the one part of it that is not. */
+
     pointer-events: auto;
   }
 
@@ -152,12 +126,6 @@
     margin-top: 0.6rem;
   }
 
-  /*
-   * Not `<Button>`. The primitive's three variants are statements about what an
-   * action *does* — primary, secondary, irreversible — and a navigation tab is
-   * none of the three: it is a place, and it can be the place you are already
-   * in. Same reasoning as StageSelect's stage tiles, ui-spec.md §3.
-   */
   .tab {
     display: flex;
     align-items: center;

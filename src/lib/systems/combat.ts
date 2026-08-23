@@ -13,20 +13,10 @@ const NO_EFFECTS = noUpgradeEffects()
 import { platformPosition, type PlatformAttack } from './ai'
 import type { Telemetry } from './telemetry'
 
-/**
- * Damage resolution and death handling.
- *
- * The single place damage is applied — ai.ts decides who attacks whom, this
- * decides what it does. Implements combat-spec.md §6.
- */
-
-/** Defence is diminishing, never immunising. 100 halves, 300 quarters. */
 const DEFENCE_CONSTANT = 100
 
-/** Seconds a Platform stays disabled. Platforms are never permanently lost. */
 const RECOVERY_TIME = 12
 
-/** How far children appear from a splitter, and across how wide an arc. */
 const SPLIT_OFFSET = 14
 const SPLIT_ARC = Math.PI / 2
 
@@ -45,12 +35,6 @@ export function computeDamage(
   return mitigate(raw, defence)
 }
 
-/**
- * Apply damage to a Contact. Returns true if it died.
- *
- * Damage stays a float — combat-spec.md §6. Rounding here would compound badly
- * across thousands of small hits.
- */
 export function damageContact(contact: ContactInstance, amount: number): boolean {
   if (contact.shieldHitsRemaining > 0) {
     contact.shieldHitsRemaining--
@@ -58,20 +42,15 @@ export function damageContact(contact: ContactInstance, amount: number): boolean
     return false
   }
 
-  // A telegraphing Contact may be more vulnerable. This rewards a player for
-  // *acting* on a read telegraph rather than only for dodging it.
   const vulnerability = contact.def.traits?.vulnerableWhileTelegraphing
   const scaled =
     vulnerability && contact.telegraphRemaining > 0 ? amount * vulnerability : amount
 
-  // Nearby Wardens soften every hit. Cached per tick by systems/spawn.ts, so
-  // this is a multiply rather than a search.
   contact.hp -= scaled * contact.damageScale
   contact.hitFlash = 0.12
   return contact.hp <= 0
 }
 
-/** Apply damage to a Platform. Disables rather than destroys. */
 export function damagePlatform(
   platform: PlatformInstance,
   amount: number,
@@ -93,15 +72,12 @@ export function damagePlatform(
     platform.hp = 0
     platform.disabledFor = RECOVERY_TIME
     platform.targetId = null
-    // A disabled unit comes back at full HP after RECOVERY_TIME; letting a
-    // shield or haste window survive that would make being disabled partly
-    // free.
+
     clearBuffs(platform.buffs)
     telemetry?.disabled(platform.def.id)
   }
 }
 
-/** Damage the Sun. Shield absorbs first, then Output. */
 export function damageSun(sim: SimulationState, amount: number): void {
   let remaining = amount
 
@@ -116,7 +92,6 @@ export function damageSun(sim: SimulationState, amount: number): void {
   sim.sun.hitFlash = 0.2
   sim.telemetry?.took('sun', applied)
 
-  // The only path by which Output falls, so the low-water mark belongs here.
   const fraction = sim.sun.maxHp > 0 ? sim.sun.hp / sim.sun.maxHp : 0
   if (fraction < sim.sun.lowestFraction) sim.sun.lowestFraction = fraction
 }
@@ -126,9 +101,6 @@ export interface CombatResult {
   salvageDropped: number
 }
 
-/**
- * Resolve the Platform attacks ai.ts collected, and remove the dead.
- */
 export function resolvePlatformAttacks(
   sim: SimulationState,
   attacks: PlatformAttack[],
@@ -154,21 +126,10 @@ export function resolvePlatformAttacks(
       target.position.x,
       target.position.y,
       before - target.hp,
-      // Only a kill needs it: a death is the one event that outlives what it
-      // happened to, so it is the only one with nothing left to read a key off.
+
       died ? (target.def.assetKey ?? '') : '',
     )
 
-    /*
-     * The shot itself, drawn after the damage it stands for.
-     *
-     * Emitted here rather than where ai.ts queues the attack, so a tracer marks
-     * a shot that actually resolved — an attack whose target died earlier in
-     * this same tick is skipped above, and drawing a bolt into a corpse would
-     * be a lie the render layer had no way to catch. The origin is read now
-     * because the ring keeps turning: a tracer that recomputed the unit's
-     * position while it was on screen would sweep sideways with the ring.
-     */
     const origin = platformPosition(sim, platform)
     sim.tracers.emit(
       origin.x,
@@ -185,20 +146,11 @@ export function resolvePlatformAttacks(
   return reapContact(sim, dead)
 }
 
-/**
- * Remove dead Contact, award their Salvage, and spawn anything they split into.
- *
- * Splitting happens here because this is where death is handled, and because a
- * splitter's children must exist before the next system reads `sim.contact` —
- * spawning them a step later would let a wave read as cleared for one tick.
- */
 export function reapContact(sim: SimulationState, dead: Set<number>): CombatResult {
   if (dead.size === 0) return { contactKilled: 0, salvageDropped: 0 }
 
   let salvage = 0
-  // Zone drop scaling — economy-spec.md §1. The tree bonus is applied in
-  // progression/currencies.ts, which owns the save; the simulation only knows
-  // about the field.
+
   const zoneBonus = 1 + sim.zone.index * SALVAGE.zoneScaling
 
   const offspring: ContactInstance[] = []
@@ -212,8 +164,6 @@ export function reapContact(sim: SimulationState, dead: Set<number>): CombatResu
     if (split) {
       const childDef = contactById(split.defId)
       if (childDef) {
-        // Fan the children out around the parent so they do not stack into a
-        // single unhittable point, and inherit its heading.
         const heading = Math.atan2(contact.velocity.y, contact.velocity.x)
         for (let i = 0; i < split.count; i++) {
           const spread = ((i / Math.max(1, split.count - 1)) - 0.5) * SPLIT_ARC

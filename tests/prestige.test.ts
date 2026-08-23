@@ -12,12 +12,11 @@ import type { StageAddress } from '../src/lib/entities/Zone'
 
 let save: SaveData
 
-/** A save mid-run, with something to lose and something to keep. */
 function playedRun(): SaveData {
   const s = createDefaultSave(0)
   grantStartingLoadout(s)
 
-  s.meta.rewindCount = 1 // already unlocked; the gate is tested separately
+  s.meta.rewindCount = 1
   s.meta.clearance = 50
   s.meta.recollection = 40
   s.meta.unlockedZones = [STARTING_ZONE_ID, 'somewhere-else']
@@ -44,8 +43,6 @@ beforeEach(() => {
 
 describe('the gate', () => {
   it('is closed on a fresh save', () => {
-    // economy-spec.md §3: after the first boss clear, so a first-time player
-    // meets one progression system at a time.
     expect(isRewindUnlocked(createDefaultSave(0))).toBe(false)
   })
 
@@ -56,7 +53,6 @@ describe('the gate', () => {
   })
 
   it('opens once a Rewind has happened', () => {
-    // Phase 32 owns the boss; this keeps the gate coherent if it lands later.
     expect(isRewindUnlocked(save)).toBe(true)
   })
 
@@ -72,10 +68,6 @@ describe('the gate', () => {
 })
 
 describe('the zero-award guard', () => {
-  /**
-   * economy-spec.md §1 requires it outright: a player must never be able to
-   * burn a run for nothing, and the block must explain the threshold.
-   */
   it('refuses a run that would pay nothing', () => {
     save.run.deepestScalingIndex = 0
 
@@ -126,11 +118,6 @@ describe('what a Rewind resets', () => {
   })
 
   it('hands back the opening formation', () => {
-    /*
-     * Without this a Rewind lands in exactly the deadlock Phase 24 found at a
-     * fresh save: no units, no Salvage, and Salvage only come from kills. The
-     * roster survives a Rewind, so the first-time grant declines to fire.
-     */
     expect(slotsUsed(save)).toBe(OPENING_SLOTS.length)
     const rings = new Set(Object.keys(save.run.formation).map((k) => k.split(':')[0]))
     expect(rings.has('1')).toBe(true)
@@ -146,7 +133,6 @@ describe('what a Rewind keeps', () => {
   let heldBefore = 0
 
   beforeEach(() => {
-    // Read after the fixture's tree purchase, not the literal it started with.
     heldBefore = save.meta.recollection
     award = rewindPreview(save).award
     rewind(save)
@@ -172,8 +158,6 @@ describe('what a Rewind keeps', () => {
   })
 
   it('keeps zone unlocks — you never re-clear a zone to reach it', () => {
-    // economy-spec.md §3 calls this out as the point of the whole design:
-    // a Rewind resets power within a run, not access to content.
     expect(save.meta.unlockedZones).toContain('somewhere-else')
     expect(save.meta.clearedStages).toHaveLength(1)
   })
@@ -202,14 +186,11 @@ describe('the preview matches what happens', () => {
   })
 
   it('applies the Recovery bonus to the quote', () => {
-    // The tree raises the award, so the modal must quote the boosted figure —
-    // a preview that under-quotes is worse than none.
     const bare = rewindPreview(save).award
 
     const boosted = playedRun()
     boosted.meta.recollection = 10_000
-    // Through the path, so a rewiring of Recovery's prerequisites cannot fail
-    // this test for a reason unrelated to what it checks.
+
     for (const step of pathTo(boosted, 'recovery-the-long-view').steps) {
       purchase(boosted, step.node.id)
     }
@@ -226,7 +207,6 @@ describe('the preview matches what happens', () => {
 
 describe('runs get deeper, and the award follows', () => {
   it('pays more for a deeper run', () => {
-    // economy-spec.md §3's cadence table depends on this being super-linear.
     const shallow = playedRun()
     shallow.run.deepestScalingIndex = 8
 
@@ -237,7 +217,6 @@ describe('runs get deeper, and the award follows', () => {
   })
 
   it('lands near the authored cadence for a first Rewind', () => {
-    // §3 targets roughly 4 Recollection at depth ~8.
     const first = playedRun()
     first.run.deepestScalingIndex = 8
     expect(rewindPreview(first).award).toBeGreaterThanOrEqual(3)

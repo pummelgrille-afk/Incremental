@@ -6,18 +6,6 @@ import type { RingIndex } from '../entities/types'
 import { OUTERMOST_RING, RINGS, ringByIndex } from '../content/field'
 import { allocateId, type SimulationState } from './simulation'
 
-/**
- * Placing units on the field, and the formation bonuses that follow.
- *
- * Bonuses are computed on placement and cached on the instance — combat-spec.md
- * §2 is explicit that they are never recomputed per tick. Recomputing would put
- * an O(units²) neighbour scan on the hot path to produce a number that only
- * changes when the player rearranges.
- *
- * PLACEHOLDER SCOPE — Phase 24 builds the drag-and-drop editor and persistence
- * of loadouts. This is the minimum for the Phase 10 slice.
- */
-
 export function slotKey(ring: RingIndex, slot: number): string {
   return `${ring}:${slot}`
 }
@@ -29,7 +17,6 @@ export class FormationError extends Error {
   }
 }
 
-/** Is a slot index valid for this ring? */
 export function isValidSlot(ring: RingIndex, slot: number): boolean {
   const config = ringByIndex(ring)
   if (!config) return false
@@ -47,7 +34,6 @@ export function createPlatform(
   slot: number,
   level = 1,
 ): PlatformInstance {
-  // The curve lives in content/economy.ts with the rest of the roster tuning.
   const scale = levelScale(level)
   const maxHp = def.maxHp * scale
 
@@ -79,9 +65,6 @@ export function createArray(
   const scale = levelScale(level)
   const maxHp = def.maxHp * scale
 
-  // Defaults to the def's own numbers, so a caller with no save — a test, or
-  // the loader before progression exists — gets an unupgraded Array rather
-  // than having to know about tracks.
   const maxCharge = stats?.maxCharge ?? def.maxCharge
   const chargeInterval = stats?.chargeInterval ?? def.chargeInterval
   const attackScale = (stats?.attack ?? def.attack) / def.attack
@@ -105,7 +88,6 @@ export function createArray(
   }
 }
 
-/** Place a Platform, then refresh every cached bonus. */
 export function placePlatform(
   sim: SimulationState,
   def: PlatformDef,
@@ -151,12 +133,6 @@ export function mountArray(
   return array
 }
 
-/**
- * Recompute every Platform's cached bonuses. Called on any formation change,
- * and never from the tick loop.
- *
- * Rules are combat-spec.md §2's table, in order.
- */
 export function recomputeBonuses(sim: SimulationState): void {
   sim.formationVersion++
   const occupied = new Set(sim.platforms.map((m) => slotKey(m.slot.ring, m.slot.slot)))
@@ -178,21 +154,17 @@ export function recomputeBonuses(sim: SimulationState): void {
 
     const bonuses: FormationBonuses = { attack: 0, defence: 0, range: 0 }
 
-    // Ring 1: close support from the Sun.
     if (ring === 1) bonuses.defence += 0.15
-    // Outermost ring: nothing blocking the sightline.
+
     if (ring === OUTERMOST_RING) bonuses.range += 0.1
 
-    // Both neighbours on the same ring filled. Wraps around the ring.
     const left = slotKey(ring, (slot - 1 + config.slots) % config.slots)
     const right = slotKey(ring, (slot + 1) % config.slots)
     if (occupied.has(left) && occupied.has(right)) bonuses.attack += 0.1
 
-    // Screened: something occupies the slot radially outward.
     if (ring < OUTERMOST_RING) {
       const outer = ringByIndex((ring + 1) as RingIndex)
       if (outer) {
-        // Slot counts differ per ring, so map by angle fraction.
         const outerSlot = Math.round((slot / config.slots) * outer.slots) % outer.slots
         if (occupied.has(slotKey(outer.index, outerSlot))) bonuses.defence += 0.05
       }
@@ -204,7 +176,6 @@ export function recomputeBonuses(sim: SimulationState): void {
   }
 }
 
-/** Apply a saved formation record (`"ring:slot" -> defId`) to a fresh stage. */
 export function applyFormation(
   sim: SimulationState,
   formation: Record<string, string>,
@@ -217,8 +188,6 @@ export function applyFormation(
     const slot = Number(slotText)
     const def = resolve(defId)
 
-    // Silently skip content that no longer exists — a save must survive a
-    // roster change, and refusing to load would be worse than a missing unit.
     if (!def || !isValidSlot(ring, slot) || slotOccupied(sim, ring, slot)) continue
 
     sim.platforms.push(createPlatform(sim, def, ring, slot, levels[defId] ?? 1))

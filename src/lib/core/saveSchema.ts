@@ -4,127 +4,57 @@ import { STARTING_ZONE_ID } from '../content/zones'
 import { DEFAULT_BINDINGS, type ActionId } from '../content/keybindings'
 import { normaliseBindings } from './keybindings'
 
-/**
- * The save schema.
- *
- * Structured around the single most important distinction in the economy: what
- * a Rewinding resets and what it keeps (docs/design/economy-spec.md §3).
- * `run` is discarded on Rewind; `meta` survives. Keeping them in separate
- * objects means prestige is a field swap rather than a field-by-field audit,
- * and a new persistent value cannot be reset by accident.
- *
- * Everything here references content by **stable string id**. Never store a
- * def object — content changes between versions, saves must not.
- */
-
 export const SCHEMA_VERSION = 8
 
-/** Discarded on Rewinding. */
 export interface RunState {
-  /** Run currency. Resets to zero. */
   salvage: number
 
-  /** Where the player is. Null before the first stage is entered. */
   currentStage: StageAddress | null
 
-  /** Highest scalingIndex cleared this run — drives the Recollection award. */
   deepestScalingIndex: number
 
-  /**
-   * Formation: which Platform occupies which slot.
-   * Key is `${ring}:${slot}`, value is a PlatformDef id.
-   */
   formation: Record<string, string>
 
-  /** Array mounts. Key is the rim mount index, value is a ArrayDef id. */
   mounts: Record<string, string>
 
-  /** Escalating in-run sink counters — see economy-spec.md §1. */
   repairsThisStage: number
   reinforcements: number
 
-  /** Epoch ms. Used for run-length statistics. */
   startedAt: number
 
-  /**
-   * Salvage per second the player was earning when they last played, which is
-   * what offline progress is scaled from. Added in schema 4.
-   *
-   * In `run` rather than `meta` because it describes the strength of *this*
-   * run: a Rewind takes the formation away, so the rate it earned must go with
-   * it. Otherwise the first absence after a Rewind would pay at the old
-   * formation's rate.
-   */
   salvagePerSecond: number
 
-  /**
-   * Whether a Array has been mounted at any point this run. Added in schema 5.
-   *
-   * Exists for the "Documented Procedure" achievement. Checked against the run
-   * rather than the zone because a per-zone check is gameable — unmount before
-   * the final clear and collect it anyway — and an achievement that rewards a
-   * technicality is worse than one that asks for a little more.
-   */
   arraysEverMounted: boolean
 }
 
-/** A named formation, kept across Rewinds. See progression/loadout.ts. */
 export interface Preset {
   name: string
   formation: Record<string, string>
   mounts: Record<string, string>
 }
 
-/** Survives every Rewinding. */
 export interface MetaState {
-  /** Prestige currency. */
   recollection: number
-  /** Roster tokens. First-clear only, so unfarmable. */
+
   clearance: number
 
-  /** Purchased Almanac node ids. Respec is free, so this is a set. */
   purchasedNodes: string[]
 
-  /** Unlocked roster. Key is a def id, value is its level. */
   platforms: Record<string, number>
   arrays: Record<string, number>
 
-  /**
-   * Saved formations, by name. Added in schema 2.
-   *
-   * In `meta` rather than `run` deliberately: an arrangement a player liked
-   * should survive the Rewind that takes the units away, or every reset would
-   * mean rebuilding from memory. They store ids and slots only, never costs.
-   */
   presets: Preset[]
 
-  /**
-   * Array upgrade tracks, keyed by def id then track name. Added in schema 3.
-   *
-   * Separate from `arrays` (which holds unlock state) because a Array is
-   * *shaped* rather than levelled — see progression/support.ts.
-   */
   arrayUpgrades: Record<string, Record<string, number>>
 
-  /** Zone ids the player may enter. */
   unlockedZones: string[]
-  /** First-cleared stages. Membership gates Key awards. */
+
   clearedStages: StageAddress[]
 
-  /** Unlocked achievement ids. */
   achievements: string[]
 
-  /**
-   * Tutorial step ids already shown. Added in schema 7.
-   *
-   * In `meta` rather than `run` for the obvious reason and one less obvious
-   * one: onboarding is a thing that happened to the *player*, not to a run, and
-   * a Rewind explaining the formation panel a second time would be the game
-   * forgetting who it was talking to.
-   */
   tutorialSeen: string[]
 
-  /** Number of completed Rewindings. Gates tutorial and UI reveals. */
   rewindCount: number
 }
 
@@ -132,31 +62,15 @@ export interface Settings {
   masterVolume: number
   musicVolume: number
   sfxVolume: number
-  /**
-   * Accessibility. Declared in Phase 8, connected in Phase 43 — see
-   * `docs/design/ui-spec.md` §6 for what each one actually reaches.
-   */
+
   screenShake: boolean
   reducedMotion: boolean
   colourblindPalette: 'none' | 'deuteranopia' | 'protanopia' | 'tritanopia'
   textScale: number
   showFps: boolean
-  /**
-   * Language, as `i18n/locales.ts` spells a code.
-   *
-   * No schema bump: validation repairs a save that predates a field by
-   * defaulting it, so an old save simply loads in English — which is the
-   * language it was played in. A migration would have said the same thing at
-   * more length.
-   */
+
   locale: string
-  /**
-   * Action id → binding, as `core/keybindings.ts` spells one.
-   *
-   * Stored whole rather than as a diff against the defaults: a diff would mean
-   * a player's binding silently moving when a default changed, which is the one
-   * thing a rebind is supposed to prevent.
-   */
+
   keybindings: Record<ActionId, string>
 }
 
@@ -165,14 +79,14 @@ export interface Statistics {
   totalContactsDestroyed: number
   conjunctionsFired: number
   deepestScalingIndexEver: number
-  /** Seconds of active play. Offline time is not counted. */
+
   playtimeSeconds: number
   firstPlayedAt: number
 }
 
 export interface SaveData {
   schemaVersion: number
-  /** Epoch ms. Phase 27 reads the delta for offline progress. */
+
   savedAt: number
 
   run: RunState
@@ -234,14 +148,6 @@ export function createDefaultSave(now = Date.now()): SaveData {
   }
 }
 
-/**
- * Reset for a Rewinding: a fresh RunState, everything else untouched.
- *
- * Note what is *not* reset — `meta.unlockedZones` and `meta.clearedStages`
- * survive, because a Rewind resets power within a run and never access to
- * content already unlocked (economy-spec.md §3). Re-traversing cleared content
- * is the genre's main churn driver and is designed out.
- */
 export function resetRun(save: SaveData, now = Date.now()): SaveData {
   return {
     ...save,
@@ -250,17 +156,6 @@ export function resetRun(save: SaveData, now = Date.now()): SaveData {
     savedAt: now,
   }
 }
-
-// ---------------------------------------------------------------------------
-// Validation
-//
-// Hand-rolled rather than pulling in a schema library: the shape is small and
-// stable, and a dependency here would be carried for the life of the project.
-//
-// Repairing is deliberate. A save that is missing a field added in a later
-// build should load with that field defaulted, not be rejected — the player's
-// 25-40 hours matter more than schema purity. Only structural nonsense fails.
-// ---------------------------------------------------------------------------
 
 export interface ValidationResult {
   ok: boolean
@@ -290,13 +185,6 @@ function strRecord(v: unknown): Record<string, string> {
   return out
 }
 
-/**
- * Sanitise saved presets.
- *
- * Drops anything malformed rather than repairing it: a preset is a convenience,
- * and a half-recovered one that silently fields the wrong units would be worse
- * than a missing one.
- */
 function presetArray(v: unknown): Preset[] {
   if (!Array.isArray(v)) return []
   const out: Preset[] = []
@@ -311,7 +199,6 @@ function presetArray(v: unknown): Preset[] {
   return out
 }
 
-/** Two levels of `numRecord`, for `defId -> track -> level`. */
 function nestedNumRecord(v: unknown): Record<string, Record<string, number>> {
   if (!isObject(v)) return {}
   const out: Record<string, Record<string, number>> = {}
@@ -330,13 +217,6 @@ function numRecord(v: unknown): Record<string, number> {
   return out
 }
 
-/**
- * Validate and repair a parsed save.
- *
- * Fails only on structural problems — not an object, or a missing/invalid
- * schemaVersion. Everything else is repaired against defaults, with each repair
- * reported in `problems` so it can be logged.
- */
 export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
   const problems: string[] = []
 
@@ -405,14 +285,12 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
         : d.settings.colourblindPalette,
       textScale: Math.min(2, Math.max(0.75, num(settings.textScale, 1))),
       showFps: bool(settings.showFps, d.settings.showFps),
-      // A code this build does not ship — a language dropped, or a save from a
-      // build that had one more — falls back rather than showing keys.
+
       locale:
         typeof settings.locale === 'string' && localeByCode(settings.locale) !== undefined
           ? settings.locale
           : d.settings.locale,
-      // Repaired rather than validated field by field: a binding map is the
-      // one part of settings a player can put arbitrary strings into by hand.
+
       keybindings: normaliseBindings(settings.keybindings),
     },
     statistics: {
@@ -425,7 +303,6 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
     },
   }
 
-  // A player must always be able to enter the game.
   if (data.meta.unlockedZones.length === 0) {
     data.meta.unlockedZones = [STARTING_ZONE_ID]
     problems.push('No unlocked zones; restored the starting zone')

@@ -39,7 +39,7 @@ describe('fixed timestep', () => {
   it('runs whole ticks only', () => {
     sim.advance(TICK_SECONDS * 2.5)
     expect(sim.tickCount).toBe(2)
-    // The remainder is carried, not discarded.
+
     expect(sim.alpha).toBeGreaterThan(0)
   })
 
@@ -66,9 +66,6 @@ describe('fixed timestep', () => {
     expect(a.state.salvageEarned).toBeCloseTo(b.state.salvageEarned, 10)
     expect(a.totalContactKilled).toBe(b.totalContactKilled)
 
-    // Output is the sensitive signal: counts survive small timing jitter but
-    // damage taken does not. A stray Math.random() in spawn.ts hid behind the
-    // coarser assertions above until Phase 12.
     expect(a.state.sun.hp).toBe(b.state.sun.hp)
     expect(a.state.sun.lowestFraction).toBe(b.state.sun.lowestFraction)
   })
@@ -97,7 +94,7 @@ describe('fixed timestep', () => {
 describe('ring rotation', () => {
   it('advances every ring by its own period', () => {
     const before = state.rings.map((r) => r.phase)
-    // One second of simulation.
+
     for (let i = 0; i < 20; i++) sim.tick(TICK_SECONDS)
 
     state.rings.forEach((ring, i) => {
@@ -116,8 +113,6 @@ describe('ring rotation', () => {
 
 describe('rings are not controllable', () => {
   it('exposes no steering input at all', () => {
-    // Phase 10 playtest: steering was a dexterity test and violated P3.
-    // combat-spec.md §1 now forbids it outright, including via upgrades.
     expect((sim as unknown as Record<string, unknown>).nudge).toBeUndefined()
   })
 
@@ -192,19 +187,15 @@ describe('the Flare', () => {
     const target = state.contact[0]
     const before = target.hp
 
-    // Well beyond the radius.
     sim.strike(target.position.x + FLARE.radius * 4, target.position.y)
     expect(target.hp).toBe(before)
   })
 
   it('hits several Contact at once, which is why it has a radius', () => {
-    // Percussive is unfavourable against Massed; the blast is what keeps the
-    // one manual action satisfying against the commonest armour class.
     for (let i = 0; i < 80; i++) sim.tick(TICK_SECONDS)
     const cluster = state.contact.slice(0, 3)
     if (cluster.length < 2) return
 
-    // Move them together so a single strike covers them.
     const point = { x: cluster[0].position.x, y: cluster[0].position.y }
     for (const s of cluster) {
       s.position.x = point.x
@@ -216,7 +207,6 @@ describe('the Flare', () => {
   })
 
   it('never costs Output', () => {
-    // Its failure mode is damage not dealt, never damage taken.
     const before = state.sun.hp
     sim.strike(0, 0)
     expect(state.sun.hp).toBe(before)
@@ -228,7 +218,6 @@ describe('the Flare', () => {
   })
 
   it('is optional — a stage still clears without a single strike', () => {
-    // P1 held honestly: the machine really does run without you.
     const s2 = build()
     placePlatform(s2.state, platformById('anchor')!, 1, 0)
     placePlatform(s2.state, platformById('anchor')!, 1, 3)
@@ -244,7 +233,6 @@ describe('the Flare', () => {
   })
 
   it('reports the strike to the render layer even when it hits nothing', () => {
-    // An input with no feedback reads as a broken input.
     sim.strike(500, 500)
     expect(sim.lastStrike).not.toBeNull()
     expect(sim.lastStrike!.x).toBe(500)
@@ -267,7 +255,6 @@ describe('damage', () => {
   })
 
   it('stays a float rather than rounding', () => {
-    // Rounding in the simulation compounds badly across thousands of hits.
     const damage = computeDamage(7, 1, 'shear', 'seized', 13)
     expect(Number.isInteger(damage)).toBe(false)
   })
@@ -277,8 +264,6 @@ describe('formation bonuses', () => {
   const bolt = platformById('bolt')!
 
   it('gives the innermost ring a defence bonus and the outermost a range bonus', () => {
-    // Keyed on the derived bounds, not on the literal 1 and 3: adding an orbit
-    // must not silently move the range bonus onto an interior ring.
     const inner = placePlatform(state, bolt, INNERMOST_RING, 0)
     const outer = placePlatform(state, bolt, OUTERMOST_RING, 0)
     expect(inner.bonuses.defence).toBeGreaterThan(0)
@@ -305,7 +290,6 @@ describe('formation bonuses', () => {
   it('grants a full-ring bonus to every unit on it', () => {
     for (let slot = 0; slot < RINGS[0].slots; slot++) placePlatform(state, bolt, 1, slot)
     for (const platform of state.platforms) {
-      // Full ring (+8%) and both-neighbours (+10%).
       expect(platform.bonuses.attack).toBeCloseTo(0.18, 6)
     }
   })
@@ -334,7 +318,6 @@ describe('conjunction', () => {
   const bolt = platformById('bolt')!
 
   it('never counts two units on the same ring', () => {
-    // Same-ring units hold a fixed offset and would otherwise fire forever.
     placePlatform(state, bolt, 2, 0)
     placePlatform(state, bolt, 2, 1)
     for (let i = 0; i < 400; i++) {
@@ -344,7 +327,6 @@ describe('conjunction', () => {
   })
 
   it('detects units on different rings sharing an angle', () => {
-    // Slot 0 on every ring is angle 0 at phase 0 — aligned by construction.
     placePlatform(state, bolt, 1, 0)
     placePlatform(state, bolt, 2, 0)
     const found = findConjunctions(state)
@@ -368,8 +350,6 @@ describe('conjunction', () => {
   })
 
   it('does not fire the same alignment every tick', () => {
-    // The 6s per-slot-set cooldown is what stops a lingering alignment
-    // machine-gunning.
     placePlatform(state, bolt, 1, 0)
     placePlatform(state, bolt, 2, 0)
 
@@ -387,7 +367,6 @@ describe('conjunction', () => {
   })
 
   it('leaves ring phases untouched after previewing', () => {
-    // The preview simulates forward; it must not mutate the live state.
     placePlatform(state, bolt, 1, 1)
     placePlatform(state, bolt, 2, 4)
     const before = state.rings.map((r) => r.phase)
@@ -444,7 +423,6 @@ describe('stage progression', () => {
 
 describe('telegraphs', () => {
   it('never spawns a projectile without warning first', () => {
-    // combat-spec.md §5: a pattern that kills without warning is a bug.
     for (let i = 0; i < 60; i++) sim.tick(TICK_SECONDS)
 
     let sawTelegraph = false
@@ -471,9 +449,6 @@ describe('projectile budget', () => {
 
 describe('the orbits', () => {
   it('exposes every orbit through the derived bounds', () => {
-    // The five places that used to hardcode `3` now read these. If a new orbit
-    // is appended and these do not move, the outermost-ring range bonus and the
-    // radial reach cap both silently stay on the old outer ring.
     expect(INNERMOST_RING).toBe(RINGS[0].index)
     expect(OUTERMOST_RING).toBe(RINGS[RINGS.length - 1].index)
     expect(RINGS.some((r) => r.index === OUTERMOST_RING)).toBe(true)
@@ -483,8 +458,7 @@ describe('the orbits', () => {
     for (let i = 1; i < RINGS.length; i++) {
       expect(RINGS[i].radius, `orbit ${RINGS[i].index}`).toBeGreaterThan(RINGS[i - 1].radius)
     }
-    // Contacts spawn at the rim and move inward; an orbit outside it would
-    // never be crossed.
+
     expect(RINGS[RINGS.length - 1].radius).toBeLessThan(RIM_RADIUS)
   })
 
@@ -497,11 +471,6 @@ describe('ring period constraint', () => {
   const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b))
 
   it('keeps every pair of ring periods coprime', () => {
-    // Phase 10 finding: 8:14:22 reduces to 4:7:11, pairwise coprime, and that
-    // is the only reason alignments do not settle into a short repeating
-    // cycle. A retune that picks non-coprime periods would silently collapse
-    // conjunction into a metronome, with no other symptom. Guarded here so it
-    // cannot happen quietly.
     const periods = RINGS.map((r) => r.period)
 
     for (let i = 0; i < periods.length; i++) {
@@ -515,16 +484,9 @@ describe('ring period constraint', () => {
           gcd(reducedA, reducedB),
           `ring periods ${a} and ${b} share a cycle`,
         ).toBe(1)
-        // The reduced ratio must also not be tiny, or alignments repeat often.
+
         expect(Math.max(reducedA, reducedB), `${a}:${b} repeats too fast`).toBeGreaterThan(2)
-        /*
-         * And neither may divide the other. Found while choosing the fourth
-         * orbit's period: 8 and 32 pass every check above — they reduce to 1:4,
-         * which is coprime and larger than 2 — yet they are in exact 4:1
-         * lockstep and never drift apart at all. That is precisely the failure
-         * this block exists to catch, so the check was letting the worst case
-         * through under the guise of the best one.
-         */
+
         expect(Math.min(reducedA, reducedB), `${a}:${b} are in lockstep`).toBeGreaterThan(1)
       }
     }
@@ -532,13 +494,6 @@ describe('ring period constraint', () => {
 })
 
 describe('every damage path goes through the type matrix', () => {
-  /**
-   * Regression guard. Array projectiles and conjunction pulses originally
-   * applied raw damage, bypassing both the type multiplier and armour. That
-   * made "Arrays are always Resonant" (combat-spec.md §4) meaningless, since
-   * the entire reason they counter Erratic and struggle against Seized is the
-   * ×1.5 / ×0.75.
-   */
   function contactAt(s: Simulation, defId: string, x: number, y: number) {
     const instance = createContact(s.state, contactById(defId)!, { x, y })
     instance.velocity = { x: 0, y: 0 }
@@ -569,9 +524,8 @@ describe('every damage path goes through the type matrix', () => {
   }
 
   it('applies the Resonant advantage against Erratic Contact', () => {
-    // backlash is Erratic — Resonant is favourable (×1.5).
     const erratic = arrayShotDamage('lance')
-    // drift is Seized — Resonant is unfavourable (×0.75).
+
     const seized = arrayShotDamage('hulk')
 
     expect(erratic).toBeGreaterThan(0)
@@ -580,37 +534,30 @@ describe('every damage path goes through the type matrix', () => {
   })
 
   it('applies armour mitigation to Array shots', () => {
-    // drift is Seized (Resonant ×0.75) with 8 defence. The type multiplier
-    // alone would give 75; mitigation must take it below that.
     const damage = arrayShotDamage('hulk')
     expect(damage).toBeLessThan(75)
     expect(damage).toBeGreaterThan(60)
   })
 
   it('leaves a neutral, unarmoured target at face value', () => {
-    // burr is Massed with 0 defence, and Resonant vs Massed is neutral — so
-    // exactly 100 is the correct answer here, not evidence of a bypass.
     expect(arrayShotDamage('skiff')).toBeCloseTo(100, 5)
   })
 
   it('makes conjunction pulses type-sensitive too', () => {
-    // An off-type build must not be strictly better at conjunctions.
     function pulseDamage(defId: string): number {
       const s = build()
       s.state.platforms.length = 0
-      // bolt is Percussive; its conjunction effect is a damagePulse.
+
       placePlatform(s.state, platformById('bolt')!, 1, 0)
       placePlatform(s.state, platformById('bolt')!, 2, 0)
 
       const target = contactAt(s, defId, 90, 0)
       const before = target.hp
-      // Run long enough for the synergy pass to fire.
+
       for (let i = 0; i < 4; i++) s.tick(TICK_SECONDS)
       return before - target.hp
     }
 
-    // burr is Massed — Percussive is unfavourable (×0.75).
-    // backlash is Erratic — Percussive is neutral (×1.0).
     const massed = pulseDamage('skiff')
     const erratic = pulseDamage('lance')
 
@@ -620,17 +567,6 @@ describe('every damage path goes through the type matrix', () => {
 })
 
 describe('standing by', () => {
-  /*
-   * The between-state, asked for by a player: `wave-gap` is the only window the
-   * game gives you to rearrange a formation, it is a few seconds long, and it
-   * arrives on the Approach's schedule rather than yours. Standby is the same
-   * window with no clock on it.
-   *
-   * It behaves exactly like `cleared` inside the tick, which is the point —
-   * three phases wanting "the field is still there and completely still" take
-   * one door rather than three.
-   */
-
   it('stops time entirely', () => {
     sim.advance(1)
     const elapsed = state.elapsed

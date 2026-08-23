@@ -16,7 +16,6 @@ import { CONTACT } from '../src/lib/content/contacts'
 import { BUDGETS } from '../src/lib/content/budgets'
 import { SPAWN_RADIUS } from '../src/lib/content/field'
 
-/** Emitter out at the rim, firing at the Sun. */
 function context(overrides: Partial<PatternContext> = {}): PatternContext {
   return {
     origin: { x: 300, y: 0 },
@@ -31,13 +30,6 @@ function context(overrides: Partial<PatternContext> = {}): PatternContext {
 const speedOf = (v: { x: number; y: number }) => Math.hypot(v.x, v.y)
 const angleOf = (v: { x: number; y: number }) => Math.atan2(v.y, v.x)
 
-/**
- * Shortest signed angle between two bearings.
- *
- * Raw atan2 values cannot be compared directly: a shot aimed left is -π or +π
- * depending on the sign of a near-zero y, and a spread straddling π wraps so
- * max-min reports nearly 2π. Every angular assertion below goes through this.
- */
 function delta(a: number, b: number): number {
   let d = b - a
   while (d > Math.PI) d -= Math.PI * 2
@@ -45,13 +37,11 @@ function delta(a: number, b: number): number {
   return d
 }
 
-/** Angular span of a set of bearings, measured relative to their first. */
 function span(angles: number[]): number {
   const relative = angles.map((a) => delta(angles[0], a))
   return Math.max(...relative) - Math.min(...relative)
 }
 
-/** Does this velocity carry the projectile toward the origin? */
 function headingInward(spawn: { position: { x: number; y: number }; velocity: { x: number; y: number } }) {
   const toCentre = Math.atan2(-spawn.position.y, -spawn.position.x)
   let delta = angleOf(spawn.velocity) - toCentre
@@ -74,7 +64,6 @@ describe('patterns are pure', () => {
   })
 
   it('hand back fresh position objects, not shared references', () => {
-    // A shared object would make every projectile move as one.
     const spawns = ring(6, 100)(context())
     spawns[0].position.x = 9999
     expect(spawns[1].position.x).not.toBe(9999)
@@ -160,7 +149,6 @@ describe('wall', () => {
   })
 
   it('leaves the gap contiguous, not scattered', () => {
-    // A scattered gap is a guessing game; a contiguous one can be read.
     const spawns = wall(11, Math.PI / 2, 100, 3)(context({ emitterPhase: 0.7 }))
     const base = angleOf(spawns[0].velocity)
     const angles = spawns
@@ -196,7 +184,6 @@ describe('converge', () => {
   })
 
   it('centres the wedge on the emitter, so it reads as that Contact doing it', () => {
-    // A field-wide version would be unattributable — a legibility failure.
     const spawns = converge(7, Math.PI / 3, 90, SPAWN_RADIUS)(
       context({ origin: { x: 0, y: 300 } }),
     )
@@ -210,8 +197,6 @@ describe('converge', () => {
 
 describe('the telegraph floor is non-negotiable', () => {
   it('gives every pattern at least the minimum warning', () => {
-    // combat-spec.md §5: a pattern that can kill without warning is a bug, not
-    // a difficulty setting.
     for (const pattern of PATTERNS) {
       expect(pattern.telegraphMs, pattern.id).toBeGreaterThanOrEqual(MIN_TELEGRAPH_MS)
     }
@@ -226,8 +211,6 @@ describe('the telegraph floor is non-negotiable', () => {
 
 describe('tone: readable pressure, not danmaku', () => {
   it('keeps projectile speeds slow enough to read', () => {
-    // Rim to centre in roughly 2-4 s. Faster removes the reading window that
-    // makes the Flare a decision rather than a reflex.
     for (const pattern of PATTERNS) {
       for (const spawn of pattern.build(context())) {
         const speed = speedOf(spawn.velocity)
@@ -238,7 +221,6 @@ describe('tone: readable pressure, not danmaku', () => {
   })
 
   it('keeps emissions in single digits', () => {
-    // Pressure comes from several Contact on staggered cadences, not one curtain.
     for (const pattern of PATTERNS) {
       expect(pattern.build(context()).length, pattern.id).toBeLessThan(10)
     }
@@ -258,7 +240,6 @@ describe('content wiring', () => {
   })
 
   it('gives every pattern at least one user', () => {
-    // An unused pattern is untested configuration.
     const used = new Set(CONTACT.map((s) => s.patternId))
     for (const pattern of PATTERNS) {
       expect(used.has(pattern.id), `${pattern.id} has no user`).toBe(true)
@@ -271,15 +252,6 @@ describe('content wiring', () => {
   })
 })
 
-/**
- * The Phase 16 spread bug was one instance of a class: the same arc-spacing
- * calculation written out three times, wrong in two of them. `spread(1)` and
- * `converge(1)` aimed half an arc wide, and `wall(1)` divided by zero and
- * produced a NaN velocity — a projectile that would hold a pool slot without
- * ever moving, colliding, or leaving by the distance check.
- *
- * These test the class, not the instance.
- */
 describe('arc spacing is correct at every count', () => {
   const ARC = Math.PI / 2
 

@@ -48,8 +48,6 @@ describe('the tracer pool', () => {
   })
 
   it('discards overflow rather than growing', () => {
-    // A dropped tracer costs a shot nobody saw. Allocating on the hot path
-    // costs the frame — the same trade `systems/feed.ts` makes.
     for (let i = 0; i < 10; i++) tracers.emit(0, 0, 1, 1, 'percussive')
 
     expect(tracers.live).toBe(4)
@@ -72,7 +70,6 @@ describe('Platform attacks draw a shot', () => {
     sim.state.tracers.clear()
   })
 
-  /** A Contact parked right on top of the first fielded Platform. */
   function targetFor(hp: number): ContactInstance {
     const at = platformPosition(sim.state, sim.state.platforms[0])
     const contact = createContact(sim.state, contactById('skiff')!, { x: at.x, y: at.y })
@@ -127,15 +124,8 @@ describe('Platform attacks draw a shot', () => {
   })
 
   it('draws nothing for an attack whose target died earlier in the tick', () => {
-    /*
-     * Two Platforms, one Contact that the first shot kills. The second attack is
-     * skipped by `resolvePlatformAttacks`, and a tracer for it would be a bolt
-     * drawn into a corpse — the reason tracers are emitted at resolution rather
-     * than where ai.ts queues the attack.
-     */
     fieldBolt()
-    // On ring 1, on the same bearing: its radialReach of 1 covers ring 2, so
-    // both units queue an attack on the same Contact.
+
     placePlatform(sim.state, platformById('bolt')!, 1, 0, 1)
     targetFor(1)
 
@@ -148,8 +138,6 @@ describe('Platform attacks draw a shot', () => {
   })
 
   it('does not change what the attack does', () => {
-    // The whole design constraint: damage stays instant, and Phase 35's
-    // measured clear rates stay measured. A tracer is presentation.
     fieldBolt()
     const contact = targetFor(1e6)
     const before = contact.hp

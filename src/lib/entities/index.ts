@@ -1,13 +1,3 @@
-/**
- * Barrel for entity types.
- *
- * This is the one barrel in the codebase. Entity types are imported almost
- * everywhere, so a single entry point earns its keep here; elsewhere barrels
- * mostly add import cycles and defeat tree-shaking, so systems/, progression/
- * and content/ are imported directly by module. See CLAUDE.md.
- *
- * Type-only re-exports, so this file contributes nothing to the bundle.
- */
 
 export type {
   ArmourClass,
