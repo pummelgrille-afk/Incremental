@@ -19,11 +19,11 @@ Output: `src/lib/i18n/` (catalogue, translator, pseudolocale, budgets),
 
 ## What moved
 
-535 strings, in two halves that are kept apart on purpose.
+542 strings, in two halves that are kept apart on purpose.
 
 | | Chrome | Content |
 |---|---|---|
-| Count | 257 | 278 |
+| Count | 264 | 278 |
 | Was | Typed into 23 templates | Authored in `content/*.ts` |
 | Is | `i18n/en/*.ts`, seven files by surface | Still in `content/*.ts` |
 | Keyed by | `hud.paused.title` | `platform.bolt.name`, derived from the id |
@@ -45,7 +45,7 @@ PLAN.md asks this phase to QA overflow "across languages", and there is exactly
 one language. So the QA language is generated: `LOCALES` gives `qa` a
 `transform` instead of messages, applied to the English source at lookup time.
 
-The consequence is the point. It covers all 535 strings — including the 278 in
+The consequence is the point. It covers all 542 strings — including the 278 in
 `content/`, which no hand-written QA file would have kept in step — and it costs
 no bytes. The same argument as the starfield, the particles and the score
 (`art-style.md` §8): *generated beats authored, where a rule can do the job.*

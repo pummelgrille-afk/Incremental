@@ -15,7 +15,7 @@ the localization pipeline. Phase 45 (full QA pass) opens Stage 7.
 
 ## What was just built — Phase 44, the localization pipeline
 
-535 strings, none of which could be changed without editing a component.
+542 strings, none of which could be changed without editing a component.
 
 | Built | Key files |
 |-------|-----------|
@@ -25,7 +25,7 @@ the localization pipeline. Phase 45 (full QA pass) opens Stage 7.
 | A translator's stub, written through Vite | `tools/i18n-extract.mjs` |
 | 28 checks, including two that measure a screen | `tests/i18n.test.ts` |
 
-**Text lives in two halves, and content English did not move.** Chrome — 257
+**Text lives in two halves, and content English did not move.** Chrome — 264
 labels, banners and hints — is now `i18n/en/*.ts`, keyed and compiler-checked.
 The 278 names and descriptions in `content/` stayed where they were authored,
 beside the tuning, and a translation *overrides* them by a key derived from the
@@ -37,7 +37,7 @@ half-translated game rather than a broken one.
 one this phase QAs against is generated: `qa` is a `transform` applied to the
 English source at lookup time, expanding hardest on the shortest strings and
 wrapping every message in `⟦…⟧` so a clipped string reads as a missing bracket.
-It therefore covers all 535 strings, `content/` included, and cannot fall out of
+It therefore covers all 542 strings, `content/` included, and cannot fall out of
 step with any of them. Same argument as the starfield and the score.
 
 Running the game in it found four things:
