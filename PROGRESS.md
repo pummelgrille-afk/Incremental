@@ -5,15 +5,72 @@ State of the build, kept short enough to stay true. `PLAN.md` is the roadmap,
 `docs/phases/phase-N.md` is what each phase actually did. This file is the map
 between them.
 
-**Where we are:** Phases 1–43 done. Stages 1–5 complete; Stage 6 (UI/UX &
-Accessibility) is under way — Phase 44 (localization) is next.
+**Where we are:** Phases 1–44 done. Stages 1–6 complete — Stage 6 closed with
+the localization pipeline. Phase 45 (full QA pass) opens Stage 7.
 
-**Health:** 1070 tests across 46 files, `npm run check` clean, production build
-890 KB with every sprite inlined. Save schema 8.
+**Health:** 1098 tests across 47 files, `npm run check` clean, production build
+904 KB with every sprite inlined. Save schema 8.
 
 ---
 
-## What was just built — Phase 43, menus, settings, accessibility
+## What was just built — Phase 44, the localization pipeline
+
+535 strings, none of which could be changed without editing a component.
+
+| Built | Key files |
+|-------|-----------|
+| The catalogue and the translator, framework-free | `src/lib/i18n/` |
+| The one rune a language change hangs on | `src/lib/stores/i18n.svelte.ts` |
+| A sentence with a keycap inside it | `src/lib/ui/T.svelte` |
+| A translator's stub, written through Vite | `tools/i18n-extract.mjs` |
+| 28 checks, including two that measure a screen | `tests/i18n.test.ts` |
+
+**Text lives in two halves, and content English did not move.** Chrome — 257
+labels, banners and hints — is now `i18n/en/*.ts`, keyed and compiler-checked.
+The 278 names and descriptions in `content/` stayed where they were authored,
+beside the tuning, and a translation *overrides* them by a key derived from the
+id. Hoisting them would have turned every content file into a list of ids.
+Both halves fall back per key, so a half-finished translation is a
+half-translated game rather than a broken one.
+
+**The QA language is a rule, not a table.** There is only one language, so the
+one this phase QAs against is generated: `qa` is a `transform` applied to the
+English source at lookup time, expanding hardest on the shortest strings and
+wrapping every message in `⟦…⟧` so a clipped string reads as a missing bracket.
+It therefore covers all 535 strings, `content/` included, and cannot fall out of
+step with any of them. Same argument as the starfield and the score.
+
+Running the game in it found four things:
+
+- **The palette row went through the side of its dialog.** `Choice` was four
+  nowrap options in a fixed-width modal — it fit English and nothing else. It
+  wraps now, which is the fix; a budget would only have said how close we were.
+- **Three sidebar tabs were quietly renamed** by reaching for the panel titles:
+  "Almanac" became "The Almanac" on the six labels with the least room in the
+  game.
+- **Five keycaps were still hardcoded letters** — `T`, `F`, two `R`s and an
+  `Esc` — the thing Phase 43 fixed in the HUD and missed in the panels.
+- **`App.svelte` held the string with the worst ratio of importance to
+  visibility**: the sentence shown when the game refuses to start, in a file the
+  `ui/` sweep did not cover.
+
+**The locale is an argument, not a read for effect.** The first version had
+`void state.code` at the top of `t()`; it works, and it reads as dead code that
+somebody deletes, after which the game is fine until a player changes language.
+Every function in `translate.ts` comes in a pair now — `translateIn(locale, …)`
+for components, and a bare form for `core/save.ts`, which builds an `Error` and
+has nothing to be reactive to.
+
+**A refusal carries a key, not a sentence.** `SaveImportError` takes a
+`MessageKey`; `TRACK_COPY` is gone from `progression/support.ts`. Nothing under
+`core/` or `progression/` may name anything, because neither knows what language
+is on screen, and the test looks for the shape rather than the name.
+
+→ `docs/design/i18n.md`, `docs/phases/phase-44.md`
+
+---
+
+## What came before — Phase 43, menus, settings, accessibility
 
 The settings screen, the menu, the pause, and the four accessibility settings
 that had been dead configuration since Phase 8.
@@ -92,7 +149,7 @@ Salvage, and an upgrade must not be a cheaper repair.
 
 ---
 
-## What came before — Phase 42, HUD & core UI
+## The phase before that — Phase 42, HUD & core UI
 
 The shared UI layer the eight existing screens should always have been built on,
 plus the gain/loss readouts PLAN.md asks for at this phase.
@@ -241,6 +298,13 @@ tell you when something is too loud.
 
 ### Verification we cannot do here
 
+- [ ] **Watch the language change with the game running.** The Browser pane this
+      project is driven from does not composite frames, so Svelte's DOM effects
+      never flush — a plain write to `game.output` does not move the HUD either.
+      Components mounted *after* a switch were confirmed to render in the new
+      language, and the overflow audit was measured in the pseudolocale, but the
+      redraw-on-switch path is argued from the code rather than observed.
+
 - [ ] **Playtest onboarding with new users.** Phase 36's open checklist item.
       The card pacing is traced through a real run by test; whether the copy
       lands, and whether nine cards is two too many, needs people.
@@ -285,10 +349,11 @@ src/lib/core/                loop, save, stageLoader, render, audio, and the
 src/lib/stores/              the only bridge into Svelte
 src/lib/ui/                  Svelte components; they decide nothing
 src/lib/ui/primitives/       the shared set those are built from
-tests/                       46 files; support/playthrough.ts drives whole runs
+src/lib/i18n/                the catalogue, the translator, the QA language
+tests/                       47 files; support/playthrough.ts drives whole runs
 ```
 
-Four boundaries that must not erode, all in `docs/architecture.md`:
+Five boundaries that must not erode, all in `docs/architecture.md`:
 
 1. Nothing under `core/`, `systems/`, `entities/` or `content/` imports Svelte,
    Pixi or a browser API — except the two output files named above.
@@ -298,6 +363,9 @@ Four boundaries that must not erode, all in `docs/architecture.md`:
 4. No component registers a window `keydown` handler. `bootstrap.ts` routes
    every key, including Escape, because it is the only place that knows what is
    open. See `docs/design/ui-spec.md` §7.
+5. No component types English into its markup — text node or `title=` alike —
+   and none reads the language through `i18n/` rather than through `stores/`.
+   See `docs/design/i18n.md`.
 
 ---
 
@@ -305,9 +373,10 @@ Four boundaries that must not erode, all in `docs/architecture.md`:
 
 ```bash
 npm run dev          # http://localhost:5173 — note: localhost, not 127.0.0.1
-npm test             # 1070 tests
+npm test             # 1098 tests
 npm run check        # svelte-check + tsc
 npm run build
+npm run i18n:extract -- de Deutsch    # a translator's stub for a new language
 ```
 
 Audio needs one click on the field before the browser will start it — that is

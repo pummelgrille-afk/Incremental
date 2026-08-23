@@ -1,5 +1,6 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
+  import { content, t } from '../stores/i18n.svelte'
   import Button from './primitives/Button.svelte'
   import Kbd from './primitives/Kbd.svelte'
 
@@ -34,18 +35,18 @@
 {#if card}
   <aside class="card" aria-live="polite">
     <header>
-      <span class="label">The Manual</span>
+      <span class="label">{t('term.manual')}</span>
       {#if card.key}<span class="key"><Kbd>{card.key}</Kbd></span>{/if}
     </header>
 
-    <h3>{card.name}</h3>
-    <p>{card.description}</p>
+    <h3>{content('tutorial', card.id, 'name', card.name)}</h3>
+    <p>{content('tutorial', card.id, 'description', card.description)}</p>
 
     <footer>
       {#if game.tutorialQueue.length > 1}
-        <span class="more">{game.tutorialQueue.length - 1} more</span>
+        <span class="more">{t('tutorial.more', { count: game.tutorialQueue.length - 1 })}</span>
       {/if}
-      <span class="act"><Button small onclick={dismiss}>Understood</Button></span>
+      <span class="act"><Button small onclick={dismiss}>{t('common.dismiss')}</Button></span>
     </footer>
   </aside>
 {/if}

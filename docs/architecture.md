@@ -212,6 +212,7 @@ The rule from `CLAUDE.md`, made concrete:
 │  src/lib/systems/  combat, ai, spawn, collision, synergy │
 │  src/lib/entities/ Movement, Chime, Slack, Projectile    │
 │  src/lib/content/  typed data                            │
+│  src/lib/i18n/     the catalogue and the translator      │
 │         │ plain TypeScript — imports no framework        │
 │         ▼ read by                                        │
 │  src/lib/core/render.ts     Pixi scene, one canvas       │
@@ -221,8 +222,8 @@ The rule from `CLAUDE.md`, made concrete:
 
 **Three rules that must not erode:**
 
-1. Nothing under `core/`, `systems/`, `entities/` or `content/` imports Svelte,
-   Pixi *or* a browser API. Those modules must stay runnable in a plain Vitest
+1. Nothing under `core/`, `systems/`, `entities/`, `content/` or `i18n/` imports
+   Svelte, Pixi *or* a browser API. Those modules must stay runnable in a plain Vitest
    process with no DOM — that is what makes combat math and prestige logic
    testable in Phase 45.
 

@@ -1,10 +1,14 @@
 <script lang="ts">
   import { game, type RosterView } from '../stores/game.svelte'
   import { RIM_MOUNTS, RIM_RADIUS, RINGS } from '../content/field'
+  import type { ActionId } from '../content/keybindings'
+  import { bindingLabel } from '../core/keybindings'
+  import { content, t } from '../stores/i18n.svelte'
   import Overlay from './primitives/Overlay.svelte'
   import Button from './primitives/Button.svelte'
   import Kbd from './primitives/Kbd.svelte'
   import Tooltip from './primitives/Tooltip.svelte'
+  import T from './T.svelte'
 
   /**
    * The formation editor.
@@ -28,6 +32,9 @@
 
   const CENTRE = 250
   const MOUNT_RADIUS = 232
+
+  /* The hint reads the player's actual binding, as the HUD has since Phase 43. */
+  const keyLabel = (action: ActionId) => bindingLabel(game.keybindings[action] ?? '')
 
   /*
    * Editor radii are the field's own radii, scaled to fit the box — not a
@@ -116,14 +123,21 @@
     else if (held.kind === 'mount') game.formationActions?.unmount(held.mount)
   }
 
-  const REFUSAL_TEXT: Record<string, string> = {
-    occupied: 'That slot is taken.',
-    'not-unlocked': 'Not unlocked yet — buy it with Clearance first.',
-    unaffordable: 'Not enough to pay for that.',
-    'invalid-slot': 'No such slot.',
-    'preset-limit': 'No preset slots left. Delete one first.',
-    partial: 'Some of that preset could not be fielded.',
-  }
+  /**
+   * A refusal reason is an id from `progression/`, not a sentence.
+   *
+   * The set is closed, so the lookup is a key rather than a map of English —
+   * and the fallback prints the raw reason, which is a visible bug rather than
+   * a blank line if a new reason ever arrives without its copy.
+   */
+  const REFUSAL_KEYS = new Set([
+    'occupied', 'not-unlocked', 'unaffordable', 'invalid-slot', 'preset-limit', 'partial',
+  ])
+
+  const refusalText = (reason: string): string =>
+    REFUSAL_KEYS.has(reason)
+      ? t(`formation.refusal.${reason}` as 'formation.refusal.occupied')
+      : reason
 
   // --- Presets. ------------------------------------------------------------
 
@@ -160,35 +174,49 @@
     inspecting = { unit, anchor: row.getBoundingClientRect() }
   }
 
-  const ROLE_COPY: Record<string, string> = {
-    tank: 'Tank — soaks hits and blocks the widest arc.',
-    damage: 'Damage — its whole case is the number it puts out.',
-    support: 'Support — improves what the rest of the formation does.',
-    control: 'Control — slows, disables and buys the line time.',
-  }
+  /*
+   * Three unions from `entities/types.ts`, spelled out for the card.
+   *
+   * The labels are in `i18n/en/terms.ts` rather than here: an enum member is
+   * not a label, and this file was the third place turning one into English by
+   * hand. The sets guard the lookup — an unmapped member prints as itself,
+   * which is visible, rather than as an empty phrase, which is not.
+   */
+  const ROLES = new Set(['tank', 'damage', 'support', 'control'])
+  const TARGETINGS = new Set(['nearest', 'lowestHp', 'highestThreat', 'deepest', 'none'])
+  const CONJUNCTIONS = new Set(['damagePulse', 'shield', 'haste', 'repair'])
+  const DAMAGE_TYPES = new Set(['shear', 'percussive', 'thermal', 'resonant'])
 
-  const TARGETING_COPY: Record<string, string> = {
-    nearest: 'shoots whatever is closest',
-    lowestHp: 'finishes the most wounded',
-    highestThreat: 'answers the biggest threat',
-    deepest: 'takes whatever is furthest in',
-    none: 'never attacks',
-  }
+  const roleCopy = (role: string): string =>
+    ROLES.has(role) ? t(`role.${role}.copy` as 'role.tank.copy') : role
 
-  const CONJUNCTION_COPY: Record<string, string> = {
-    damagePulse: 'a damage pulse across the field',
-    shield: 'a shield on itself',
-    haste: 'attack speed on itself',
-    repair: 'repairs on every participant',
-  }
+  const targetingCopy = (policy: string): string =>
+    TARGETINGS.has(policy) ? t(`targeting.${policy}` as 'targeting.nearest') : policy
+
+  const conjunctionCopy = (kind: string): string =>
+    CONJUNCTIONS.has(kind) ? t(`conjunction.${kind}` as 'conjunction.shield') : kind
+
+  const damageTypeName = (type: string): string =>
+    DAMAGE_TYPES.has(type) ? t(`damage-type.${type}` as 'damage-type.shear') : type
+
+  /**
+   * A unit's name, translated if this language has it.
+   *
+   * The view carries the id *and* the authored English, so this is a lookup
+   * with a guaranteed fallback: a language that has translated the chrome and
+   * none of the units reads as English unit names in a translated editor,
+   * rather than as a column of ids.
+   */
+  const unitName = (kind: 'platform' | 'array', id: string, english: string): string =>
+    content(kind, id, 'name', english)
 
   /** One decimal for the small numbers, none for the large ones. */
   const stat = (value: number) => (value >= 10 ? Math.round(value) : value.toFixed(1))
 
-  const PAIRING_COPY = {
-    matched: 'One damage type throughout. Conjunction effects are amplified.',
-    interference: 'Opposed types aligned. Effects are weaker but reach further.',
-    mixed: 'No amplification either way. Conjunction effects are unmodified.',
+  const PAIRING_KEYS = {
+    matched: 'pairing.matched',
+    interference: 'pairing.interference',
+    mixed: 'pairing.mixed',
   } as const
 
   const countdown = $derived(
@@ -198,10 +226,10 @@
 
 <Overlay
   {open}
-  title="Formation"
+  title={t('term.formation')}
   balances={[
-    { label: 'Salvage', value: game.salvage },
-    { label: 'Clearance', value: game.clearance },
+    { label: t('term.salvage'), value: game.salvage },
+    { label: t('term.clearance'), value: game.clearance },
   ]}
   ondragover={(e) => e.preventDefault()}
   ondrop={(e) => {
@@ -210,7 +238,9 @@
   }}
 >
   {#snippet hint()}
-    <Kbd>F</Kbd> to close · drag a unit onto a slot
+    <T key="formation.hint">
+      {#snippet close()}<Kbd>{keyLabel('formation')}</Kbd>{/snippet}
+    </T>
   {/snippet}
 
     <section class="field">
@@ -222,7 +252,7 @@
             style:height="{editorRadius(ring.radius) * 2}px"
           ></div>
         {/each}
-        <div class="sun">Sun</div>
+        <div class="sun">{t('term.sun')}</div>
 
         {#each slotPositions as pos (pos.ring + ':' + pos.slot)}
           {@const unit = occupied.get(`${pos.ring}:${pos.slot}`)}
@@ -236,7 +266,13 @@
             role="button"
             tabindex="0"
             draggable={unit !== undefined}
-            title="Ring {pos.ring}, slot {pos.slot}{unit ? ` — ${unit.name}` : ''}"
+            title={unit
+              ? t('formation.slot.occupied', {
+                  ring: pos.ring,
+                  slot: pos.slot,
+                  unit: unitName('platform', unit.defId, unit.name),
+                })
+              : t('formation.slot', { ring: pos.ring, slot: pos.slot })}
             ondragstart={() => {
               if (unit) carried = { kind: 'slot', ring: pos.ring, slot: pos.slot, defId: unit.defId }
             }}
@@ -257,7 +293,9 @@
             }}
           >
             {#if unit}
-              <span class="initial">{unit.name.slice(0, 2)}</span>
+              <span class="initial">
+                {unitName('platform', unit.defId, unit.name).slice(0, 2)}
+              </span>
               {#if unit.level > 1}<span class="lvl">{unit.level}</span>{/if}
             {/if}
           </div>
@@ -275,7 +313,12 @@
             role="button"
             tabindex="0"
             draggable={array !== undefined}
-            title="Rim mount {pos.mount}{array ? ` — ${array.name}` : ''}"
+            title={array
+              ? t('formation.mount.occupied', {
+                  mount: pos.mount,
+                  unit: unitName('array', array.defId, array.name),
+                })
+              : t('formation.mount', { mount: pos.mount })}
             ondragstart={() => {
               if (array) carried = { kind: 'mount', mount: pos.mount, defId: array.defId }
             }}
@@ -295,18 +338,23 @@
               }
             }}
           >
-            {#if array}<span class="initial">{array.name.slice(0, 2)}</span>{/if}
+            {#if array}
+              <span class="initial">
+                {unitName('array', array.defId, array.name).slice(0, 2)}
+              </span>
+            {/if}
           </div>
         {/each}
       </div>
 
       <p class="costs">
-        Next Platform slot <strong>{game.nextSlotCost}</strong> ·
-        next Array mount <strong>{game.nextMountCost}</strong> Salvage.
-        Moving a unit is free; taking one off refunds in full.
+        <T key="formation.costs">
+          {#snippet slot()}<strong>{game.nextSlotCost}</strong>{/snippet}
+          {#snippet mount()}<strong>{game.nextMountCost}</strong>{/snippet}
+        </T>
       </p>
       {#if game.lastRefusal}
-        <p class="refusal">{REFUSAL_TEXT[game.lastRefusal] ?? game.lastRefusal}</p>
+        <p class="refusal">{refusalText(game.lastRefusal)}</p>
       {/if}
     </section>
 
@@ -314,17 +362,23 @@
       <!-- The synergy preview, kept from Phase 18. It belongs beside the
            editor: this is the information you plan an arrangement with. -->
       <div class="synergy">
-        <span class="label">Next conjunction</span>
+        <span class="label">{t('formation.conjunction')}</span>
         {#if countdown === null}
-          <span class="value none">none scheduled</span>
-          <p class="note">Needs two Platforms on <em>different</em> rings.</p>
+          <span class="value none">{t('formation.conjunction.none')}</span>
+          <p class="note">
+            <T key="formation.conjunction.needs">
+              {#snippet different()}
+                <em>{t('formation.conjunction.needs.emphasis')}</em>
+              {/snippet}
+            </T>
+          </p>
         {:else}
-          <span class="value">{countdown}s</span>
-          <p class="note">{PAIRING_COPY[game.pairing]}</p>
+          <span class="value">{t('formation.conjunction.seconds', { seconds: countdown })}</span>
+          <p class="note">{t(PAIRING_KEYS[game.pairing])}</p>
         {/if}
       </div>
 
-      <h3>Roster</h3>
+      <h3>{t('formation.roster')}</h3>
       <ul class="roster">
         {#each [...game.platformRoster, ...game.arrayRoster] as unit (unit.kind + unit.id)}
           {@const fieldCost = unit.kind === 'array' ? game.nextMountCost : game.nextSlotCost}
@@ -342,8 +396,10 @@
             onfocusout={() => (inspecting = null)}
           >
             <span class="name">
-              {unit.name}
-              {#if unit.kind === 'array'}<span class="kind">array</span>{/if}
+              {unitName(unit.kind, unit.id, unit.name)}
+              {#if unit.kind === 'array'}
+                <span class="kind">{t('formation.kind.array')}</span>
+              {/if}
             </span>
 
             {#if unit.unlocked}
@@ -355,73 +411,82 @@
               <span
                 class="fieldcost"
                 class:short={game.salvage < fieldCost}
-                title="Fielding this costs {fieldCost} Salvage — the price of your next {unit.kind ===
-                'array'
-                  ? 'rim mount'
-                  : 'ring slot'}. Moving a fielded unit is free."
+                title={t('formation.field-cost', {
+                  cost: fieldCost,
+                  slot: t(
+                    unit.kind === 'array'
+                      ? 'formation.field-cost.mount'
+                      : 'formation.field-cost.slot',
+                  ),
+                })}
               >
                 {fieldCost}
               </span>
-              <span class="level">lv {unit.level}</span>
+              <span class="level">{t('common.level', { level: unit.level })}</span>
               {#if unit.atMaxLevel}
-                <span class="maxed">max</span>
+                <span class="maxed">{t('common.max')}</span>
               {:else}
                 <Button
                   small
                   disabled={!unit.canLevel}
-                  title="Level up for {unit.levelCost} Clearance"
+                  title={t('formation.level-up', { cost: unit.levelCost ?? 0 })}
                   onclick={() => game.formationActions?.levelUp(unit.kind, unit.id)}
                 >
-                  +{unit.levelCost}
+                  {t('formation.plus', { cost: unit.levelCost ?? 0 })}
                 </Button>
               {/if}
             {:else}
               <Button
                 small
                 disabled={!unit.canUnlock}
-                title="Unlock for {unit.unlockCost} Clearance"
+                title={t('formation.unlock', { cost: unit.unlockCost })}
                 onclick={() => game.formationActions?.unlock(unit.kind, unit.id)}
               >
-                {unit.unlockCost} Clearance
+                {t('formation.unlock.price', { cost: unit.unlockCost })}
               </Button>
             {/if}
           </li>
         {/each}
       </ul>
 
-      <h3>Arrays</h3>
+      <h3>{t('formation.arrays')}</h3>
       <!-- Arrays are *shaped*, not levelled: burst, sustain or punch, pulling
            against each other for the same Clearance. combat-spec.md §4. -->
       <ul class="support">
         {#each game.supportRoster as array (array.id)}
           <li class="unit" class:locked={!array.unlocked}>
-            <span class="name">{array.name}</span>
+            <span class="name">{unitName('array', array.id, array.name)}</span>
             {#if array.unlocked}
               <span class="stats">
-                {array.stats.maxCharge} charge · {array.stats.chargeInterval}s
+                {t('formation.array.stats', {
+                  charge: array.stats.maxCharge,
+                  interval: array.stats.chargeInterval,
+                })}
               </span>
             {:else}
-              <span class="stats">locked</span>
+              <span class="stats">{t('formation.array.locked')}</span>
             {/if}
           </li>
           {#if array.unlocked}
             {#each array.tracks as track (track.track)}
               <li class="track">
                 <span class="name">
-                  {track.name}
-                  <span class="kind">{track.effect}</span>
+                  {t(`track.${track.track}` as 'track.capacity')}
+                  <span class="kind">
+                    {t(`track.${track.track}.effect` as 'track.capacity.effect')}
+                  </span>
                 </span>
                 <span class="level">{track.level}/{track.maxLevel}</span>
                 {#if track.atMax}
-                  <span class="maxed">max</span>
+                  <span class="maxed">{t('common.max')}</span>
                 {:else}
                   <Button
                     small
                     disabled={!track.affordable}
-                    title="{track.cost} Clearance"
+                    title={t('formation.track.price', { cost: track.cost ?? 0 })}
                     onclick={() => game.formationActions?.buyTrack(array.id, track.track)}
                   >
-                    +{track.cost}
+                    {t('formation.plus', { cost: track.cost ?? 0 })}
                   </Button>
                 {/if}
               </li>
@@ -430,36 +495,38 @@
         {/each}
       </ul>
 
-      <h3>Presets</h3>
+      <h3>{t('formation.presets')}</h3>
       <div class="preset-new">
         <input
           bind:value={presetName}
-          placeholder="Name this arrangement"
+          placeholder={t('formation.preset.name')}
           maxlength="24"
           onkeydown={(e) => {
             if (e.key === 'Enter') commitPreset()
           }}
         />
         <Button small onclick={commitPreset} disabled={presetName.trim().length === 0}>
-          Save
+          {t('common.save')}
         </Button>
       </div>
       <ul class="presets">
         {#each game.presetNames as name (name)}
           <li>
             <span class="name">{name}</span>
-            <Button small onclick={() => game.formationActions?.loadPreset(name)}>Field</Button>
+            <Button small onclick={() => game.formationActions?.loadPreset(name)}>
+              {t('formation.preset.field')}
+            </Button>
             <Button
               variant="ghost"
               small
-              aria-label="Delete {name}"
+              aria-label={t('common.delete', { name })}
               onclick={() => game.formationActions?.deletePreset(name)}
             >
               ✕
             </Button>
           </li>
         {:else}
-          <li class="empty">Saved arrangements survive a Rewind.</li>
+          <li class="empty">{t('formation.preset.empty')}</li>
         {/each}
       </ul>
     </aside>
@@ -468,34 +535,43 @@
       {@const unit = inspecting.unit}
       <Tooltip anchor={inspecting.anchor} width={CARD_WIDTH}>
         <span class="card-kind">
-          {unit.kind === 'array' ? 'Array · rim mount' : 'Platform · ring slot'} ·
-          {unit.profile.damageType}
+          {t(unit.kind === 'array' ? 'card.array' : 'card.platform')} ·
+          {damageTypeName(unit.profile.damageType)}
         </span>
-        <h4>{unit.name}{#if unit.unlocked}<span class="level">lv {unit.level}</span>{/if}</h4>
-        <p class="card-role">{ROLE_COPY[unit.profile.role] ?? unit.profile.role}</p>
-        <p class="card-voice">{unit.profile.description}</p>
+        <h4>
+          {unitName(unit.kind, unit.id, unit.name)}{#if unit.unlocked}<span class="level">
+              {t('common.level', { level: unit.level })}
+            </span>{/if}
+        </h4>
+        <p class="card-role">{roleCopy(unit.profile.role)}</p>
+        <p class="card-voice">
+          {content(unit.kind, unit.id, 'description', unit.profile.description)}
+        </p>
 
         <ul class="statline">
-          <li><span>Attack</span><span>{stat(unit.profile.attack)}</span></li>
-          <li><span>Every</span><span>{unit.profile.interval.toFixed(1)}s</span></li>
-          <li><span>Integrity</span><span>{stat(unit.profile.maxHp)}</span></li>
-          <li><span>Defence</span><span>{stat(unit.profile.defence)}</span></li>
+          <li><span>{t('card.attack')}</span><span>{stat(unit.profile.attack)}</span></li>
+          <li>
+            <span>{t('card.interval')}</span>
+            <span>{t('card.seconds', { seconds: unit.profile.interval.toFixed(1) })}</span>
+          </li>
+          <li><span>{t('card.integrity')}</span><span>{stat(unit.profile.maxHp)}</span></li>
+          <li><span>{t('card.defence')}</span><span>{stat(unit.profile.defence)}</span></li>
         </ul>
 
         <p class="card-note">
-          It {TARGETING_COPY[unit.profile.targeting] ?? unit.profile.targeting}.
+          {t('card.targeting', { behaviour: targetingCopy(unit.profile.targeting) })}
           {#if unit.profile.conjunction}
-            In a conjunction it contributes {CONJUNCTION_COPY[unit.profile.conjunction.kind] ??
-              unit.profile.conjunction.kind}.
+            {t('card.conjunction', {
+              effect: conjunctionCopy(unit.profile.conjunction.kind),
+            })}
           {:else}
-            Arrays never join a conjunction.
+            {t('card.no-conjunction')}
           {/if}
         </p>
 
         {#if !unit.unlocked}
           <p class="card-note card-locked">
-            Locked. {unit.unlockCost} Clearance to add it to the roster; the stats above
-            are what it opens at.
+            {t('card.locked', { cost: unit.unlockCost })}
           </p>
         {/if}
       </Tooltip>

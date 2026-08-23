@@ -1,5 +1,6 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
+  import { content, t } from '../stores/i18n.svelte'
 
   /**
    * Announces newly earned achievements.
@@ -45,9 +46,11 @@
        on the wrapper is what announces it to a screen reader. -->
   <div class="live" role="status" aria-live="polite">
     <button class="toast" onclick={next}>
-      <span class="label">Noted</span>
-      <strong>{current.name}</strong>
-      <span class="what">{current.description}</span>
+      <span class="label">{t('toast.label')}</span>
+      <strong>{content('achievement', current.id, 'name', current.name)}</strong>
+      <span class="what">
+        {content('achievement', current.id, 'description', current.description)}
+      </span>
     </button>
   </div>
 {/if}

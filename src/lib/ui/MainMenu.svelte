@@ -3,10 +3,12 @@
   import { game } from '../stores/game.svelte'
   import { bindingLabel } from '../core/keybindings'
   import { compact } from '../utils/format'
+  import { content, t } from '../stores/i18n.svelte'
   import Modal from './primitives/Modal.svelte'
   import Button from './primitives/Button.svelte'
   import Stat from './primitives/Stat.svelte'
   import Kbd from './primitives/Kbd.svelte'
+  import T from './T.svelte'
 
   /**
    * The menu, on Escape.
@@ -62,22 +64,30 @@
     bindingLabel(game.keybindings[action] ?? '')
 </script>
 
-<Modal {open} title="The Perihelion" label="Menu" width="27rem" onclose={close}>
+<Modal
+  {open}
+  title={t('term.perihelion')}
+  label={t('menu.label')}
+  width="27rem"
+  onclose={close}
+>
   {#snippet sub()}
-    paused
+    {t('menu.sub')}
   {/snippet}
 
   <div class="where">
-    <Stat label="Shift" tone="quiet">
-      {game.zoneName || '—'}{game.stageName ? ` · ${game.stageName}` : ''}
+    <Stat label={t('menu.shift')} tone="quiet">
+      {game.zoneName ? content('zone', game.zoneId, 'name', game.zoneName) : '—'}{game.stageName
+        ? ` · ${content('stage', game.stageAddress, 'name', game.stageName)}`
+        : ''}
     </Stat>
-    <Stat label="Salvage" tone="quiet">{compact(game.salvage)}</Stat>
-    <Stat label="Recollection" tone="quiet">{compact(game.recollection)}</Stat>
+    <Stat label={t('term.salvage')} tone="quiet">{compact(game.salvage)}</Stat>
+    <Stat label={t('term.recollection')} tone="quiet">{compact(game.recollection)}</Stat>
   </div>
 
   <div class="items">
-    <Button block onclick={close}>Back to the field</Button>
-    <Button block variant="ghost" onclick={openSettings}>Settings</Button>
+    <Button block onclick={close}>{t('menu.back-to-field')}</Button>
+    <Button block variant="ghost" onclick={openSettings}>{t('term.settings')}</Button>
     <Button
       block
       variant="ghost"
@@ -86,15 +96,16 @@
         game.showMap = true
       }}
     >
-      The Perihelion
+      {t('term.perihelion')}
     </Button>
   </div>
 
   <p class="note">
-    The field is stopped while this is open. <Kbd>{key('pause')}</Kbd> pauses
-    without it; <Kbd>{key('manual')}</Kbd> opens the Manual;
-    <Kbd>{key('restart')}</Kbd> restarts the stage. Nothing is lost but the
-    shift.
+    <T key="menu.note">
+      {#snippet pause()}<Kbd>{key('pause')}</Kbd>{/snippet}
+      {#snippet manual()}<Kbd>{key('manual')}</Kbd>{/snippet}
+      {#snippet restart()}<Kbd>{key('restart')}</Kbd>{/snippet}
+    </T>
   </p>
 </Modal>
 

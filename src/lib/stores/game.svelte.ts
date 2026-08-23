@@ -10,6 +10,7 @@ import type { ZoneView } from '../progression/map'
 import { PooledDelta } from '../utils/delta'
 import type { Settings } from '../core/saveSchema'
 import type { ActionId } from '../content/keybindings'
+import { DEFAULT_LOCALE } from '../i18n/locales'
 
 /**
  * The Almanac, projected for the view.
@@ -103,9 +104,8 @@ export interface SlotView {
 
 /** A Array's upgrade tracks, for the editor. */
 export interface SupportTrackView {
+  /** The track's id. The editor translates it; this layer does not name it. */
   track: string
-  name: string
-  effect: string
   level: number
   maxLevel: number
   cost: number | null
@@ -282,8 +282,17 @@ class GameStore {
   /** Set once when a stage clear pays Clearance. The HUD clears it after showing. */
   lastClearanceAward = $state<{ clearance: number; zoneCompleted: boolean } | null>(null)
 
-  // Stage progress
+  /*
+   * Stage progress.
+   *
+   * The ids ride along beside the names from Phase 44: a name is the *English*
+   * one authored in `content/`, and the id is what a translation is keyed on.
+   * The HUD needs both — the id to look a translation up, the name as the
+   * fallback when a language has not translated the content.
+   */
+  zoneId = $state('')
   zoneName = $state('')
+  stageAddress = $state('')
   stageName = $state('')
   waveNumber = $state(0)
   waveCount = $state(0)
@@ -358,6 +367,7 @@ class GameStore {
     colourblindPalette: 'none',
     textScale: 1,
     showFps: false,
+    locale: DEFAULT_LOCALE,
   })
 
   /** Action id → binding. Mirrored out of the save alongside `settings`. */
@@ -573,7 +583,9 @@ class GameStore {
     this.lowestOutputFraction = sim.sun.lowestFraction
     this.repairsThisStage = sim.sun.repairsThisStage
 
+    this.zoneId = sim.zone.id
     this.zoneName = sim.zone.name
+    this.stageAddress = `${sim.zone.id}:${sim.stage.id}`
     this.stageName = sim.stage.name
     this.waveNumber = sim.waveIndex + 1
     this.waveCount = sim.stage.waves.length

@@ -68,7 +68,9 @@ import { actionFor, isBindable, normaliseBindings, strokeToBinding } from './key
 import { DEFAULT_BINDINGS, type ActionId } from '../content/keybindings'
 import { deepestContactPoint } from '../systems/ai'
 import { createRng, seedFrom } from './rng'
-import { SaveManager } from './save'
+import { SaveImportError, SaveManager } from './save'
+import { translate } from '../i18n/translate'
+import { useLocale } from '../stores/i18n.svelte'
 import type { SaveData } from './saveSchema'
 import { loadStage, stageOrder } from './stageLoader'
 import { isStageUnlocked, mapView } from '../progression/map'
@@ -683,9 +685,15 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       colourblindPalette: s.colourblindPalette,
       textScale: s.textScale,
       showFps: s.showFps,
+      locale: s.locale,
     }
     game.keybindings = { ...s.keybindings }
     game.showDiagnostics = s.showFps
+    // Language is applied here rather than by the settings screen, for the same
+    // reason every other setting is: the save is the record, and a language the
+    // player can see but that was never persisted is worse than one that did
+    // not change at all.
+    useLocale(s.locale)
 
     audio.applySettings(s)
     renderer.applySettings({
@@ -737,6 +745,9 @@ export async function startGame(host: HTMLElement): Promise<GameSession> {
       try {
         saves.importString(text)
       } catch (error) {
+        // A refusal is a key and its values, never a sentence — `core/` has no
+        // business knowing which language the player reads.
+        if (error instanceof SaveImportError) return translate(error.key, error.params)
         return error instanceof Error ? error.message : String(error)
       }
       // A different save is a different game. Reloading is the honest way to

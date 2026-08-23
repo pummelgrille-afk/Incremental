@@ -1,4 +1,5 @@
 import type { StageAddress } from '../entities/Zone'
+import { DEFAULT_LOCALE, localeByCode } from '../i18n/locales'
 import { STARTING_ZONE_ID } from '../content/zones'
 import { DEFAULT_BINDINGS, type ActionId } from '../content/keybindings'
 import { normaliseBindings } from './keybindings'
@@ -141,6 +142,15 @@ export interface Settings {
   textScale: number
   showFps: boolean
   /**
+   * Language, as `i18n/locales.ts` spells a code.
+   *
+   * No schema bump: validation repairs a save that predates a field by
+   * defaulting it, so an old save simply loads in English — which is the
+   * language it was played in. A migration would have said the same thing at
+   * more length.
+   */
+  locale: string
+  /**
    * Action id → binding, as `core/keybindings.ts` spells one.
    *
    * Stored whole rather than as a diff against the defaults: a diff would mean
@@ -211,6 +221,7 @@ export function createDefaultSave(now = Date.now()): SaveData {
       textScale: 1,
       keybindings: { ...DEFAULT_BINDINGS },
       showFps: false,
+      locale: DEFAULT_LOCALE,
     },
     statistics: {
       totalSalvageEarned: 0,
@@ -394,6 +405,12 @@ export function validateSave(raw: unknown, now = Date.now()): ValidationResult {
         : d.settings.colourblindPalette,
       textScale: Math.min(2, Math.max(0.75, num(settings.textScale, 1))),
       showFps: bool(settings.showFps, d.settings.showFps),
+      // A code this build does not ship — a language dropped, or a save from a
+      // build that had one more — falls back rather than showing keys.
+      locale:
+        typeof settings.locale === 'string' && localeByCode(settings.locale) !== undefined
+          ? settings.locale
+          : d.settings.locale,
       // Repaired rather than validated field by field: a binding map is the
       // one part of settings a player can put arbitrary strings into by hand.
       keybindings: normaliseBindings(settings.keybindings),

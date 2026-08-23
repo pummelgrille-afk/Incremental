@@ -1,10 +1,14 @@
 <script lang="ts">
   import { game, type TreeNodeView } from '../stores/game.svelte'
   import type { UpgradeBranch } from '../entities/Upgrade'
+  import type { ActionId } from '../content/keybindings'
+  import { bindingLabel } from '../core/keybindings'
+  import { content, plural, t } from '../stores/i18n.svelte'
   import Overlay from './primitives/Overlay.svelte'
   import Button from './primitives/Button.svelte'
   import Kbd from './primitives/Kbd.svelte'
   import Tooltip from './primitives/Tooltip.svelte'
+  import T from './T.svelte'
 
   /**
    * The Almanac.
@@ -25,39 +29,51 @@
 
   let { open = false }: { open?: boolean } = $props()
 
-  const BRANCH_LABELS: Record<UpgradeBranch, string> = {
-    aperture: 'Aperture',
-    shielding: 'Shielding',
-    recovery: 'Recovery',
-    regulation: 'Regulation',
+  /* The hint line reads the player's actual binding, the same rule the HUD
+     follows since Phase 43: a hardcoded letter stops being a help the moment
+     the key is rebound, and lies to exactly the player who needed it. */
+  const keyLabel = (action: ActionId) => bindingLabel(game.keybindings[action] ?? '')
+
+  const BRANCH_LABELS: Record<UpgradeBranch, `branch.${UpgradeBranch}`> = {
+    aperture: 'branch.aperture',
+    shielding: 'branch.shielding',
+    recovery: 'branch.recovery',
+    regulation: 'branch.regulation',
   }
 
-  const EFFECT_LABELS: Record<string, string> = {
-    attack: 'attack',
-    haste: 'attack speed',
-    conjunctionPotency: 'conjunction potency',
-    output: 'Output',
-    defence: 'defence',
-    blockArc: 'block arc',
-    salvage: 'Salvage',
-    recollection: 'Recollection',
-    repairCost: 'repair cost',
-    flareCharges: 'Flare charges',
-    flareRadius: 'blast radius',
-    conjunctionTolerance: 'conjunction window',
-  }
+  /**
+   * An effect reads as a sign, a number and a term.
+   *
+   * Three shapes rather than twelve sentences: the *term* is the only part that
+   * differs between effects, and it lives in `i18n/en/terms.ts` because the
+   * roster card wants the same words. A translator handed "+12% attack" twelve
+   * times will eventually punctuate two of them differently.
+   */
+  const EFFECT_TERMS = new Set([
+    'attack', 'haste', 'conjunctionPotency', 'output', 'defence', 'blockArc',
+    'salvage', 'recollection', 'repairCost', 'flareCharges', 'flareRadius',
+    'conjunctionTolerance',
+  ])
 
   /** Flat counts read as counts; everything else reads as a percentage. */
   const FLAT = new Set(['output', 'flareCharges', 'flareRadius'])
   const ANGLE = new Set(['blockArc', 'conjunctionTolerance'])
 
   function effectText(kind: string, magnitude: number): string {
-    const label = EFFECT_LABELS[kind] ?? kind
-    if (ANGLE.has(kind)) return `+${Math.round((magnitude * 180) / Math.PI)}° ${label}`
-    if (FLAT.has(kind)) return `+${magnitude} ${label}`
+    const term = EFFECT_TERMS.has(kind) ? t(`effect.${kind}` as 'effect.attack') : kind
+    if (ANGLE.has(kind)) {
+      return t('almanac.effect.angle', {
+        value: Math.round((magnitude * 180) / Math.PI),
+        term,
+      })
+    }
+    if (FLAT.has(kind)) return t('almanac.effect.flat', { value: magnitude, term })
     // A repair-cost node reduces; every other proportional node adds.
-    const sign = kind === 'repairCost' ? '−' : '+'
-    return `${sign}${Math.round(magnitude * 100)}% ${label}`
+    return t('almanac.effect.percent', {
+      sign: kind === 'repairCost' ? '−' : '+',
+      value: Math.round(magnitude * 100),
+      term,
+    })
   }
 
   // --- Pan and zoom. -------------------------------------------------------
@@ -178,25 +194,27 @@
 
 <Overlay
   {open}
-  title="The Almanac"
+  title={t('term.almanac')}
   aside="19rem"
-  balances={[{ label: 'Recollection', value: game.recollection }]}
+  balances={[{ label: t('term.recollection'), value: game.recollection }]}
 >
   {#snippet controls()}
-    <Button variant="ghost" small onclick={reset}>Recentre</Button>
+    <Button variant="ghost" small onclick={reset}>{t('almanac.recentre')}</Button>
     <Button
       variant="ghost"
       small
       disabled={game.treeRefund <= 0 || game.running}
-      title={game.running ? 'Only between runs' : 'Refunds everything, free'}
+      title={game.running ? t('almanac.respec.running') : t('almanac.respec.hint')}
       onclick={() => game.treeActions?.respec()}
     >
-      Respec ({game.treeRefund})
+      {t('almanac.respec', { refund: game.treeRefund })}
     </Button>
   {/snippet}
 
   {#snippet hint()}
-    <Kbd>T</Kbd> to close · drag to pan · scroll to zoom
+    <T key="almanac.hint">
+      {#snippet close()}<Kbd>{keyLabel('tree')}</Kbd>{/snippet}
+    </T>
   {/snippet}
 
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -204,7 +222,7 @@
       class="canvas"
       class:dragging
       role="application"
-      aria-label="Almanac"
+      aria-label={t('term.almanac')}
       onwheel={onWheel}
       onpointerdown={onPointerDown}
       onpointermove={onPointerMove}
@@ -235,7 +253,7 @@
             transform="translate({node.x}, {node.y})"
             role="button"
             tabindex="0"
-            aria-label={node.name}
+            aria-label={content('upgrade', node.id, 'name', node.name)}
             onpointerdown={(e) => {
               /*
                * Selection happens on pointer*down*, and the event stops here.
@@ -269,7 +287,7 @@
               class="star"
               d="M 0 -13 Q 2.6 -2.6 13 0 Q 2.6 2.6 0 13 Q -2.6 2.6 -13 0 Q -2.6 -2.6 0 -13 Z"
             />
-            <text class="label" y="30">{node.name}</text>
+            <text class="label" y="30">{content('upgrade', node.id, 'name', node.name)}</text>
             {#if !node.purchased}
               <text class="cost" y="-19">{node.cost}</text>
             {/if}
@@ -281,10 +299,15 @@
     <aside class="detail">
       {#if selected}
         <span class="branch {selected.branch}">
-          {BRANCH_LABELS[selected.branch]} · tier {selected.tier}
+          {t('almanac.tier', {
+            branch: t(BRANCH_LABELS[selected.branch]),
+            tier: selected.tier,
+          })}
         </span>
-        <h3>{selected.name}</h3>
-        <p class="voice">{selected.description}</p>
+        <h3>{content('upgrade', selected.id, 'name', selected.name)}</h3>
+        <p class="voice">
+          {content('upgrade', selected.id, 'description', selected.description)}
+        </p>
 
         <ul class="effects">
           {#each selected.effects as effect (effect.kind)}
@@ -293,46 +316,47 @@
         </ul>
 
         {#if selected.purchased}
-          <p class="state done">Purchased.</p>
+          <p class="state done">{t('almanac.purchased')}</p>
         {:else if path && path.ids.length > 1}
           <!-- The planning affordance: what the whole chain costs, not just
                this node, since the prerequisites are not optional. -->
           <p class="state">
-            {path.ids.length} nodes · <strong>{path.total}</strong> Recollection
+            {t('almanac.path', { count: path.ids.length, total: path.total })}
           </p>
-          <p class="note">
-            Requires {path.ids.length - 1} earlier{' '}
-            {path.ids.length === 2 ? 'node' : 'nodes'}. Highlighted on the tree.
-          </p>
+          <p class="note">{plural('almanac.path.note', path.ids.length - 1)}</p>
           <Button block disabled={!selected.unlocked || !selected.affordable} onclick={buy}>
-            {selected.unlocked ? `Buy for ${selected.cost}` : 'Locked'}
+            {selected.unlocked
+              ? t('almanac.buy', { cost: selected.cost })
+              : t('common.locked')}
           </Button>
         {:else}
-          <p class="state"><strong>{selected.cost}</strong> Recollection</p>
+          <p class="state">{t('almanac.cost', { cost: selected.cost })}</p>
           <Button block disabled={!selected.affordable} onclick={buy}>
-            Buy for {selected.cost}
+            {t('almanac.buy', { cost: selected.cost })}
           </Button>
         {/if}
       {:else}
-        <p class="note">
-          Four branches, wound outward from the centre. Select a node to see
-          what it costs and what it needs first.
-        </p>
+        <p class="note">{t('almanac.empty')}</p>
       {/if}
     </aside>
 
   {#if hovered}
     <Tooltip anchor={hovered.anchor} prefer="right" width={230}>
       <span class="card-branch">
-        {BRANCH_LABELS[hovered.node.branch]} · tier {hovered.node.tier}
+        {t('almanac.tier', {
+          branch: t(BRANCH_LABELS[hovered.node.branch]),
+          tier: hovered.node.tier,
+        })}
       </span>
-      <h4>{hovered.node.name}</h4>
-      <p class="card-voice">{hovered.node.description}</p>
+      <h4>{content('upgrade', hovered.node.id, 'name', hovered.node.name)}</h4>
+      <p class="card-voice">
+        {content('upgrade', hovered.node.id, 'description', hovered.node.description)}
+      </p>
       <p class="card-cost">
         {#if hovered.node.purchased}
-          Purchased.
+          {t('almanac.purchased')}
         {:else}
-          <strong>{hovered.node.cost}</strong> Recollection
+          {t('almanac.cost', { cost: hovered.node.cost })}
         {/if}
       </p>
     </Tooltip>

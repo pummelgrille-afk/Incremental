@@ -3,6 +3,7 @@
   import { ACTIONS } from '../content/keybindings'
   import { PALETTE_NAMES, type ColourblindPalette } from '../content/palettes'
   import { bindingLabel, conflictsWith } from '../core/keybindings'
+  import { content, locale, t } from '../stores/i18n.svelte'
   import Modal from './primitives/Modal.svelte'
   import Button from './primitives/Button.svelte'
   import Field from './primitives/Field.svelte'
@@ -36,19 +37,32 @@
     game.showSettings = false
   }
 
-  const PALETTE_OPTIONS = (
-    ['none', 'deuteranopia', 'protanopia', 'tritanopia'] as ColourblindPalette[]
-  ).map((value) => ({ value, label: PALETTE_NAMES[value] }))
+  const PALETTE_OPTIONS = $derived(
+    (['none', 'deuteranopia', 'protanopia', 'tritanopia'] as ColourblindPalette[]).map(
+      (value) => ({ value, label: content('palette', value, 'name', PALETTE_NAMES[value]) }),
+    ),
+  )
 
-  const TEXT_SCALES = [
-    { value: '0.875', label: 'Small' },
-    { value: '1', label: 'Normal' },
-    { value: '1.25', label: 'Large' },
-    { value: '1.5', label: 'Largest' },
-  ]
+  const TEXT_SCALES = $derived([
+    { value: '0.875', label: t('settings.text-size.small') },
+    { value: '1', label: t('settings.text-size.normal') },
+    { value: '1.25', label: t('settings.text-size.large') },
+    { value: '1.5', label: t('settings.text-size.largest') },
+  ])
+
+  /*
+   * Every language is named in itself and never translated — a player who has
+   * landed in a language they cannot read finds their way out by recognising
+   * their own, and "Anglais" does not help them.
+   */
+  const LANGUAGES = locale.all.map((l) => ({ value: l.code, label: l.endonym }))
 
   /** Rebindable actions, grouped in authored order. `menu` is fixed and hidden. */
-  const GROUPS = ['Play', 'Panels', 'System'] as const
+  const GROUPS = [
+    { id: 'Play', label: 'settings.keys.group.play' },
+    { id: 'Panels', label: 'settings.keys.group.panels' },
+    { id: 'System', label: 'settings.keys.group.system' },
+  ] as const
   const bindable = ACTIONS.filter((a) => !a.fixed)
 
   /** Import is a paste box rather than a file picker: it is one line of text. */
@@ -58,38 +72,38 @@
   let exported = $state<string | null>(null)
 
   function doImport() {
-    const problem = game.settingsActions?.importSave(importText.trim()) ?? 'Unavailable'
+    const problem = game.settingsActions?.importSave(importText.trim()) ?? t('save.error.unavailable')
     // On success the page reloads and nothing below this line runs.
     importProblem = problem
   }
 </script>
 
-<Modal {open} title="Settings" width="38rem" onclose={close}>
+<Modal {open} title={t('term.settings')} width="38rem" onclose={close}>
   <section>
-    <h3>Sound</h3>
+    <h3>{t('settings.sound')}</h3>
 
-    <Field label="Master" for="vol-master" hint="Everything, together.">
+    <Field label={t('settings.master')} for="vol-master" hint={t('settings.master.hint')}>
       <Slider
         id="vol-master"
-        label="Master volume"
+        label={t('settings.master.label')}
         value={s.masterVolume}
         onchange={(v) => actions?.set('masterVolume', v)}
       />
     </Field>
 
-    <Field label="Music" for="vol-music" hint="The bed. It follows the field's intensity.">
+    <Field label={t('settings.music')} for="vol-music" hint={t('settings.music.hint')}>
       <Slider
         id="vol-music"
-        label="Music volume"
+        label={t('settings.music.label')}
         value={s.musicVolume}
         onchange={(v) => actions?.set('musicVolume', v)}
       />
     </Field>
 
-    <Field label="Effects" for="vol-sfx" hint="Hits, the Flare, and the acknowledgements.">
+    <Field label={t('settings.effects')} for="vol-sfx" hint={t('settings.effects.hint')}>
       <Slider
         id="vol-sfx"
-        label="Effects volume"
+        label={t('settings.effects.label')}
         value={s.sfxVolume}
         onchange={(v) => actions?.set('sfxVolume', v)}
       />
@@ -97,68 +111,82 @@
   </section>
 
   <section>
-    <h3>Legibility</h3>
+    <h3>{t('settings.legibility')}</h3>
+
+    <Field label={t('settings.language')} for="language" hint={t('settings.language.hint')}>
+      <Choice
+        id="language"
+        label={t('settings.language')}
+        value={locale.code}
+        options={LANGUAGES}
+        onchange={(v) => actions?.set('locale', v)}
+      />
+    </Field>
 
     <Field
-      label="Colour palette"
+      label={t('settings.palette')}
       for="palette"
-      hint="The default palette puts four of the colours you have to tell apart on the red–green axis. These do not."
+      hint={t('settings.palette.hint')}
     >
       <Choice
         id="palette"
-        label="Colour palette"
+        label={t('settings.palette')}
         value={s.colourblindPalette}
         options={PALETTE_OPTIONS}
         onchange={(v) => actions?.set('colourblindPalette', v as ColourblindPalette)}
       />
     </Field>
 
-    <Field label="Text size" for="text-scale" hint="Scales every panel and the HUD.">
+    <Field
+      label={t('settings.text-size')}
+      for="text-scale"
+      hint={t('settings.text-size.hint')}
+    >
       <Choice
         id="text-scale"
-        label="Text size"
+        label={t('settings.text-size')}
         value={String(s.textScale)}
         options={TEXT_SCALES}
         onchange={(v) => actions?.set('textScale', Number(v))}
       />
     </Field>
 
-    <Field
-      label="Screen shake"
-      for="shake"
-      hint="A short kick when the Sun takes damage. Nothing else in the game shakes."
-    >
+    <Field label={t('settings.shake')} for="shake" hint={t('settings.shake.hint')}>
       <Toggle
         id="shake"
-        label="Screen shake"
+        label={t('settings.shake')}
         checked={s.screenShake}
         onchange={(v) => actions?.set('screenShake', v)}
       />
     </Field>
 
     <Field
-      label="Reduced motion"
+      label={t('settings.reduced-motion')}
       for="reduced-motion"
-      hint="Turns off sparks, the screen shake and the animated counters. The field itself keeps moving — that is the game."
+      hint={t('settings.reduced-motion.hint')}
     >
       {#snippet note()}
         {#if game.systemReducedMotion}
           <!-- Said out loud, because otherwise the toggle looks broken. -->
-          <span class="forced">on — your system asks for it</span>
+          <span class="forced">{t('settings.reduced-motion.forced')}</span>
         {/if}
       {/snippet}
       <Toggle
         id="reduced-motion"
-        label="Reduced motion"
+        label={t('settings.reduced-motion')}
         checked={s.reducedMotion || game.systemReducedMotion}
         onchange={(v) => actions?.set('reducedMotion', v)}
       />
     </Field>
 
-    <Field label="Diagnostics" for="show-fps" hint="Frame times, entity counts and budgets.">
+    <Field
+      label={t('settings.diagnostics')}
+      for="show-fps"
+      hint={t('settings.diagnostics.hint')}
+    >
       <Toggle
         id="show-fps"
-        label="Diagnostics"
+        label={t('settings.diagnostics')}
         checked={s.showFps}
         onchange={(v) => actions?.set('showFps', v)}
       />
@@ -166,27 +194,30 @@
   </section>
 
   <section>
-    <h3>Keys</h3>
-    <p class="aside">
-      Bindings follow the physical key, not the letter printed on it — so the
-      defaults keep their shape under your hand on any layout. Escape is fixed:
-      it closes whatever is open, and there has to be a way back to this screen.
-    </p>
+    <h3>{t('settings.keys')}</h3>
+    <p class="aside">{t('settings.keys.aside')}</p>
 
-    {#each GROUPS as group (group)}
-      {@const rows = bindable.filter((a) => a.group === group)}
+    {#each GROUPS as group (group.id)}
+      {@const rows = bindable.filter((a) => a.group === group.id)}
       {#if rows.length > 0}
-        <h4>{group}</h4>
+        <h4>{t(group.label)}</h4>
         {#each rows as action (action.id)}
           {@const clashes = conflictsWith(action.id, game.keybindings)}
-          <Field label={action.name} for="bind-{action.id}">
+          <Field label={content('action', action.id, 'name', action.name)} for="bind-{action.id}">
             {#snippet note()}
               {#if clashes.length > 0}
                 <!-- Surfaced, not refused. Doubling two panels onto one key is
                      a choice; the thing that was impossible before was seeing
                      that you had. -->
                 <span class="clash">
-                  also {clashes.map((id) => ACTIONS.find((a) => a.id === id)?.name).join(', ')}
+                  {t('settings.keys.clash', {
+                    actions: clashes
+                      .map((id) => {
+                        const clash = ACTIONS.find((a) => a.id === id)
+                        return clash ? content('action', clash.id, 'name', clash.name) : id
+                      })
+                      .join(', '),
+                  })}
                 </span>
               {/if}
             {/snippet}
@@ -198,7 +229,7 @@
               onclick={() => actions?.beginRebind(action.id)}
             >
               {#if game.rebinding === action.id}
-                press a key…
+                {t('settings.keys.rebinding')}
               {:else}
                 <Kbd>{bindingLabel(game.keybindings[action.id] ?? '')}</Kbd>
               {/if}
@@ -210,24 +241,21 @@
 
     <div class="row">
       <Button variant="ghost" small onclick={() => actions?.resetBindings()}>
-        Back to defaults
+        {t('settings.keys.reset')}
       </Button>
     </div>
   </section>
 
   <section>
-    <h3>Your save</h3>
-    <p class="aside">
-      Everything is kept in this browser, on this machine. Clearing site data
-      clears the game — a copy is the only backup there is.
-    </p>
+    <h3>{t('settings.save')}</h3>
+    <p class="aside">{t('settings.save.aside')}</p>
 
     <div class="row">
       <Button variant="ghost" small onclick={() => (exported = actions?.exportSave() ?? null)}>
-        Copy out
+        {t('settings.save.export')}
       </Button>
       <Button variant="ghost" small onclick={() => (importing = !importing)}>
-        Bring one in
+        {t('settings.save.import')}
       </Button>
     </div>
 
@@ -235,19 +263,19 @@
       <!-- Shown, not downloaded. A file the page hands the player is a file
            some browsers will refuse; a selectable string always works. -->
       <label class="save-box" for="export-text">
-        <span>Select all and copy. This is the whole save.</span>
+        <span>{t('settings.save.exported')}</span>
         <textarea id="export-text" readonly rows="3" value={exported}></textarea>
       </label>
     {/if}
 
     {#if importing}
       <label class="save-box" for="import-text">
-        <span>Paste a save here. This replaces everything and reloads.</span>
+        <span>{t('settings.save.paste')}</span>
         <textarea
           id="import-text"
           rows="3"
           bind:value={importText}
-          placeholder="perihelion…"
+          placeholder={t('settings.save.placeholder')}
         ></textarea>
       </label>
       {#if importProblem}<p class="problem">{importProblem}</p>{/if}
@@ -258,14 +286,14 @@
           disabled={importText.trim().length === 0}
           onclick={doImport}
         >
-          Replace my save
+          {t('settings.save.replace')}
         </Button>
       </div>
     {/if}
   </section>
 
   {#snippet footer()}
-    <Button variant="ghost" onclick={close}>Back to it</Button>
+    <Button variant="ghost" onclick={close}>{t('common.back-to-it')}</Button>
   {/snippet}
 </Modal>
 

@@ -47,8 +47,17 @@
 </span>
 
 <style>
+  /*
+   * Wraps. Four options of nowrap text in a fixed-width dialog fit English and
+   * nothing else — the palette row is already 39 characters wide, and Phase
+   * 44's pseudolocale pushed it straight through the side of the Modal. The
+   * segmented look survives wrapping; an overflowing row does not.
+   */
   .choice {
     display: inline-flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: 100%;
     border: 1px solid var(--corona-dim);
     border-radius: 0.25rem;
     overflow: hidden;

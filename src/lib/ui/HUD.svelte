@@ -4,11 +4,13 @@
   import { compact } from '../utils/format'
   import { bindingLabel } from '../core/keybindings'
   import type { ActionId } from '../content/keybindings'
+  import { content, t } from '../stores/i18n.svelte'
   import Stat from './primitives/Stat.svelte'
   import Meter from './primitives/Meter.svelte'
   import Delta from './primitives/Delta.svelte'
   import Kbd from './primitives/Kbd.svelte'
   import Button from './primitives/Button.svelte'
+  import T from './T.svelte'
 
   /**
    * The always-on readout: Output, the currencies, where you are, and the
@@ -44,7 +46,7 @@
 <div class="hud">
   <header>
     <div class="output">
-      <Stat label="Output">
+      <Stat label={t('term.output')}>
         {compact(game.output)} / {compact(game.maxOutput)}
         <Delta value={game.outputLoss} direction="loss" />
         <Delta value={game.outputGain} direction="gain" />
@@ -54,7 +56,7 @@
                glances and never be seen moving; the flash is what makes a
                fast, survivable hit distinguishable from a slow, fatal one. -->
           <Meter
-            label="Output"
+            label={t('term.output')}
             fraction={game.outputFraction}
             tone={low ? 'danger' : 'corona'}
             struck={game.outputLoss > 0}
@@ -71,13 +73,13 @@
           disabled={game.standby}
           onclick={() => (game.paused = !game.paused)}
         >
-          {game.paused ? 'Resume' : 'Pause'}
+          {game.paused ? t('hud.resume') : t('hud.pause')}
           <Kbd>{key('pause')}</Kbd>
         </button>
       </div>
     </div>
 
-    <Stat label="Salvage" tone="loud">
+    <Stat label={t('term.salvage')} tone="loud">
       {compact(game.salvage)}
       {#snippet after()}
         <Delta value={game.salvageGain} direction="gain" />
@@ -88,17 +90,21 @@
     <!-- The permanent currencies. Kept visually quieter than Salvage: they
          change on the scale of a run, not a second, and a counter that never
          moves competing for attention with one that always does is noise. -->
-    <Stat label="Clearance" tone="quiet">{compact(game.clearance)}</Stat>
-    <Stat label="Recollection" tone="quiet">{compact(game.recollection)}</Stat>
+    <Stat label={t('term.clearance')} tone="quiet">{compact(game.clearance)}</Stat>
+    <Stat label={t('term.recollection')} tone="quiet">{compact(game.recollection)}</Stat>
 
-    <Stat label={game.zoneName}>
-      {game.stageName} — wave {game.waveNumber}/{game.waveCount}
+    <Stat label={content('zone', game.zoneId, 'name', game.zoneName)}>
+      {t('hud.wave', {
+        stage: content('stage', game.stageAddress, 'name', game.stageName),
+        current: game.waveNumber,
+        total: game.waveCount,
+      })}
     </Stat>
   </header>
 
   <footer>
     <div class="flare" class:ready={game.canStrike}>
-      <span class="flare-label">The Flare</span>
+      <span class="flare-label">{t('term.flare')}</span>
       <div class="pips">
         {#each Array(game.flareMaxCharge) as _, i (i)}
           <span class="pip" class:filled={i < game.flaresReady}></span>
@@ -107,7 +113,7 @@
       <!-- `instant`, because this one updates every frame. A 120 ms ease on a
            250 ms cooldown reports a state the player has already left. -->
       <Meter
-        label="Flare charge"
+        label={t('hud.flare-charge')}
         fraction={game.flareProgress}
         tone={game.canStrike ? 'corona' : 'dim'}
         instant
@@ -123,9 +129,17 @@
       The Flare keeps its line, because it is the one action with no button
       anywhere — clicking the field is discoverable, but the key is not.
     -->
-    <p class="hint">Click the field or <Kbd>{key('flare')}</Kbd> to strike</p>
+    <p class="hint">
+      <T key="hud.strike-hint">
+        {#snippet flare()}<Kbd>{key('flare')}</Kbd>{/snippet}
+      </T>
+    </p>
   </footer>
 
+  <!-- i18n-exempt: the diagnostics panel is a frame-time readout behind a
+       setting, written for whoever is profiling the build rather than for a
+       player. Translating "fps" and "over budget" would be paid work on a
+       surface no player is meant to read. -->
   {#if showDiagnostics}
     <aside class="diagnostics">
       <dl>
@@ -170,18 +184,21 @@
       {/if}
     </aside>
   {/if}
+  <!-- /i18n-exempt -->
 
   {#if game.standby}
     <!-- The between-state. It says what it costs, because standing down
          restarts the stage and a player should not learn that by losing four
          cleared waves to it. -->
     <div class="banner held">
-      <strong>Standing by.</strong>
-      <span>Nothing is approaching. Take as long as you need.</span>
-      <span class="next">The shift restarts from the first wave.</span>
+      <strong>{t('hud.standby.title')}</strong>
+      <span>{t('hud.standby.body')}</span>
+      <span class="next">{t('hud.standby.next')}</span>
       <div class="banner-actions">
-        <Button onclick={() => game.stageActions?.begin()}>Begin the shift</Button>
-        <Button variant="ghost" onclick={() => (game.showFormation = true)}>Formation</Button>
+        <Button onclick={() => game.stageActions?.begin()}>{t('hud.standby.begin')}</Button>
+        <Button variant="ghost" onclick={() => (game.showFormation = true)}>
+          {t('term.formation')}
+        </Button>
       </div>
     </div>
   {:else if game.paused}
@@ -189,37 +206,56 @@
          exact thing Phase 33 had to fix on the clear banner, and a pause that
          did not announce itself would reintroduce it. -->
     <div class="banner paused">
-      <strong>Paused.</strong>
-      <span>The rings are holding station.</span>
-      <span class="next"><Kbd>{key('pause')}</Kbd> or <Kbd>Esc</Kbd> to go on.</span>
+      <strong>{t('hud.paused.title')}</strong>
+      <span>{t('hud.paused.body')}</span>
+      <span class="next">
+        <T key="hud.paused.next">
+          {#snippet pause()}<Kbd>{key('pause')}</Kbd>{/snippet}
+          <!-- Through `bindingLabel` like every other key, rather than the
+               literal "Esc" this used to print: a keycap's text is the
+               keyboard's word, not this file's, and `menu` is fixed to Escape
+               so there is nothing to look up but the label. -->
+          {#snippet escape()}<Kbd>{key('menu')}</Kbd>{/snippet}
+        </T>
+      </span>
     </div>
   {:else if game.phase === 'cleared'}
     <div class="banner">
-      <strong>Stage clear.</strong>
-      <span>The rings hold. {compact(game.salvage)} salvage recovered.</span>
+      <strong>{t('hud.cleared.title')}</strong>
+      <span>{t('hud.cleared.body', { salvage: compact(game.salvage) })}</span>
       {#if game.lastClearanceAward}
         <span class="reward">
-          +{game.lastClearanceAward.clearance}{' '}
-          Clearance{''}{game.lastClearanceAward.zoneCompleted
-            ? ' — zone complete'
-            : ''}
+          {t(
+            game.lastClearanceAward.zoneCompleted
+              ? 'hud.cleared.award-zone'
+              : 'hud.cleared.award',
+            { clearance: game.lastClearanceAward.clearance },
+          )}
         </span>
       {/if}
       <!-- Says what happens next. Without this the stopped field read as a
            freeze, which is exactly what a playtest reported. -->
       {#if game.nextStageIn > 0}
-        <span class="next">Next stage in {Math.ceil(game.nextStageIn)}…</span>
+        <span class="next">
+          {t('hud.cleared.next-in', { seconds: Math.ceil(game.nextStageIn) })}
+        </span>
       {:else}
         <span class="next">
-          End of the authored stages. <Kbd>R</Kbd> to run it again.
+          <T key="hud.cleared.end">
+            {#snippet restart()}<Kbd>{key('restart')}</Kbd>{/snippet}
+          </T>
         </span>
       {/if}
     </div>
   {:else if game.phase === 'overwhelmed'}
     <div class="banner lost">
-      <strong>The Perihelion has stopped.</strong>
-      <span>Output exhausted. Nothing is lost but the shift.</span>
-      <span class="next"><Kbd>R</Kbd> to wind it again.</span>
+      <strong>{t('hud.lost.title')}</strong>
+      <span>{t('hud.lost.body')}</span>
+      <span class="next">
+        <T key="hud.lost.next">
+          {#snippet restart()}<Kbd>{key('restart')}</Kbd>{/snippet}
+        </T>
+      </span>
     </div>
   {/if}
 </div>

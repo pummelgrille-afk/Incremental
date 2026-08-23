@@ -31,12 +31,6 @@ const MAX_LEVEL: Record<SupportTrack, number> = {
   resonance: SUPPORT.resonance.maxLevel,
 }
 
-export const TRACK_COPY: Record<SupportTrack, { name: string; effect: string }> = {
-  capacity: { name: 'Capacity', effect: 'holds another shot' },
-  recharge: { name: 'Recharge', effect: 'recharges faster' },
-  resonance: { name: 'Resonance', effect: 'strikes harder' },
-}
-
 function ledger(save: SaveData, defId: string): Record<string, number> {
   const all = save.meta.arrayUpgrades
   if (!all[defId]) all[defId] = {}
@@ -121,9 +115,15 @@ export function supportStats(save: SaveData, def: ArrayDef): SupportStats {
 }
 
 export interface TrackView {
+  /**
+   * The track's id, and the only name it has.
+   *
+   * It carried an English `name` and `effect` until Phase 44. A projection is
+   * not a place to keep copy — `progression/` cannot be translated, because
+   * nothing under it may know which language is on screen — so the editor looks
+   * the words up from this id instead.
+   */
   track: SupportTrack
-  name: string
-  effect: string
   level: number
   maxLevel: number
   cost: number | null
@@ -155,8 +155,6 @@ export function supportRoster(save: SaveData): SupportView[] {
         const capped = level >= MAX_LEVEL[track] || !movesTheNeedle(save, def, track)
         return {
           track,
-          name: TRACK_COPY[track].name,
-          effect: TRACK_COPY[track].effect,
           level,
           maxLevel: MAX_LEVEL[track],
           cost,

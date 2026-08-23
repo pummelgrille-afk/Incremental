@@ -335,3 +335,35 @@ Escape is a binding like any other, and only one place knows the whole stacking
 order. `closeTopmost` walks section 2's order from the top down, notices first:
 a card or a toast is the least deliberate thing on screen, and the most likely
 thing a player is swatting at.
+
+---
+
+## 9. No English in a template
+
+Every string a player reads comes from `i18n/`. `docs/design/i18n.md` is the
+source of truth for how; the rules that belong to *this* document are the two a
+component author trips over.
+
+**A component may not type a sentence.** Not in a text node, and not in a
+`title=`, `label=`, `aria-label=` or `placeholder=` — the attribute half is the
+easy one to forget, because it does not look like copy, and it is read by
+exactly the player who was unsure enough to hover. `tests/i18n.test.ts` sweeps
+both, `App.svelte` included.
+
+Two exemptions, both marked in the source:
+
+- `<!-- i18n-exempt: … -->` around a region written for a developer. Today only
+  the diagnostics panel.
+- Key labels. `bindingLabel()` says "Space" and "Esc"; a keycap's text is the
+  keyboard's word, not a component's.
+
+**A component reads the language through `stores/i18n.svelte.ts`, never through
+`i18n/translate.ts` directly.** The store passes the locale as an argument, so
+Svelte tracks it; the bare functions read a module variable and would render the
+right words exactly once. `T.svelte` — a sentence with a keycap or an emphasised
+run inside it — is the only component that touches `i18n/` for anything, and it
+takes the parser, not the locale.
+
+A slot that cannot wrap needs a budget in `i18n/budgets.ts`. Before adding one,
+check whether it could wrap instead: that is the fix, and the budget is the
+consolation prize.

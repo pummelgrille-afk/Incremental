@@ -1,5 +1,6 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
+  import { content, t } from '../stores/i18n.svelte'
   import Modal from './primitives/Modal.svelte'
   import Button from './primitives/Button.svelte'
 
@@ -27,28 +28,41 @@
   }
 </script>
 
-<Modal {open} title="The Perihelion" label="Stage select" width="46rem" onclose={close}>
+<Modal
+  {open}
+  title={t('term.perihelion')}
+  label={t('map.label')}
+  width="46rem"
+  onclose={close}
+>
   {#snippet sub()}
-    {game.map.filter((z) => z.cleared).length} of {game.map.length} zones cleared
+    {t('map.sub', {
+      cleared: game.map.filter((z) => z.cleared).length,
+      total: game.map.length,
+    })}
   {/snippet}
 
   {#each game.map as zone (zone.id)}
     <section class="zone" class:locked={!zone.unlocked}>
       <div class="head">
-        <h3>{zone.name}</h3>
+        <h3>{content('zone', zone.id, 'name', zone.name)}</h3>
         <span class="count">
           {#if zone.unlocked}
-            {zone.clearedCount}/{zone.stageCount}
+            {t('map.zone-progress', { cleared: zone.clearedCount, total: zone.stageCount })}
           {:else}
-            Locked
+            {t('common.locked')}
           {/if}
         </span>
       </div>
 
       {#if zone.unlocked}
         <p class="epigraph">
-          {zone.epigraph}
-          <span class="attrib">— {zone.epigraphAttribution}</span>
+          {content('epigraph', zone.id, 'description', zone.epigraph)}
+          <span class="attrib">
+            {t('map.attribution', {
+              source: content('epigraph', zone.id, 'name', zone.epigraphAttribution),
+            })}
+          </span>
         </p>
 
         <ul class="stages">
@@ -63,9 +77,11 @@
                 onclick={() => enter(stage.address, stage.unlocked)}
               >
                 <span class="index">{stage.scalingIndex}</span>
-                <span class="name">{stage.name}</span>
-                {#if stage.isBoss}<span class="tag">Encounter</span>{/if}
-                {#if stage.cleared}<span class="tick" aria-label="cleared">✓</span>{/if}
+                <span class="name">{content('stage', stage.address, 'name', stage.name)}</span>
+                {#if stage.isBoss}<span class="tag">{t('map.encounter')}</span>{/if}
+                {#if stage.cleared}
+                  <span class="tick" aria-label={t('map.cleared')}>✓</span>
+                {/if}
               </button>
             </li>
           {/each}
@@ -73,13 +89,13 @@
       {:else}
         <!-- Named but not described. Knowing a place exists is the
              incentive; knowing what is in it is the reward. -->
-        <p class="sealed">Requires the previous zone.</p>
+        <p class="sealed">{t('map.sealed')}</p>
       {/if}
     </section>
   {/each}
 
   {#snippet footer()}
-    <Button variant="ghost" onclick={close}>Back to it</Button>
+    <Button variant="ghost" onclick={close}>{t('common.back-to-it')}</Button>
   {/snippet}
 </Modal>
 

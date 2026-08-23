@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest'
 const LIB = join(import.meta.dirname, '..', 'src', 'lib')
 
 /** Directories whose modules must run in a plain Node process, no DOM. */
-const FRAMEWORK_FREE = ['entities', 'systems', 'content', 'progression', 'utils']
+const FRAMEWORK_FREE = ['entities', 'systems', 'content', 'progression', 'utils', 'i18n']
 
 /** render.ts is the sanctioned exception: it is the Pixi layer. */
 const PIXI_ALLOWED = [join('core', 'render.ts')]

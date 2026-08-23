@@ -1,6 +1,8 @@
 import { checksum } from '../utils/hash'
 import { decodeBase64, encodeBase64 } from '../utils/encoding'
 import { migrate, MigrationError, type RawSave } from './saveMigrations'
+import type { MessageKey } from '../i18n/en'
+import { translate, type MessageParams } from '../i18n/translate'
 import {
   createDefaultSave,
   SCHEMA_VERSION,
@@ -59,9 +61,20 @@ export interface LoadResult {
   notices: string[]
 }
 
+/**
+ * A refusal the player will read.
+ *
+ * Carries **a key and its values**, not a sentence. `core/` has no business
+ * knowing which language is on screen; the settings panel that shows this does.
+ * `message` is still the English one, because an `Error` that says nothing in a
+ * stack trace is a worse tool than one that does.
+ */
 export class SaveImportError extends Error {
-  constructor(message: string) {
-    super(message)
+  constructor(
+    readonly key: MessageKey,
+    readonly params?: MessageParams,
+  ) {
+    super(translate(key, params))
     this.name = 'SaveImportError'
   }
 }
@@ -253,22 +266,19 @@ export class SaveManager {
    */
   importString(text: string, now = Date.now()): SaveData {
     const trimmed = text.trim()
-    if (trimmed.length === 0) throw new SaveImportError('Nothing to import.')
+    if (trimmed.length === 0) throw new SaveImportError('save.error.empty')
 
     const parts = trimmed.split('-')
     if (parts.length < 4 || parts[0] !== EXPORT_PREFIX) {
-      throw new SaveImportError('That does not look like an Perihelion save string.')
+      throw new SaveImportError('save.error.not-a-save')
     }
 
     const version = Number(parts[1])
     if (!Number.isInteger(version) || version < 1) {
-      throw new SaveImportError('Save string has an unreadable version tag.')
+      throw new SaveImportError('save.error.bad-version')
     }
     if (version > SCHEMA_VERSION) {
-      throw new SaveImportError(
-        `That save is from a newer version of the game (schema ${version}). ` +
-          'Update before importing it.',
-      )
+      throw new SaveImportError('save.error.too-new', { version })
     }
 
     const expected = parts[2]
@@ -277,39 +287,41 @@ export class SaveManager {
     const encoded = parts.slice(3).join('-')
 
     if (checksum(encoded) !== expected) {
-      throw new SaveImportError(
-        'Save string is damaged or incomplete — check that the whole string was copied.',
-      )
+      throw new SaveImportError('save.error.damaged')
     }
 
     let json: string
     try {
       json = decodeBase64(encoded)
     } catch {
-      throw new SaveImportError('Save string could not be decoded.')
+      throw new SaveImportError('save.error.undecodable')
     }
 
     let parsed: unknown
     try {
       parsed = JSON.parse(json)
     } catch {
-      throw new SaveImportError('Save string does not contain valid save data.')
+      throw new SaveImportError('save.error.not-save-data')
     }
 
     let candidate: RawSave
     try {
       candidate = migrate(parsed as RawSave).save
     } catch (error) {
-      throw new SaveImportError(
-        error instanceof MigrationError ? error.message : 'Save could not be migrated.',
-      )
+      /* A MigrationError's own message is the only untranslated text left on
+       * this path, and deliberately: it names schema versions and what refused
+       * to move between them, which is a developer's sentence rather than a
+       * player's. It is quoted inside a translated frame. */
+      throw error instanceof MigrationError
+        ? new SaveImportError('save.error.unmigratable.detail', { problem: error.message })
+        : new SaveImportError('save.error.unmigratable')
     }
 
     const validation = validateSave(candidate, now)
     if (!validation.ok || !validation.data) {
-      throw new SaveImportError(
-        `Save string failed validation: ${validation.problems.join('; ')}`,
-      )
+      throw new SaveImportError('save.error.rejected', {
+        problems: validation.problems.join('; '),
+      })
     }
 
     return validation.data

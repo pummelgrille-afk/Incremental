@@ -1,5 +1,6 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
+  import { plural, t } from '../stores/i18n.svelte'
   import Modal from './primitives/Modal.svelte'
   import Button from './primitives/Button.svelte'
   import Stat from './primitives/Stat.svelte'
@@ -34,45 +35,44 @@
   }
 </script>
 
-<Modal open={open && preview !== null} title="Rewind" width="34rem" onclose={close}>
+<Modal open={open && preview !== null} title={t('term.rewind')} width="34rem" onclose={close}>
   {#if preview}
-    <p class="voice">
-      Wind it back to the first shift. You keep what you have learned; the
-      floor does not.
-    </p>
+    <p class="voice">{t('rewind.voice')}</p>
 
     <div class="award" class:none={preview.award <= 0}>
-      <Stat label="Recollection" tone="loud" inline>+{preview.award}</Stat>
-      <span class="after">{game.recollection} → {preview.after}</span>
+      <Stat label={t('term.recollection')} tone="loud" inline>+{preview.award}</Stat>
+      <span class="after">
+        {t('rewind.after', { before: game.recollection, after: preview.after })}
+      </span>
     </div>
 
     <div class="columns">
       <section class="keeps">
-        <h3>Kept</h3>
+        <h3>{t('rewind.kept')}</h3>
         <ul>
-          <li>{preview.keeps.clearance} Clearance</li>
-          <li>{preview.keeps.unlockedUnits} unlocked units, with their levels</li>
-          <li>{preview.keeps.nodes} Almanac nodes</li>
-          <li>{preview.keeps.zones} zone{preview.keeps.zones === 1 ? '' : 's'} unlocked</li>
-          <li>Achievements, settings, statistics</li>
+          <li>{t('rewind.kept.clearance', { count: preview.keeps.clearance })}</li>
+          <li>{t('rewind.kept.units', { count: preview.keeps.unlockedUnits })}</li>
+          <li>{t('rewind.kept.nodes', { count: preview.keeps.nodes })}</li>
+          <li>{plural('rewind.kept.zones', preview.keeps.zones)}</li>
+          <li>{t('rewind.kept.rest')}</li>
         </ul>
-        <p class="note">
-          You never re-clear a zone to reach it again.
-        </p>
+        <p class="note">{t('rewind.kept.note')}</p>
       </section>
 
       <section class="resets">
-        <h3>Reset</h3>
+        <h3>{t('rewind.reset')}</h3>
         <ul>
-          <li>{preview.resets.salvage} Salvage</li>
+          <li>{t('rewind.reset.salvage', { count: preview.resets.salvage })}</li>
           <li>
-            {preview.resets.platforms} slotted Platforms,
-            {preview.resets.arrays} mounted Arrays
+            {t('rewind.reset.units', {
+              platforms: preview.resets.platforms,
+              arrays: preview.resets.arrays,
+            })}
           </li>
-          <li>Stage progress this run</li>
-          <li>Repairs and reinforcements</li>
+          <li>{t('rewind.reset.stage')}</li>
+          <li>{t('rewind.reset.repairs')}</li>
         </ul>
-        <p class="note">The opening formation is handed back.</p>
+        <p class="note">{t('rewind.reset.note')}</p>
       </section>
     </div>
 
@@ -80,21 +80,20 @@
       <!-- The zero-award guard economy-spec.md §1 requires: never let a
            player burn a run for nothing, and say what the threshold is. -->
       <p class="blocked">
-        This run reached stage {preview.depth}, which grants no Recollection.
-        Reach stage {preview.threshold} and a Rewind starts paying.
+        {t('rewind.no-award', { depth: preview.depth, threshold: preview.threshold })}
       </p>
     {:else if preview.refusedBecause === 'locked'}
-      <p class="blocked">The Rewind opens after the first boss is cleared.</p>
+      <p class="blocked">{t('rewind.locked')}</p>
     {/if}
   {/if}
 
   {#snippet footer()}
-    <Button variant="ghost" onclick={close}>Not yet</Button>
+    <Button variant="ghost" onclick={close}>{t('rewind.not-yet')}</Button>
     {#if confirming}
-      <Button variant="danger" onclick={commit}>Yes — wind it back</Button>
+      <Button variant="danger" onclick={commit}>{t('rewind.confirm')}</Button>
     {:else}
       <Button disabled={!preview?.canRewind} onclick={() => (confirming = true)}>
-        Rewind for {preview?.award ?? 0}
+        {t('rewind.commit', { award: preview?.award ?? 0 })}
       </Button>
     {/if}
   {/snippet}

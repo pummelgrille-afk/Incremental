@@ -1,6 +1,8 @@
 <script lang="ts">
   import { game } from '../stores/game.svelte'
+  import { plural, t } from '../stores/i18n.svelte'
   import Modal from './primitives/Modal.svelte'
+  import T from './T.svelte'
   import Button from './primitives/Button.svelte'
   import Stat from './primitives/Stat.svelte'
 
@@ -19,12 +21,18 @@
 
   const summary = $derived(game.offlineSummary)
 
+  /*
+   * Assembled from three keyed forms rather than one, and pluralised by the
+   * locale's own rules rather than by `=== 1`. English needs two forms and
+   * would have let `minute${s}` stand; a language with six would not, and the
+   * fix would then have been in every file that prints a duration.
+   */
   function duration(seconds: number): string {
-    if (seconds < 60) return `${Math.round(seconds)} seconds`
+    if (seconds < 60) return t('duration.seconds', { count: Math.round(seconds) })
     const minutes = Math.round(seconds / 60)
-    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`
+    if (minutes < 60) return plural('duration.minutes', minutes)
     const hours = seconds / 3600
-    return `${hours.toFixed(hours < 10 ? 1 : 0)} hours`
+    return t('duration.hours', { count: hours.toFixed(hours < 10 ? 1 : 0) })
   }
 
   const shortfall = $derived(
@@ -40,51 +48,52 @@
 
 <Modal
   open={summary !== null}
-  title="The orbits kept turning"
-  label="While you were away"
+  title={t('offline.title')}
+  label={t('offline.label')}
   width="26rem"
   onclose={dismiss}
 >
   {#if summary}
     <p class="voice">
-      {duration(summary.elapsedSeconds)} away. Somebody covered the watch,
-      after a fashion.
+      {t('offline.voice', { duration: duration(summary.elapsedSeconds) })}
     </p>
 
     <div class="earned">
-      <Stat label="Salvage" tone="loud" inline>+{summary.salvage}</Stat>
+      <Stat label={t('term.salvage')} tone="loud" inline>+{summary.salvage}</Stat>
     </div>
 
     <ul class="ledger">
       <li>
-        <span>Counted</span>
+        <span>{t('offline.counted')}</span>
         <span>{duration(summary.effectiveSeconds)}</span>
       </li>
       {#if summary.wastedSeconds > 0}
         <!-- Said plainly. Quietly dropping the overflow is the flattering
              version, and economy-spec.md §4 rules it out. -->
         <li class="missed">
-          <span>Past the {duration(summary.capSeconds)} limit</span>
-          <span>{duration(summary.wastedSeconds)} earned nothing</span>
+          <span>{t('offline.over-cap', { duration: duration(summary.capSeconds) })}</span>
+          <span>
+            {t('offline.over-cap.value', { duration: duration(summary.wastedSeconds) })}
+          </span>
         </li>
       {/if}
       {#if shortfall > 0}
         <li class="missed">
-          <span>Had you been here</span>
-          <span>about {shortfall} more</span>
+          <span>{t('offline.shortfall')}</span>
+          <span>{t('offline.shortfall.value', { amount: shortfall })}</span>
         </li>
       {/if}
     </ul>
 
     <p class="note">
-      Nothing else accrues while you are away: no conjunctions fire, no stages
-      clear, and so <strong>no Clearance is earned</strong>. The station runs
-      without you — just not as well.
+      <T key="offline.note">
+        {#snippet emphasis()}<strong>{t('offline.note.emphasis')}</strong>{/snippet}
+      </T>
     </p>
   {/if}
 
   {#snippet footer()}
-    <Button block onclick={dismiss}>Back to it</Button>
+    <Button block onclick={dismiss}>{t('common.back-to-it')}</Button>
   {/snippet}
 </Modal>
 

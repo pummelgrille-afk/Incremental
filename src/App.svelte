@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { startGame, type GameSession } from './lib/core/bootstrap'
   import { game } from './lib/stores/game.svelte'
+  import { t } from './lib/stores/i18n.svelte'
   import HUD from './lib/ui/HUD.svelte'
   import FormationEditor from './lib/ui/FormationEditor.svelte'
   import UpgradeTree from './lib/ui/UpgradeTree.svelte'
@@ -90,7 +91,7 @@
 
 {#if error}
   <div class="error">
-    <strong>The Perihelion did not start.</strong>
+    <strong>{t('app.failed')}</strong>
     <code>{error}</code>
   </div>
 {:else}

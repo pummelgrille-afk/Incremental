@@ -2,6 +2,7 @@
   import { game } from '../stores/game.svelte'
   import { bindingLabel } from '../core/keybindings'
   import type { ActionId } from '../content/keybindings'
+  import { t } from '../stores/i18n.svelte'
   import Kbd from './primitives/Kbd.svelte'
 
   /**
@@ -25,6 +26,8 @@
   interface Entry {
     /** The store flag this toggles, or a direct action. */
     label: string
+    /** Stable across languages; the label is not. */
+    id: string
     action: ActionId | null
     open: () => void
     /** Hidden until the system it opens exists — economy-spec.md §3. */
@@ -38,42 +41,48 @@
 
   const entries = $derived<Entry[]>([
     {
-      label: 'Formation',
+      id: 'formation',
+      label: t('sidebar.formation'),
       action: 'formation',
       open: () => (game.showFormation = !game.showFormation),
       shown: true,
       active: game.showFormation,
     },
     {
-      label: 'Perihelion',
+      id: 'map',
+      label: t('sidebar.map'),
       action: 'map',
       open: () => (game.showMap = !game.showMap),
       shown: true,
       active: game.showMap,
     },
     {
-      label: 'Almanac',
+      id: 'tree',
+      label: t('sidebar.tree'),
       action: 'tree',
       open: () => (game.showTree = !game.showTree),
       shown: game.treeRevealed,
       active: game.showTree,
     },
     {
-      label: 'Rewind',
+      id: 'rewind',
+      label: t('sidebar.rewind'),
       action: 'rewind',
       open: () => (game.showPrestige = !game.showPrestige),
       shown: game.rewindUnlocked,
       active: game.showPrestige,
     },
     {
-      label: 'Manual',
+      id: 'manual',
+      label: t('sidebar.manual'),
       action: 'manual',
       open: () => (game.manualRequested = true),
       shown: true,
       active: false,
     },
     {
-      label: 'Menu',
+      id: 'menu',
+      label: t('sidebar.menu'),
       action: 'menu',
       open: () => (game.showMenu = !game.showMenu),
       shown: true,
@@ -90,9 +99,9 @@
   tabbable is exactly the trap Phase 43's focus work exists to close.
 -->
 {#if !game.showFormation && !game.showTree && !game.showMap && !game.showPrestige && !game.showMenu && !game.showSettings}
-  <nav aria-label="Panels">
+  <nav aria-label={t('sidebar.label')}>
     <ul>
-      {#each visible as entry (entry.label)}
+      {#each visible as entry (entry.id)}
         <li>
           <button class="tab" class:active={entry.active} onclick={entry.open}>
             <span class="label">{entry.label}</span>
@@ -109,12 +118,10 @@
           class="tab"
           class:active={game.standby}
           disabled={game.standby}
-          title={game.standby
-            ? 'Already held. The stage will restart when you begin.'
-            : 'Stop the stage and hold the field. It restarts from the first wave.'}
+          title={game.standby ? t('sidebar.held.hint') : t('sidebar.stand-down.hint')}
           onclick={() => game.stageActions?.standDown()}
         >
-          <span class="label">{game.standby ? 'Held' : 'Stand down'}</span>
+          <span class="label">{game.standby ? t('sidebar.held') : t('sidebar.stand-down')}</span>
         </button>
       </li>
     </ul>
